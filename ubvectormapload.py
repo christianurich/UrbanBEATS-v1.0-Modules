@@ -25,19 +25,15 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 from osgeo import ogr, osr
 import os, sys
 
-def openDataSource(filename, currentdir):
-    currentdir = "C:/UrbanBEATSv1CaseStudies/"
-    filename = "Rivers_UTM.shp"
-    
-    os.chdir(currentdir)
-    driver = ogr.GetDriverByName('ESRI Shapefile')
-    
-    dataSource = driver.Open(filename, 0)
-    if dataSource is None:
-        print "Error, could not open file"
-        sys.exit(1)
-    layer = dataSource.GetLayer()    
-    return layer
+def getFileName(typemap):
+    if typemap == "Lo":
+        filename = "LocalityMap_UTM.shp"
+    elif typemap == "La":
+        filename = "Lakes.shp"
+    elif typemap == "Ri":
+        filename = "Rivers_UTM.shp"
+    return filename
+
 
 def getSpatialRefDataSource(layer):
     spatialRef = layer.GetSpatialRef()
@@ -46,31 +42,114 @@ def getSpatialRefDataSource(layer):
     return spatialRef, utmzone
 
 
-def runLocalityImport(filename, currentdir):
-    layer = openDataSource(filename, currentdir)
+def runLocalityImport(*args):
+    if len(args) == 2:    
+        filename = args[0]
+        currentdir = args[1]
+        os.chdir(currentdir)
+    else:
+        filename = args[0]
+        currentdir = ""
+    #filename = getFileName("Lo")    
+    #currentdir = "C:/UrbanBEATSv1CaseStudies/"
+
+    driver = ogr.GetDriverByName('ESRI Shapefile')
+    
+    dataSource = driver.Open(filename, 0)
+    if dataSource is None:
+        print "Error, could not open file"
+        sys.exit(1)
+    layer = dataSource.GetLayer()    
     totfeatures = layer.GetFeatureCount()
-    print totfeatures    
+    spatialRef = getSpatialRefDataSource(layer)    
+    
+    facilities = []    
+    
+    for i in range(totfeatures):
+        #(1) Get the feature
+        currentfeature = layer.GetFeature(i)
+        geometryref = currentfeature.GetGeometryRef()        
+        
+        #(2) Obtain coordinates and attributes        
+        code = currentfeature.GetFieldAsString("Fcode")
+        area = currentfeature.GetFieldAsDouble("Area")
+        imp = currentfeature.GetFieldAsDouble("Total_impe")/area
+        roof = currentfeature.GetFieldAsDouble("Roof_area")
+        demand = currentfeature.GetFieldAsDouble("Average_Wa")
+        xpos = geometryref.GetX()
+        ypos = geometryref.GetY()
+
+        facil_prop = [code, xpos, ypos, area, imp, roof, demand]        
+
+        #(3) Write to the dictionary
+        facilities.append(facil_prop)
+    return facilities
+
+
+def runLakesImport(*args):
+    if len(args) == 2:    
+        filename = args[0]
+        currentdir = args[1]
+        os.chdir(currentdir)
+    else:
+        filename = args[0]
+        currentdir = ""
+    
+    #filename = getFileName("La")    
+    #currentdir = "C:/UrbanBEATSv1CaseStudies/"
+
+    os.chdir(currentdir)
+    driver = ogr.GetDriverByName('ESRI Shapefile')
+    
+    dataSource = driver.Open(filename, 0)
+    if dataSource is None:
+        print "Error, could not open file"
+        sys.exit(1)
+    layer = dataSource.GetLayer()
+    totfeatures = layer.GetFeatureCount()
+    print totfeatures
     spatialRef = getSpatialRefDataSource(layer)
     print spatialRef    
     
-    facilities = {}
-    facil_prop = ["CODE","area","imp%","roof","demand"]    
+    lakepoints = []     #centroid x, y, surface area of the lake
     
+    for i in range(totfeatures):
+        #(1) Get the feature
+        currentfeature = layer.GetFeature(i)
+        geometryref = currentfeature.GetGeometryRef()
+        
+        #(2) Obtain Centroid and Area
+        centroid = geometryref.Centroid()   #ccccccc----<<<<
+        centreX = centroid.GetX()        
+        centreY = centroid.GetY()
+        area = geometryref.GetArea()
+        
+        #(3) Write to output vector
+        lakepoints.append([centreX, centreY, area])        
+        
+    return lakepoints
 
 
-def runLakesImport(filename, currentdir):
-    layer = openDataSource(filename, currentdir)
-    totfeatures = layer.GetFeatureCount()
-    print totfeatures    
-    spatialRef = getSpatialRefDataSource(layer)
-    print spatialRef    
+def runRiverImport(*args):
+    if len(args) == 2:    
+        filename = args[0]
+        currentdir = args[1]
+        os.chdir(currentdir)
+    else:
+        filename = args[0]
+        currentdir = ""
+        
+    #filename = getFileName("Ri")    
+    #currentdir = "C:/UrbanBEATSv1CaseStudies/"
+
+    os.chdir(currentdir)
+    driver = ogr.GetDriverByName('ESRI Shapefile')
     
-    lakepoints = []
-    
-
-
-def runRiverImport(filename, currentdir):
-    layer = openDataSource(filename, currentdir)
+    dataSource = driver.Open(filename, 0)
+    if dataSource is None:
+        print "Error, could not open file"
+        sys.exit(1)
+    layer = dataSource.GetLayer()
     totfeatures = layer.GetFeatureCount()
     print totfeatures    
     spatialRef = getSpatialRefDataSource(layer)
@@ -98,7 +177,8 @@ def getAllPointsInRiverFeature(riverpoints, geometrydetail):
         y = geometrydetail.GetY(i)
         riverpoints.append([x, y])
     return riverpoints
-    
+
+
 def disassembleMultiDataSource(multigeometry):
     multigeomarray = []
     geom_count = multigeometry.GetGeometryCount()
