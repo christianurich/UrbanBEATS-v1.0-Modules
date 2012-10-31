@@ -27,6 +27,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from pydynamind import *
 import math
+import random as rand
 import ubpatchdelin as ubpat
 import ubconvertcoord as ubcc
 import ubvectormapload as ubvmap
@@ -92,7 +93,6 @@ class delinblocks(Module):
 
     def __init__(self):
         Module.__init__(self)  
-        
         #PARAMETER LIST START
         #-----------------------------------------------------------------------
         
@@ -181,14 +181,14 @@ class delinblocks(Module):
         #Regional Geography
         self.createParameter("considerCBD", BOOL, "")
         self.createParameter("locationOption", STRING, "")
-        self.createParameter("locationCity", DOUBLE, "")
+        self.createParameter("locationCity", STRING, "")
         self.createParameter("locationLong", DOUBLE, "")
         self.createParameter("locationLat", DOUBLE, "")
         self.createParameter("marklocation", BOOL, "")
                 
         self.considerCBD = False
         self.locationOption = "S"       #method for setting location option: S = selection, C = coordinates
-        self.locationCity = 0           #index of the combobox, it returns the city name in a different vector
+        self.locationCity = "Melbourne" #index of the combobox, it returns the city name in a different vector
         self.locationLong = 0           #longitude of the location
         self.locationLat = 0            #latitude of the location
         self.marklocation = False       #should this CBD location be marked on the map as a point? If yes, it will be saved to the Block Centre Points
@@ -197,9 +197,11 @@ class delinblocks(Module):
         self.createParameter("LocalityFilename", STRING, "")
         self.createParameter("RiversFilename", STRING, "")
         self.createParameter("LakesFilename", STRING, "")
-        self.LocalityFilename = ""
-        self.RiversFilename = ""
-        self.LakesFilename = ""
+        self.createParameter("obtain_flowbasins", STRING, "")           #changed internally depending on cycle to skip flowpath delineation
+        self.LocalityFilename = "C:/UrbanBEATSv1CaseStudies/LocalityMap_UTM.shp"
+        self.RiversFilename = "C:/UrbanBEATSv1CaseStudies/Rivers_UTM.shp"
+        self.LakesFilename = "C:/UrbanBEATSv1CaseStudies/Lakes.shp"
+        self.obtain_flowbasins = "D"                                    #F = file, D = delineate
         
         self.createParameter("xllcorner", DOUBLE, "")
         self.createParameter("yllcorner", DOUBLE, "")
@@ -221,11 +223,8 @@ class delinblocks(Module):
         #self.urbansim = View("GRID", FACE, READ)                       #<-- UrbanSim derived data, not active yet
         
         self.plan_map = View("PlanMap", RASTERDATA, READ)               #<-- ADDITIONAL INPUTS
-        #self.local_map = View("LocalMap", VECTORDATA, READ)
-        self.employment = View("Employment", RASTERDATA, READ)
-        #self.rivers = View("Rivers", VECTORDATA, READ)
-        #self.lakes = View("Lakes", VECTORDATA, READ)
-        self.groundwater = View("Groundwater", RASTERDATA, READ)
+        self.employment = View("Employment", RASTERDATA, READ)          #rivers, lakes and localities are read externally
+        self.groundwater = View("Groundwater", RASTERDATA, READ)        #see HIDDEN PARAMETERS
         
         #self.road_map = View("RoadMap", VECTORDATA, READ)
         #self.supply_net = View("SupplyMains", VECTORDATA, READ)
@@ -245,11 +244,24 @@ class delinblocks(Module):
         self.mapattributes.addAttribute("ConsiderCBD")
         self.mapattributes.addAttribute("CBDLocationLong")
         self.mapattributes.addAttribute("CBDLocationLat")
+        self.mapattributes.addAttribute("include_plan_map")
+        self.mapattributes.addAttribute("include_local_map")
+        self.mapattributes.addAttribute("include_employment")
+        self.mapattributes.addAttribute("include_rivers")
+        self.mapattributes.addAttribute("include_lakes")
+        self.mapattributes.addAttribute("include_groundwater")
+        self.mapattributes.addAttribute("include_soc_par1")
+        self.mapattributes.addAttribute("include_soc_par2")
+        self.mapattributes.addAttribute("patchdelin")
+        self.mapattributes.addAttribute("spatialmetrics")
+        self.mapattributes.addAttribute("considerCBD")
         #self.mapattributes.addAttribute("UrbanSimData")             #"Yes" or "no" as to whether input derived from UrbanSim
+        
         
         #Block Data View
         self.block = View("Block", FACE, WRITE)
         self.block.addAttribute("BlockID")              #ID of the Block (different from UUID)
+        self.block.addAttribute("BasinID")              #ID of the Basin that Block belongs to
         self.block.addAttribute("LocateX")             #x location of bottom-left corner of block (for drawing)
         self.block.addAttribute("LocateY")             #y location of bottom-right corner of block (for drawing)
         self.block.addAttribute("CentreX")             #centre x location of block
@@ -257,7 +269,7 @@ class delinblocks(Module):
         self.block.addAttribute("OriginX")
         self.block.addAttribute("OriginY")             
         self.block.addAttribute("Status")               #Status: 1 = part of simulation, 0 = not part of simulation
-        self.block.addAttribute("Activity")             #Degree to which block is active in simulation (how much data is available)
+        self.block.addAttribute("Active")             #Degree to which block is active in simulation (how much data is available)
         self.block.addAttribute("Nhd_N")             #North neighbour Block ID
         self.block.addAttribute("Nhd_S")             #South neighbour Block ID
         self.block.addAttribute("Nhd_W")             #West neighbour Block ID
@@ -283,8 +295,8 @@ class delinblocks(Module):
         self.block.addAttribute("pLU_UND")
         self.block.addAttribute("pLU_NA")
         
-        self.block.addAttribute("Population")           #Total people LIVING in block
-        self.block.addAttribute("Employment")           #Total people EMPLOYED in block
+        self.block.addAttribute("Pop")           #Total people LIVING in block
+        self.block.addAttribute("Employ")           #Total people EMPLOYED in block
         self.block.addAttribute("GWDepth")              #Depth to groundwater from surface
         self.block.addAttribute("SocPar1")
         self.block.addAttribute("SocPar2")
@@ -292,26 +304,26 @@ class delinblocks(Module):
         self.block.addAttribute("PM_COM")
         self.block.addAttribute("PM_LI")
         self.block.addAttribute("PM_HI")
-        self.block.addAttribute("HasRiver")
+        self.block.addAttribute("HasRiv")
         self.block.addAttribute("HasLake")
-        self.block.addAttribute("LakeArea")
-        self.block.addAttribute("HasLocal")
+        self.block.addAttribute("LakeAr")
+        self.block.addAttribute("HasLoc")
+        self.block.addAttribute("NFacil")
         
-        self.block.addAttribute("TotPatches")           #Total Patches in Block
-        self.block.addAttribute("PatchIDs")             #List of Patch IDs to match up with Patch Map
-        self.block.addAttribute("Richness")             #Richness of Land use mix in Block
-        self.block.addAttribute("ShannonDIV")           #Shannon Diversity Index
-        self.block.addAttribute("ShannonDOM")           #Shannon Dominance Index
-        self.block.addAttribute("ShannonEVEN")          #Shannon Evenness Index
+        self.block.addAttribute("Patches")           #Total Patches in Block
+        self.block.addAttribute("Rich")             #Richness of Land use mix in Block
+        self.block.addAttribute("ShDIV")           #Shannon Diversity Index
+        self.block.addAttribute("ShDOM")           #Shannon Dominance Index
+        self.block.addAttribute("ShEVEN")          #Shannon Evenness Index
         
-        self.block.addAttribute("downstrID")            #ID block water flows to naturally
-        self.block.addAttribute("max_Zdrop")            #maximum drop in elevation
-        self.block.addAttribute("avg_slope")            #average slope
-        self.block.addAttribute("drainto_ID")           #ID block drains to if a sink
+        self.block.addAttribute("downID")            #ID block water flows to naturally
+        self.block.addAttribute("maxdZ")            #maximum drop in elevation
+        self.block.addAttribute("slope")            #average slope
+        self.block.addAttribute("drainID")           #ID block drains to if a sink
         self.block.addAttribute("h_pond")               #height of ponding before sink can drain
 
-        self.block.addAttribute("CBDdistance")          #Distance from CBD [km]
-        self.block.addAttribute("CBDdirection")         #Which direction to travel from CBD to get to Block? Specified as an angle in degrees
+        self.block.addAttribute("CBDdist")          #Distance from CBD [km]
+        self.block.addAttribute("CBDdir")         #Which direction to travel from CBD to get to Block? Specified as an angle in degrees
         
         #Patch Data View
         self.patch = View("Patch", FACE, WRITE)
@@ -324,6 +336,7 @@ class delinblocks(Module):
         #Network Data View
         self.network = View("Network", EDGE, WRITE)
         self.network.addAttribute("BlockID")
+        self.network.addAttribute("DownID")
         self.network.addAttribute("Z_up")
         self.network.addAttribute("Z_down")
         self.network.addAttribute("max_Zdrop")
@@ -333,6 +346,8 @@ class delinblocks(Module):
         #Nodes Data View
         self.blocknodes = View("BlockNodes", NODE, WRITE)
         self.blocknodes.addAttribute("BlockID")         #Holds the Block ID or -1 for CBD location
+        self.blocknodes.addAttribute("AvgElev")
+        self.blocknodes.addAttribute("Type")
         
         self.blocklocality = View("BlockLocality", NODE, WRITE)
         self.blocklocality.addAttribute("BlockID")
@@ -392,6 +407,7 @@ class delinblocks(Module):
         self.soildictionary = [180, 36, 3.6, 0.36]    #mm/hr - 1=sand, 2=sandy clay, 3=medium clay, 4=heavy clay
         
     def run(self):
+        rand.seed()
         city = self.getData("City")     #Get the datastream containing all the info
         cs = self.BlockSize             #set blocksize to a local variable with a short name cs = cell size
                 
@@ -421,7 +437,7 @@ class delinblocks(Module):
         else: employment = 0
         
         #(4) - Rivers Map
-        if self.include_rivers: riverpoints = ubvmap.runRiverImport(self.RiversFilename)
+        if self.include_rivers: riverpoints = ubvmap.runRiverImport(float(cs/4), self.RiversFilename)
         else: riverpoints = 0
         
         #(5) - Lakes Map
@@ -435,8 +451,10 @@ class delinblocks(Module):
         #(7) - Social Parameters
         if self.include_soc_par1: socpar1 = self.getRasterData("City", self.socpar1)
         else: socpar1 = 0
-        if self.incldue_soc_par2: socpar2 = self.getRasterData("City", self.socpar2)
+        print "Socpar1", socpar1
+        if self.include_soc_par2: socpar2 = self.getRasterData("City", self.socpar2)
         else: socpar2 = 0
+        print "Socpar2", socpar2
         
         #road_net, supply_net and sewer_net = coming in future versions
         
@@ -490,6 +508,30 @@ class delinblocks(Module):
         heightnew = int(height/cs+whfactor)      #height of the simulation area (multiply block size with this to get actual length) [#Blocks]
         numblocks = widthnew * heightnew        #number of blocks based on how many blocks wide x how many blocks tall [#Blocks]
         
+        ### MAP ATTRIBUTES - The Global Attributes List - write present information across to this component
+        map_attr = Component()
+        map_attr.addAttribute("NumBlocks", numblocks)                   #Number of blocks in the grid
+        map_attr.addAttribute("WidthBlocks", widthnew)                  #Width of simulation area in # of blocks
+        map_attr.addAttribute("HeightBlocks", heightnew)                #Height of simulation area in # of blocks
+        map_attr.addAttribute("BlockSize", cs)                          #Size of block [m]
+        map_attr.addAttribute("InputReso", inputres)                    #Resolution of the input data [m]
+        map_attr.addAttribute("Neigh_Type", neighbourhood_type) 
+        map_attr.addAttribute("ConsiderCBD", self.considerCBD)
+        #map_attr.addAttribute("UrbanSimData", urbansimdata)            #"Yes" or "no" as to whether input derived from UrbanSim
+        map_attr.addAttribute("include_plan_map", self.include_plan_map)
+        map_attr.addAttribute("include_local_map", self.include_local_map)
+        map_attr.addAttribute("include_employment", self.include_employment)
+        map_attr.addAttribute("include_rivers", self.include_rivers)
+        map_attr.addAttribute("include_lakes", self.include_lakes)
+        map_attr.addAttribute("include_groundwater", self.include_groundwater)
+        map_attr.addAttribute("include_soc_par1", self.include_soc_par1)
+        map_attr.addAttribute("include_soc_par2", self.include_soc_par2)
+        map_attr.addAttribute("patchdelin", self.patchdelin)
+        map_attr.addAttribute("spatialmetrics", self.spatialmetrics)
+        map_attr.addAttribute("considerCBD", self.considerCBD)
+        
+        city.addComponent(map_attr, self.mapattributes)                 #add the component list map_attr to the View self.mapattributes
+        
         #Look up long and lat of CBD if need to be considered
         if self.considerCBD:
             #Grab CBD coordinates, convert to UTM if necessary
@@ -507,23 +549,11 @@ class delinblocks(Module):
             
             #See if marklocation can be added
             if self.marklocation:
-                loc = city.addNode(cityeasting-xoffset, citynorthing-yoffset, 0, self.blocknodes)
+                loc = city.addNode(cityeasting-self.xllcorner, citynorthing-self.yllcorner, 0, self.blocknodes)
                 loc.addAttribute("BlockID", -1)     #-1 for CBD
+                loc.addAttribute("AvgElev", -1)     #-1 for CBD
+                loc.addAttribute("Type", "CBD")     #-1 for CBD
                 
-            
-        ### MAP ATTRIBUTES - The Global Attributes List - write present information across to this component
-        map_attr = Component()
-        map_attr.addAttribute("NumBlocks", numblocks)                   #Number of blocks in the grid
-        map_attr.addAttribute("WidthBlocks", widthnew)                  #Width of simulation area in # of blocks
-        map_attr.addAttribute("HeightBlocks", heightnew)                #Height of simulation area in # of blocks
-        map_attr.addAttribute("BlockSize", cs)                          #Size of block [m]
-        map_attr.addAttribute("InputReso", inputres)                    #Resolution of the input data [m]
-        map_attr.addAttribute("Neigh_Type", neighbourhood_type) 
-        map_attr.addAttribute("ConsiderCBD", self.considerCBD)
-        #map_attr.addAttribute("UrbanSimData", urbansimdata)            #"Yes" or "no" as to whether input derived from UrbanSim
-        
-        city.addComponent(map_attr, self.mapattributes)                 #add the component list map_attr to the View self.mapattributes
-        
         x_adj = 0               #these track the position of the 'draw cursor', these offset the cursor
         y_adj = 0               #can be used to offset the drawing completely from (0,0)
         
@@ -535,7 +565,6 @@ class delinblocks(Module):
             for x in range(widthnew):           #inner loop scans through columns
                 print "CURRENT BLOCK ID: "+str(blockIDcount)
                 block_attr = self.createBlockFace(city, x, y, cs, x_adj, y_adj, blockIDcount)
-                
                 xcentre = x*cs+0.5*cs       #Centre point               
                 ycentre = y*cs+0.5*cs   
                        
@@ -578,8 +607,8 @@ class delinblocks(Module):
                     dist = math.sqrt(math.pow((cityeasting-currenteasting),2)+math.pow((citynorthing-currentnorthing),2))
                     theta = math.degrees(math.atan((currentnorthing - citynorthing)/(currenteasting - cityeasting)))
                     
-                    block_attr.addAttribute("CBDdistance", dist)
-                    block_attr.addAttribute("CBDdirection", theta)
+                    block_attr.addAttribute("CBDdist", dist)
+                    block_attr.addAttribute("CBDdir", theta)
                 
                 
                 ####################################################
@@ -602,14 +631,14 @@ class delinblocks(Module):
                 
                 #Determine frequency of land class occurrences
                 landclassprop, activity = self.frequencyLUC(lucdatamatrix)
+                
                 if activity == 0:
                     blockstatus = 0
                 else:
                     blockstatus = 1
                 block_attr.addAttribute("Status", blockstatus)
-                block_attr.addAttribute("Activity", activity)
+                block_attr.addAttribute("Active", activity)
                 
-
                 ####################################################
                 ### 2.1 CALCULATE SPATIAL METRICS                ###
                 ####################################################
@@ -617,16 +646,11 @@ class delinblocks(Module):
                 if self.spatialmetrics:
                     richness = self.calcRichness(landclassprop)
                     shdiv, shdom, sheven = self.calcShannonMetrics(landclassprop, richness)
-                else:
-                    richness = None
-                    shdiv = None
-                    shdom = None
-                    sheven = None
-                block_attr.addAttribute("Richness", richness)
-                block_attr.addAttribute("ShannonDiv", shdiv)
-                block_attr.addAttribute("ShannonDom", shdom)
-                block_attr.addAttribute("ShannonEven", sheven)
-                  
+                    block_attr.addAttribute("Rich", richness)
+                    block_attr.addAttribute("ShDiv", shdiv)
+                    block_attr.addAttribute("ShDom", shdom)
+                    block_attr.addAttribute("ShEven", sheven)                    
+                
               
                 ####################################################
                 ### 2.2 CONDUCT TALLYING UP OF DATA FOR BLOCK    ###
@@ -657,6 +681,8 @@ class delinblocks(Module):
                 plan_map_sums = [0,0,0,0]       #4 categories of planner's map dependent on RES, COM, LI, HI
                 plan_map_counts = [0,0,0,0]
                 
+                elevlist = []
+                
                 for a in range(cellsinblock):        #Loop across all cells in the block
                     for b in range(cellsinblock):
                         if soildatamatrix[a][b] != -9999:
@@ -664,6 +690,7 @@ class delinblocks(Module):
                             total_n_soil += 1
                         if elevdatamatrix[a][b] != -9999:
                             total_n_elev += 1
+                            elevlist.append(elevdatamatrix[a][b])
                             if self.elevdatadatum == "S":
                                 raster_sum_elev += elevdatamatrix[a][b]
                             elif self.elevdatadatum == "C":
@@ -686,7 +713,7 @@ class delinblocks(Module):
                                     
                         #EMPLOYMENT - Like Population
                         if self.include_employment:
-                            if employmentdatamatrix[a][b] != -9999:
+                            if employmentmatrix[a][b] != -9999:
                                 if self.jobdatatype == "C":
                                     job_sum_total += employmentmatrix[a][b]
                                 else:
@@ -702,13 +729,15 @@ class delinblocks(Module):
                         
                         #SOCIAL PARAMETERS - Like Population if proportion, if Binary, based on majority
                         if self.include_soc_par1:
-                            if len(socpar1matrix) != 0 and socpar1matrix[a][b] != -9999:
-                                soc_par1 += socpar1matrix[a][b]
-                                total_n_soc_par1 += 1
+                            if len(socpar1matrix) != 0:
+                                if socpar1matrix[a][b] != -9999:
+                                    soc_par1 += socpar1matrix[a][b]
+                                    total_n_soc_par1 += 1
                         if self.include_soc_par2:
-                            if len(socpar2matrix) != 0 and socpar2matrix[a][b] != -9999:
-                                soc_par2 += socpar2matrix[a][b]
-                                total_n_soc_par2 += 1
+                            if len(socpar2matrix) != 0 :
+                                if socpar2matrix[a][b] != -9999:
+                                    soc_par2 += socpar2matrix[a][b]
+                                    total_n_soc_par2 += 1
                                
                 #Adjust the total count in case it is zero to prevent division by zero. If count = 0, then sum = 0 because nothing was found
                 total_n_soil = self.adjustCount(total_n_soil)
@@ -720,10 +749,17 @@ class delinblocks(Module):
                 
                 block_attr.addAttribute("Soil_k", raster_sum_soil/total_n_soil)
                 block_attr.addAttribute("AvgElev", raster_sum_elev/total_n_elev)
-                block_attr.addAttribute("Population", pop_sum_total)
+                block_attr.addAttribute("Pop", pop_sum_total)
+                
+                if blockstatus == 1:
+                    curblock_node = city.addNode(xcentre,ycentre,0, self.blocknodes)
+                    curblock_node.addAttribute("BlockID", blockIDcount)
+                    curblock_node.addAttribute("AvgElev", raster_sum_elev/total_n_elev)
+                    curblock_node.addAttribute("Type", "Block")
                 
                 if self.include_socpar1:
                     block_attr.addAttribute("SocPar1", soc_par1/total_n_soc_par1)
+                if self.include_socpar2:
                     block_attr.addAttribute("SocPar2", soc_par2/total_n_soc_par2)
                 if self.include_plan_map:
                     block_attr.addAttribute("PM_RES", plan_map_sums[0]/plan_map_counts[0])
@@ -731,12 +767,18 @@ class delinblocks(Module):
                     block_attr.addAttribute("PM_LI", plan_map_sums[2]/plan_map_counts[2])
                     block_attr.addAttribute("PM_HI", plan_map_sums[3]/plan_map_counts[3])
                 if self.include_employment:
-                    block_attr.addAttribute("Employment", job_sum_total)           #Total people EMPLOYED in block
+                    block_attr.addAttribute("Employ", job_sum_total)           #Total people EMPLOYED in block
                 if self.include_groundwater:
                     if self.groundwater_datum == "Sea":
-                        gwdepth = float(raster_sum_elev/total_n_elev) - float(gwdepthcumu/gwcount)
+                        if total_n_elev == 0 or gwcount == 0:
+                            gwdepth = -9999
+                        else:
+                            gwdepth = float(raster_sum_elev/total_n_elev) - float(gwdepthcumu/gwcount)
                     elif self.groundwater_datum == "Surf":
-                        gwdepth = float(gwdepthcumu/gwcount)
+                        if gwcount == 0:
+                            gwdepth = -9999
+                        else:
+                            gwdepth = float(gwdepthcumu/gwcount)
                     block_attr.addAttribute("GWDepth", gwdepth)
                     
                 #Rivers, Lakes & Locality Map Data Locate for Block and Assign
@@ -757,7 +799,7 @@ class delinblocks(Module):
                             if pointset[1] >= blockymin and pointset[1] < blockymax:
                                 hasriver = 1
                                 pointcount = len(riverpoints)
-                block_attr.addAttribute("HasRiver", hasriver)
+                    block_attr.addAttribute("HasRiv", hasriver)
                 
                 #LAKES - Centroid within Block
                 haslake = 0
@@ -772,8 +814,8 @@ class delinblocks(Module):
                                 haslake = 1
                                 lakearea = pointset[2]
                                 pointcount = len(lakepoints)
-                block_attr.addAttribute("HasLake", haslake)
-                block_attr.addAttribute("LakeArea", lakearea)
+                    block_attr.addAttribute("HasLake", haslake)
+                    block_attr.addAttribute("LakeAr", lakearea)
                     
                 #LOCALITY MAP - Must scan each point and place in Block!
                 haslocal = 0
@@ -795,192 +837,81 @@ class delinblocks(Module):
                                 fac_attr.addAttribute("AvgWD", locfeature[6])
                                 localitymap.remove(locfeature)  #Remove this entry from the matrix to make it shorter for next time
                                 
-                block_attr.addAttribute("HasLocal", haslocal)
-                block_attr.addAttribute("NumFacil", facilcount)
+                    block_attr.addAttribute("HasLoc", haslocal)
+                    block_attr.addAttribute("NFacil", facilcount)
                 
                 
                 ####################################################
                 ### 2.3 DELINEATE PATCHES                        ###
                 ####################################################
                 #Call the function using the current Block's Patch information
-                print "Start Patches"
-                patchdict = ubpat.landscapePatchDelineation(lucdatamatrix, elevdatamatrix, soildatamatrix)
-                #Draw the patches and save info to view
-                for i in range(len(patchdict)):
-                    panodes = patchdict["PatchID"+str(i+1)][4]
-                    paarea = patchdict["PatchID"+str(i+1)][0]
-                    paluc = patchdict["PatchID"+str(i+1)][1]
-                    paelev = patchdict["PatchID"+str(i+1)][2]
-                    pasoil = patchdict["PatchID"+str(i+1)][3]
-                    self.drawPatchFace(city, panodes, inputres, offset, i+1, blockIDcount, paarea, paluc, paelev, pasoil)
+                if self.patchdelin:
+                    print "Start Patches"
+                    patchdict = ubpat.landscapePatchDelineation(lucdatamatrix, elevdatamatrix, soildatamatrix)
+                    #Draw the patches and save info to view
+                    for i in range(len(patchdict)):
+                        panodes = patchdict["PatchID"+str(i+1)][4]
+                        paarea = patchdict["PatchID"+str(i+1)][0]
+                        paluc = patchdict["PatchID"+str(i+1)][1]
+                        paelev = patchdict["PatchID"+str(i+1)][2]
+                        pasoil = patchdict["PatchID"+str(i+1)][3]
+                        self.drawPatchFace(city, panodes, inputres, offset, i+1, blockIDcount, paarea, paluc, paelev, pasoil)
+                    
+                    block_attr.addAttribute("Patches", len(patchdict))
+                    print "End Patches"
                 
-                block_attr.addAttribute("TotPatches", len(patchdict))
-                print "End Patches"
+                block_attr.addAttribute("BasinID", 0)               #<<<<<<<<<FOR NOW ... remove later
+                
+                    
+                
+                ### INCREMENT BLOCK ID COUNT BY 1 ###
+                
                 blockIDcount += 1    #increase counter by one before next loop to represent next Block ID
+                
+                #END OF BLOCK LOOP
+        
         
         ########################################################################
-        ### TERRAIN DELINEATION                                              ###
+        ### TERRAIN & BASIN DELINEATION                                      ###
         ### v1.0, D8 or D-inf methods                                        ###
         ########################################################################
-        #Smooth the DEM?
-        #self.createParameter("demsmooth_choose", BOOL,"")
-        #self.createParameter("demsmooth_passes", DOUBLE,"")
-        
-        sinkIDs = []
-        riverIDs = []
-        lakeIDs = []
         #DynaMind's Block Views are saved using a special encoding - the UUID, we therefore have to reference
         #Block ID with the View's UUID.
         self.initBLOCKIDtoUUID(city)    #gets all UUIDs of each block and sets up a dictionary to refer to.
         
-        for i in range(numblocks):
-            currentID = i+1
-            uuid = self.getBlockUUID(currentID, city)
-            if uuid == "":
-                print "Error, Block"+ str(currendID)+" not found."
-                continue
-            
-            #CONDITION 1 - Block is Active in Simulation
-            currentAttList = city.getFace(uuid)
-            if currentAttList.getAttribute("Status").getDouble() == 0:
-                print "BlockID"+str(currentID)+" not active in simulation"
-                continue
-            
-            #CONDITION 2 - Block already contains a sink e.g. river/etc.
-            if currentAttList.getAttribute("HasRiver").getDouble() == 1:
-                print "BlockID"+str(currentID)+" drains into a river"
-                riverIDs.append(currentID)
-                continue
-            
-            currentZ = currentAttList.getAttribute("AvgAltitude").getDouble()
-            
-            #Neighbours array: [N, S, W, E, NE, NW, SE, SW], the last four are 0 if only vonNeumann Nhd used.
-            neighbours = self.getBlockNeighbourhood(currentAttList)
-            neighboursZ = self.getNeighbourhoodZ(neighbours, neighbourhood_type, city)
-            
-            #Find Downstream Block - The Functions return the Index of the Cardinal Direction
-            if self.flow_method == "D8":
-                flow_direction, max_Zdrop = self.findDownstreamD8(currentZ, neighboursZ, neighbourhood_type)
-            elif self.flow_method == "DI":
-                flow_direction, max_Zdrop = self.findDownstreamDinf(currentZ, cs, neighboursZ, neighbourhood_type)
-            
-            if flow_direction == -9999:
-                sinkIDs.append(currentID)
-            else:
-                downstreamID = neighbours[flow_direction]
-            
-            #Grab Distance/Slope between two Block IDs
-            if flow_direction == -9999:
-                dx = 0
-            elif flow_direction <= 3:
-                dx = cs
-            elif flow_direction > 3:
-                dx = math.sqrt(2*cs*cs)                        #diagonal
-                
-            if dx == 0: avg_slope = 0
-            else: avg_slope = max_Zdrop/dx
-            
-            currentAttList.addAttribute("downstrID", downstreamID)
-            currentAttList.addAttribute("max_Zdrop", max_Zdrop)
-            currentAttList.addAttribute("avg_slope", avg_slope)
-            
-            #DRAW NETWORKS OF PATHS THAT ARE NOT SINKS
-            if downstreamID != -1 or downstreamID != 0:
-                self.drawFlowPaths(downstreamID, currentAttList, max_Zdrop, avg_slope, 1)
-            
-        total_sinks = len(sinkIDs)
-        print "A total of: "+str(total_sinks)+" sinks found in map!"
-        print "A total of: "+str(len(riverIDs))+" Blocks contain a river body!"
+        if self.demsmooth_choose:
+            for currentpass in range(int(self.demsmooth_passes)):
+                self.smoothDEM(city, numblocks, neighbourhood_type) 
         
-#    #Sink unblocking algorithm for immediate neighbourhood
-#    for i in sinkIDs:
-#        print i
-#        currentID = i
-#        currentAttList = city.getFace(self.getBlockUUID(currentID,city))           
-#        currentZ = currentAttList.getAttribute("AvgAltitude").getDouble()    
-        
-#        #Scan the 8 neighbours, if all of them drain into the sink, then proceed further
-#        ID_N = int(round(currentAttList.getAttribute("Neighb_N").getDouble()))
-#        ID_S = int(round(currentAttList.getAttribute("Neighb_S").getDouble()))
-#        ID_W = int(round(currentAttList.getAttribute("Neighb_W").getDouble()))
-#        ID_E = int(round(currentAttList.getAttribute("Neighb_E").getDouble()))
-#        if neighbourhood_type == 8:
-#            ID_NE = int(round(currentAttList.getAttribute("Neighb_NE").getDouble()))
-#            ID_NW = int(round(currentAttList.getAttribute("Neighb_NW").getDouble()))
-#            ID_SE = int(round(currentAttList.getAttribute("Neighb_SE").getDouble()))
-#            ID_SW = int(round(currentAttList.getAttribute("Neighb_SW").getDouble()))
-#            current_neighb = [ID_N, ID_S, ID_W, ID_E, ID_NE, ID_NW, ID_SE, ID_SW]
-#        else:
-#            current_neighb = [ID_N, ID_S, ID_W, ID_E]
-       
-#        possible_IDdrains = []
-#        possible_ID_dZ = []
-#        possibility = 0
-#        for j in current_neighb:
-#            uuid = self.getBlockUUID(j,city)
-#            if  len(uuid)!=0:
-#                    print "block neigh" + str(j)
-#                    f = city.getFace(uuid)
-#                    if int(round(f.getAttribute("downstrID").getDouble())) != currentID:
-#                        if int(round(f.getAttribute("Status").getDouble())) != 0:
-#                            possible_IDdrains.append(j)
-#                            possible_ID_dZ.append(f.getAttribute("AvgAltitude").getDouble()-currentZ)
-#                            possibility += 1
-#        if possibility > 0:         #if algorithm found a possible pathway for sink to unblock, then get the ID and connect network
-#            print "possible"                
-#            sink_path = min(possible_ID_dZ)
-#            sink_drainID = possible_IDdrains[possible_ID_dZ.index(sink_path)]
-#            currentAttList.addAttribute("drainto_ID", sink_drainID)            
-#            currentAttList.addAttribute("h_pond", min(possible_ID_dZ))
-#        else:               #need to broaden search space and start again
-#            continue               #PROBLEM: cannot simply expand the neighbourhood, we risk running a loop through the network
-#                                    # Solutions to this problem: will probably need the waterways data set and the outlet location!
-#                                    # Search the space adding blocks to the current_neighb matrix that are linked with the existing IDs
-#                                    # until we find one that isn't part of the basin.
-        
-#        ##Draw the network in
-#        x_up = currentAttList.getAttribute("Centre_x").getDouble()
-#        y_up = currentAttList.getAttribute("Centre_y").getDouble()
-#        z_up = currentAttList.getAttribute("AvgAltitude").getDouble()
-        
-#        uppernode = city.addNode(x_up, y_up, z_up)
-#        x_down = city.getFace(self.getBlockUUID(sink_drainID,city)).getAttribute("Centre_x").getDouble()
-#        y_down = city.getFace(self.getBlockUUID(sink_drainID,city)).getAttribute("Centre_y").getDouble()
-#        z_down = city.getFace(self.getBlockUUID(sink_drainID,city)).getAttribute("AvgAltitude").getDouble()
-
-#        downnode = city.addNode(x_down, y_down, z_down)        
-
-#        network_attr = city.addEdge(uppernode, downnode, self.network)
-#        network_attr.addAttribute("NetworkID", currentID)
-#        network_attr.addAttribute("BlockID", currentID)
-#        network_attr.addAttribute("Z_up", z_up)
-#        network_attr.addAttribute("Z_down", z_down)
-#        network_attr.addAttribute("max_Zdrop", (min(possible_ID_dZ)*-1))
-#        network_attr.addAttribute("Type", -1)                            #1 = basic downstream, -1 = unblocked sink
-
-        
-    ###---------TERRAIN DELINEATION END ------------------------------------------------------------------###
-
-        
-    
+        #Determine whether terrain delineation already exists or whether it needs to be done
+        if self.obtain_flowbasins == "F":               #F = file
+            self.retrieveFlowBasinsFromFile(filename, city, numblocks)
+        elif self.obtain_flowbasins == "D":             #D = delineate
+            self.delineateFlowPaths(city, numblocks, cs, neighbourhood_type)
+            #self.delineateBasins(city, numblocks)
+            #self.saveFlowBasinsToFile(city, numblocks)
+            
+    ########################################    
     
     
     ########################################################################
     ### DELINBLOCKS SUB-FUNCTIONS                                        ###
     ########################################################################
     def getBlockUUID(self, blockid,city):
-	try:
-            key = self.BLOCKIDtoUUID[blockid]
-	except KeyError:
+        try:
+            key = self.BlockIDtoUUID[blockid]
+        except KeyError:
             key = ""	
-	return key
+        return key
+
 
     def initBLOCKIDtoUUID(self, city):
-	blockuuids = city.getUUIDsOfComponentsInView(self.block)
+        blockuuids = city.getUUIDsOfComponentsInView(self.block)
         for blockuuid in blockuuids:
             block = city.getFace(blockuuid)
             ID = int(round(block.getAttribute("BlockID").getDouble()))
-	    self.BLOCKIDtoUUID[ID] = blockuuid
+            self.BlockIDtoUUID[ID] = blockuuid
+
 
     def autosizeBlocks(self, width, height):
         #Calculates the recommended Block Size dependent on the size of the case study
@@ -1014,7 +945,8 @@ class delinblocks(Module):
             print "WARNING: Block Size is very large, it is recommended to use a smaller case study!"    
         
         return blocksize        
-        
+    
+    
     def createBlockFace(self, city, x, y, cs, x_adj, y_adj, ID):
         n1 = city.addNode((x+x_adj)*cs,(y+y_adj)*cs,0)
         n2 = city.addNode((x+x_adj+1)*cs,(y+y_adj)*cs,0)
@@ -1030,9 +962,10 @@ class delinblocks(Module):
         
         #Add a face denoted by the point list plist to block view
         block_attr = city.addFace(plist, self.block)        
-        block_attr.addAttribute("BlockID", ID)
+        block_attr.addAttribute("BlockID", int(ID))
         return block_attr
-        
+    
+    
     def getCBDcoordinates(self):
         if self.locationOption == "S":
             #look up city and grab coordinates
@@ -1044,7 +977,7 @@ class delinblocks(Module):
             coordinates = ubcc.convertGeographic2UTM(longitude, latitude)
             return coordinates[0], coordinates[1]   #easting, northing
 
-        
+    
     def retrieveData(self, datasources, startextents, cellsinblock):
         #Scans the original data range and retrieves all the data values contained
         #therein:
@@ -1095,20 +1028,22 @@ class delinblocks(Module):
                 elif self.soildataunits == "sec":
                     soildatamatrix[i].append((datasources[3].getValue(x_start+i, y_start+j))*1000*60*60)        #convert to mm/hr
                 
-                if datasources[4] != 0: planmapmatrix[i].append(datasources.getValue(x_start+i, y_start+j))
-                if datasources[5] != 0: employmentmatrix[i].append(datasources.getValue(x_start+i, y_start+j))
-                if datasources[6] != 0: groundwatermatrix[i].append(datasources.getValue(x_start+i, y_start+j))
-                if datasources[7] != 0: socpar1matrix[i].append(datasources.getValue(x_start+i, y_start+j))
-                if datasources[8] != 0: socpar2matrix[i].append(datasources.getValue(x_start+i, y_start+j))
+                if datasources[4] != 0: planmapmatrix[i].append(datasources[4].getValue(x_start+i, y_start+j))
+                if datasources[5] != 0: employmentmatrix[i].append(datasources[5].getValue(x_start+i, y_start+j))
+                if datasources[6] != 0: groundwatermatrix[i].append(datasources[6].getValue(x_start+i, y_start+j))
+                if datasources[7] != 0: socpar1matrix[i].append(datasources[7].getValue(x_start+i, y_start+j))
+                if datasources[8] != 0: socpar2matrix[i].append(datasources[8].getValue(x_start+i, y_start+j))
                 
         datamatrices = [lucdatamatrix, popdatamatrix, elevdatamatrix, soildatamatrix, planmapmatrix, employmentmatrix, groundwatermatrix, socpar1matrix, socpar2matrix]
         return datamatrices
+
 
     def frequencyLUC(self, lucdatamatrix):
         #Determine size of matrix
         matsize = len(lucdatamatrix)
         #'RES', 'COM', 'ORC', 'LI', 'HI', 'CIV', 'SVU', 'RD', 'TR', 'PG', 'REF', 'UND', 'NA'
         lucprop = [0,0,0,0,0,0,0,0,0,0,0,0,0]
+        total_n_luc = 0
         for i in range(matsize):
             for j in range(matsize):
                 landclass = lucdatamatrix[i][j]
@@ -1116,9 +1051,9 @@ class delinblocks(Module):
                     pass
                 else:
                     lucprop[int(landclass-1)] += 1
+                    total_n_luc += 1
         
         #Convert frequency to proportion
-        total_n_luc = float(sum(lucprop))
         if total_n_luc == 0:
             return [0,0,0,0,0,0,0,0,0,0,0,0,0], 0
         for i in range(len(lucprop)):
@@ -1126,12 +1061,14 @@ class delinblocks(Module):
         activity = float(total_n_luc) / float((matsize * matsize))
         return lucprop, activity
     
+    
     def calcRichness(self, landclassprop):
         richness = 0
         for i in landclassprop:
             if i != 0:
                 richness += 1
         return richness
+
 
     def calcShannonMetrics(self, landclassprop, richness):
         if richness == 0:
@@ -1155,6 +1092,7 @@ class delinblocks(Module):
             shaneven = shandiv/math.log(richness)
             
         return shandiv, shandom, shaneven
+    
     
     def findNeighbourhood(self, ID, x, y, numblocks, widthnew, heightnew):
         ### NEIGHBOURHOODs - Search for all 8 neighbours. ###
@@ -1263,13 +1201,15 @@ class delinblocks(Module):
         
         blockNHD = [N_neighbour, S_neighbour, W_neighbour, E_neighbour, NE_neighbour, NW_neighbour, SE_neighbour, SW_neighbour]    
         return blockNHD                
-        
+    
+    
     def adjustCount(self, total_count):
         if total_count == 0:
             total_count = 1
         else:
             pass
         return total_count
+
 
     def drawPatchFace(self, city, nodes, scalar, offset, PaID, ID, area, LUC, elev, soil):
         rs = scalar #rs = raster size
@@ -1291,6 +1231,45 @@ class delinblocks(Module):
         patch_attr.addAttribute("BlockID", ID)              #Block ID that patch belongs to
         return True
     
+    
+    def smoothDEM(self, city, numblocks, nhd_type):
+        new_elevs = []
+        for i in range(int(numblocks)):
+            nhd_count = 1
+            currentID = i+1
+            currentAttList = city.getFace(uuid = self.getBlockUUID(currentID, city))
+            if currentAttList.getAttribute("Status") == 0:
+                new_elevs.append(0)
+                continue
+            
+            new_elev = currentAttList.getAttribute("AvgElev")
+            
+            neighbourhood = self.getBlockNeighbourhood(currentAttList)
+            neighbourhoodZ = self.getNeighbourhoodZ(neighbourhood, city)
+            
+            if nhd_type == 4:
+                #only vonNeumann cells
+                for k in range(len(neighbourhoodZ)-4):
+                    if k == 99999:
+                        continue
+                    new_elev += k
+                    nhd_count += 1
+            else:
+                for k in neighbourhoodZ:                #Scan all neighbour cells
+                    if k == 99999:                      #if the value is 99999, it means the cell isn't active
+                        continue
+                    new_elev += k
+                    nhd_count += 1
+                    
+                new_elevs.append(new_elev/nhd_count)    #calculate average, add to the new matrix
+        
+        for i in range(int(numblocks)):     #write all new elevations to replace the existing value
+            currentID = i+1
+            currentAttList = city.getFace(self.getBlockUUID(currentID, city))
+            currentAttList.modifyAttribute("AvgElev", new_elevs[i])
+        return True
+
+
     def getBlockNeighbourhood(self, currentAttList):
         """Returns the Moore neighbouhoord for the Block (8 neighbours in all cardinal
         directions, the order is North, South, West, Est, followed by NE, NW, SE, SW"""
@@ -1305,7 +1284,7 @@ class delinblocks(Module):
         current_neighb = [ID_N, ID_S, ID_W, ID_E, ID_NE, ID_NW, ID_SE, ID_SW]
         return current_neighb
 
-        
+    
     def getNeighbourhoodZ(self, nhdIDs, city):
         current_neighbdZ = []
         for i in nhdIDs:       #scan all 8 neighbours
@@ -1318,18 +1297,23 @@ class delinblocks(Module):
                 current_neighbdZ.append(99999) #works based on Sea Level, so nothing can really be higher than Everest :)
             else:
                 current_neighbdZ.append(curface.getAttribute("AvgElev").getDouble())
-        return current_neighhbdZ
+        return current_neighbdZ
 
 
     def findDownstreamD8(self, currentZ, neighboursZ, neighbourhood_type):
-        for i in range(len(neighbours)):            #D8 is simply the largest drop
+        if neighbourhood_type == 4:
+            neighboursZ[4] = 999999
+            neighboursZ[5] = 999999
+            neighboursZ[6] = 999999
+            neighboursZ[7] = 999999
+        for i in range(len(neighboursZ)):            #D8 is simply the largest drop
             neighboursZ[i] = currentZ - neighboursZ[i]
-        max_drop = max(neighboursZ)
-        if max_drop < 0:
+        max_Zdrop = max(neighboursZ)
+        if max_Zdrop < 0:
             direction = -9999  #-9999 means that the current block is a sink
         else:
-            direction = neighboursZ.index(max_drop)
-        return direction
+            direction = neighboursZ.index(max_Zdrop)
+        return direction, max_Zdrop
 
 
     def findDownstreamDinf(self, currentZ, blocksize, neighboursZ, neighbourhood_type):
@@ -1410,36 +1394,154 @@ class delinblocks(Module):
         print "Choice:", choice
         
         direction = neighboursZ.index(sortedneighb[directionfacet-1])
-        return direction
-          
-                                   
-    def drawFlowPaths(self, downstreamID, currentAttList, max_Zdrop, avg_slope, typenum):
+        return direction, max_Zdrop
+    
+    
+    def drawFlowPaths(self, city, currentID, downstreamID, currentAttList, max_Zdrop, avg_slope, typenum):
         uuid = self.getBlockUUID(downstreamID,city)
         if  uuid == "":
             print "Error block not found: " + str(downstreamID)
             return True
         
         f = city.getFace(uuid)
-        x_up = currentAttList.getAttribute("Centre_x").getDouble()
-        y_up = currentAttList.getAttribute("Centre_y").getDouble()
-        z_up = currentAttList.getAttribute("AvgAltitude") .getDouble()
-        upNode = city.addNode(x_up,y_up,z_up, self.blocknodes)
-        upNode.addAttribute("BlockID", currentID)
-
-        x_down = f.getAttribute("Centre_x").getDouble()
-        y_down = f.getAttribute("Centre_y").getDouble()
-        z_down = f.getAttribute("AvgAltitude").getDouble()
+        x_up = currentAttList.getAttribute("CentreX").getDouble()
+        y_up = currentAttList.getAttribute("CentreY").getDouble()
+        z_up = currentAttList.getAttribute("AvgElev") .getDouble()
+        upNode = city.addNode(x_up,y_up,z_up)
+        
+        x_down = f.getAttribute("CentreX").getDouble()
+        y_down = f.getAttribute("CentreY").getDouble()
+        z_down = f.getAttribute("AvgElev").getDouble()
         downNode = city.addNode(x_down,y_down,z_down)
         
         network_attr = city.addEdge(upNode,downNode,self.network)         
         network_attr.addAttribute("BlockID", currentID)
+        network_attr.addAttribute("DownID", downstreamID)
         network_attr.addAttribute("Z_up", z_up)
         network_attr.addAttribute("Z_down", z_down)
         network_attr.addAttribute("max_Zdrop", max_Zdrop)
         network_attr.addAttribute("Type", typenum)       #1 = basic downstream, -1 = unblocked sink, #0 = sink
         network_attr.addAttribute("avg_slope", avg_slope)
         return True
+    
+    
+    def delineateFlowPaths(self, city, numblocks, cs, neighbourhood_type):
+        sinkIDs = []
+        riverIDs = []
+        lakeIDs = []
 
+        for i in range(numblocks):
+            currentID = i+1
+            
+            uuid = self.getBlockUUID(currentID, city)
+            if uuid == "":
+                print "Error, Block"+ str(currendID)+" not found."
+                continue
+            
+            #CONDITION 1 - Block is Active in Simulation
+            currentAttList = city.getFace(uuid)
+            if currentAttList.getAttribute("Status").getDouble() == 0:
+                print "BlockID"+str(currentID)+" not active in simulation"
+                continue
+            
+            #CONDITION 2 - Block already contains a sink e.g. river/etc.
+            if currentAttList.getAttribute("HasRiv").getDouble() == 1:
+                hasRiver = 1
+                riverIDs.append(currentID)
+                continue
+            
+            
+            currentZ = currentAttList.getAttribute("AvgElev").getDouble()
+            
+            #Neighbours array: [N, S, W, E, NE, NW, SE, SW], the last four are 0 if only vonNeumann Nhd used.
+            neighbours = self.getBlockNeighbourhood(currentAttList)
+            neighboursZ = self.getNeighbourhoodZ(neighbours, city)
+            
+            #Find Downstream Block - The Functions return the Index of the Cardinal Direction
+            if self.flow_method == "D8":
+                flow_direction, max_Zdrop = self.findDownstreamD8(currentZ, neighboursZ, neighbourhood_type)
+            elif self.flow_method == "DI":
+                flow_direction, max_Zdrop = self.findDownstreamDinf(currentZ, cs, neighboursZ, neighbourhood_type)
+            
+            if flow_direction == -9999:
+                sinkIDs.append(currentID)
+                downstreamID = -1
+            else:
+                downstreamID = neighbours[flow_direction]
+            
+            #Grab Distance/Slope between two Block IDs
+            if flow_direction == -9999:
+                dx = 0
+            elif flow_direction <= 3:
+                dx = cs
+            elif flow_direction > 3:
+                dx = math.sqrt(2*cs*cs)                        #diagonal
+                
+            if dx == 0: avg_slope = 0
+            else: avg_slope = max_Zdrop/dx
+            
+            currentAttList.addAttribute("downID", downstreamID)
+            currentAttList.addAttribute("maxdZ", max_Zdrop)
+            currentAttList.addAttribute("slope", avg_slope)
+            
+            #DRAW NETWORKS OF PATHS THAT ARE NOT SINKS
+            if downstreamID != -1 or downstreamID != 0:
+                self.drawFlowPaths(city, currentID, downstreamID, currentAttList, max_Zdrop, avg_slope, 1)
+            
+        
+        self.unblockSinks(sinkIDs, city, numblocks)
+        self.connectRiverBlocks(riverIDs, city, numblocks)
+        return True
+    
+    
+    def unblockSinks(self, sinkIDs, city, numblocks):
+        total_sinks = len(sinkIDs)
+        print "A total of: "+str(total_sinks)+" sinks found in map!"
+        
+        #Sink unblocking algorithm for immediate neighbourhood
+        for i in sinkIDs:
+            currentID = i
+            currentAttList = city.getFace(self.getBlockUUID(currentID,city))           
+            currentZ = currentAttList.getAttribute("AvgElev").getDouble()    
+            
+            current_neighb = self.getBlockNeighbourhood(currentAttList)
+            
+            possible_IDdrains = []
+            possible_IDdZ = []
+            possibility = 0
+            
+            for j in current_neighb:
+                uuid = self.getBlockUUID(j,city)
+                if len(uuid)!= 0:
+                    print "Block" + str(j)
+                    f = city.getFace(uuid)
+                    if int(round(f.getAttribute("downID").getDouble())) != currentID and int(round(f.getAttribute("Status").getDouble())) != 0:
+                        possible_IDdrains.append(j)
+                        possible_IDdZ.append(f.getAttribute("AvgElev").getDouble()-currentZ)
+                        possibility += 1
+            
+            if possibility > 0:         #if algorithm found a possible pathway for sink to unblock, then get the ID and connect network
+                sink_path = min(possible_IDdZ)
+                sink_drainID = possible_IDdrains[possible_IDdZ.index(sink_path)]
+                currentAttList.addAttribute("drainID", sink_drainID)            
+                currentAttList.addAttribute("h_pond", sink_path)
+                self.drawFlowPaths(city, currentID, sink_drainID, currentAttList, sink_path, 0, -1) 
+                continue
+            
+            else:
+                #IF the model reaches this point, the identified cell is either most definitely an outlet or a very troublesome sink
+                currentAttList.addAttribute("drainID", -1)      #-1 in drainID = outlet or sub-outlet        
+        return True
+    
+    def connectRiverBlocks(self, riverIDs, city, numblocks):
+        print "A total of: "+str(len(riverIDs))+" Blocks contain a river body!"
+        riverbodycount = 0
+        
+        
+        
+        
+        return True
+    
     ########################################################
     #LINK WITH GUI                                         #
     ########################################################        

@@ -98,7 +98,6 @@ def runLakesImport(*args):
     #filename = getFileName("La")    
     #currentdir = "C:/UrbanBEATSv1CaseStudies/"
 
-    os.chdir(currentdir)
     driver = ogr.GetDriverByName('ESRI Shapefile')
     
     dataSource = driver.Open(filename, 0)
@@ -130,7 +129,7 @@ def runLakesImport(*args):
     return lakepoints
 
 
-def runRiverImport(*args):
+def runRiverImport(segmentmax, *args):
     if len(args) == 2:    
         filename = args[0]
         currentdir = args[1]
@@ -142,7 +141,6 @@ def runRiverImport(*args):
     #filename = getFileName("Ri")    
     #currentdir = "C:/UrbanBEATSv1CaseStudies/"
 
-    os.chdir(currentdir)
     driver = ogr.GetDriverByName('ESRI Shapefile')
     
     dataSource = driver.Open(filename, 0)
@@ -158,14 +156,16 @@ def runRiverImport(*args):
     riverpoints = []    
     for i in range(totfeatures):
         currentfeature = layer.GetFeature(i)
-        geometrydetail = currentfeature.GetGeometryRef()    
+        geometrydetail = currentfeature.GetGeometryRef()
         if geometrydetail.GetGeometryType() == 2:
+            geometrydetail.Segmentize(segmentmax)
             print geometrydetail.GetPointCount()
             getAllPointsInRiverFeature(riverpoints, geometrydetail)
         elif geometrydetail.GetGeometryType() == 5:
             print geometrydetail.GetGeometryCount()
             linestrings = disassembleMultiDataSource(geometrydetail)
             for j in range(len(linestrings)):
+                linestrings[j].Segmentize(segmentmax)
                 getAllPointsInRiverFeature(riverpoints, linestrings[j])
     return riverpoints
     

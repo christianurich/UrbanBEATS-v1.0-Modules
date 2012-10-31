@@ -103,5 +103,5 @@ from delinblocks import *				#creates grid of blocks, finds flow paths, patches 
 
 ### --- Additional Modules
 #from checkattributes import *			#Dummy file that allows checking if an attribute in a vector data can traverse modules
-#from ExportGISShapeFile import *		#Shapefile Exporter that exports blocks in UTM projection
+from ExportToGISShapeFile import *		#Shapefile Exporter that exports blocks in UTM projection
 #from VecDataAttributePrinter import *	#Printer of all vector data attributes
