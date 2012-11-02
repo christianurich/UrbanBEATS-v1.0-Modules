@@ -55,16 +55,16 @@ class ExportToGISShapeFile(Module):
             self.createParameter("BuildingBlocks", BOOL, "")
             self.createParameter("PatchData", BOOL, "")
             self.createParameter("FlowPaths", BOOL, "")
+            self.createParameter("Localities", BOOL, "")
             self.createParameter("PlannedWSUD", BOOL, "")
             self.createParameter("ImplementedWSUD", BOOL, "")
-            self.createParameter("BasinMap", BOOL, "")
             self.createParameter("BlockCentres", BOOL, "")
             self.BuildingBlocks = True
             self.PatchData = False
             self.FlowPaths = False
+            self.Localities = False
             self.PlannedWSUD = False
             self.ImplementedWSUD = False
-            self.BasinMap = False
             self.BlockCentres = False
             
             #VIEWS
@@ -72,13 +72,16 @@ class ExportToGISShapeFile(Module):
             self.block = View("Block", FACE, READ)
             self.patch = View("Patch", FACE, READ)
             self.network = View("Network", EDGE, READ)
+            self.blocklocality = View("BlockLocality", NODE, READ)
             self.blocknodes = View("BlockNodes", NODE, READ)
+            
             
             datastream = []
             datastream.append(self.mapattributes)
             datastream.append(self.block)
             datastream.append(self.patch)
             datastream.append(self.network)
+            datastream.append(self.blocklocality)
             datastream.append(self.blocknodes)
             
             self.addData("City", datastream)
@@ -94,15 +97,15 @@ class ExportToGISShapeFile(Module):
             if self.FlowPaths:
                 print "Exporting Flow Paths"
                 self.exportFlowPaths()
+            if self.Localities:
+                print "Exporting Block Localities"
+                self.exportBlockLocalities()
             if self.PlannedWSUD:
                 print "Exporting WSUD Planned"
                 self.exportPlannedWSUD()
             if self.ImplementWSUD:
                 print "Exporting WSUD Implemented"
                 self.exportImplementWSUD()
-            if self.BasinMap:
-                print "Exporting Basin Map"
-                self.exportBasinMap()
             if self.BlockCentres:
                 print "Exporting Block Centres"
                 self.exportBlockCentre()
@@ -186,6 +189,7 @@ class ExportToGISShapeFile(Module):
             fielddefmatrix.append(ogr.FieldDefn("slope", ogr.OFTReal))           
             fielddefmatrix.append(ogr.FieldDefn("drainID", ogr.OFTReal))         
             fielddefmatrix.append(ogr.FieldDefn("h_pond", ogr.OFTReal))          
+            fielddefmatrix.append(ogr.FieldDefn("Outlet", ogr.OFTInteger))          
 
             if map_attr.getAttribute("considerCBD").getDouble(): fielddefmatrix.append(ogr.FieldDefn("CBDdist", ogr.OFTReal))          
             if map_attr.getAttribute("considerCBD").getDouble(): fielddefmatrix.append(ogr.FieldDefn("CBDdir", ogr.OFTReal))
@@ -280,6 +284,7 @@ class ExportToGISShapeFile(Module):
                 feature.SetField("slope", currentAttList.getAttribute("slope").getDouble())           
                 feature.SetField("drainID", currentAttList.getAttribute("drainID").getDouble())         
                 feature.SetField("h_pond", currentAttList.getAttribute("h_pond").getDouble())          
+                feature.SetField("Outlet", int(currentAttList.getAttribute("Outlet").getDouble()))
 
                 if map_attr.getAttribute("considerCBD").getDouble(): feature.SetField("CBDdist", currentAttList.getAttribute("CBDdist").getDouble())          
                 if map_attr.getAttribute("considerCBD").getDouble(): feature.SetField("CBDdir", currentAttList.getAttribute("CBDdir").getDouble())
@@ -408,17 +413,65 @@ class ExportToGISShapeFile(Module):
             shapefile.Destroy()
             return True
         
+        def exportBlockLocalities(self):
+            city = self.getData("City")
+            
+            spatialRef = osr.SpatialReference()                #Define Spatial Reference
+            spatialRef.ImportFromProj4(self.Projection)
+            
+            driver = ogr.GetDriverByName('ESRI Shapefile')
+            if os.path.exists(str(self.FileName+"_Localities.shp")): os.remove(self.FileName+"_Localities.shp")
+            shapefile = driver.CreateDataSource(self.FileName+"_Localities.shp")
+            
+            layer = shapefile.CreateLayer('layer1', spatialRef, ogr.wkbPoint)
+            layerDefinition = layer.GetLayerDefn()
+            
+            #DEFINE ATTRIBUTES
+            fielddefmatrix = []
+            fielddefmatrix.append(ogr.FieldDefn("BlockID", ogr.OFTInteger))
+            fielddefmatrix.append(ogr.FieldDefn("Type", ogr.OFTString))
+            fielddefmatrix.append(ogr.FieldDefn("Area", ogr.OFTReal))
+            fielddefmatrix.append(ogr.FieldDefn("TIF", ogr.OFTReal))
+            fielddefmatrix.append(ogr.FieldDefn("ARoof", ogr.OFTReal))
+            fielddefmatrix.append(ogr.FieldDefn("AvgWD", ogr.OFTReal))
+            
+            
+            #Create the fields
+            for field in fielddefmatrix:
+                layer.CreateField(field)
+                layer.GetLayerDefn()
+            
+            #Get Blocks View
+            uuids = city.getUUIDsOfComponentsInView(self.blocklocality)
+            for i in range(len(uuids)):
+                currentAttList = city.getNode(uuids[i])
+            
+                #Draw Geometry
+                point = ogr.Geometry(ogr.wkbPoint)
+                point.SetPoint(0, currentAttList.getX() + self.OffsetX, currentAttList.getY() + self.OffsetY)
+                
+                feature = ogr.Feature(layerDefinition)
+                feature.SetGeometry(point)
+                feature.SetFID(0)
+                
+                #Add Attributes
+                feature.SetField("BlockID", int(currentAttList.getAttribute("BlockID").getDouble()))
+                feature.SetField("Type", currentAttList.getAttribute("Type").getString())
+                feature.SetField("Area", currentAttList.getAttribute("Area").getDouble())
+                feature.SetField("Area", currentAttList.getAttribute("TIF").getDouble())
+                feature.SetField("Area", currentAttList.getAttribute("ARoof").getDouble())
+                feature.SetField("Area", currentAttList.getAttribute("AvgWD").getDouble())
+                layer.CreateFeature(feature)
+            
+            shapefile.Destroy()
+            return True
+        
         def exportPlannedWSUD(self):
             return True
         
         
         def exportImplementWSUD(self):
             return True
-        
-        
-        def exportBasinMap(self):
-            return True
-        
         
         def exportBlockCentre(self):
             city = self.getData("City")
