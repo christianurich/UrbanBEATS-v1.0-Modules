@@ -2,11 +2,11 @@
 """
 @file
 @author  Peter M Bach <peterbach@gmail.com>
-@version 0.5
+@version 1.0
 @section LICENSE
 
-This file is part of UrbanBEATS v1.0
-Copyright (C) 2011,2012  Peter M Bach
+This file is part of UrbanBEATS (www.urbanbeatsmodel.com)
+Copyright (C) 2011, 2012  Peter M Bach
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -24,6 +24,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """
 from osgeo import ogr, osr
 import os, sys
+import time
 
 def getFileName(typemap):
     if typemap == "Lo":
@@ -52,12 +53,13 @@ def runLocalityImport(*args):
         currentdir = ""
     #filename = getFileName("Lo")    
     #currentdir = "C:/UrbanBEATSv1CaseStudies/"
-
+    print "Importing Locality Map from", filename
     driver = ogr.GetDriverByName('ESRI Shapefile')
     
     dataSource = driver.Open(filename, 0)
     if dataSource is None:
         print "Error, could not open file"
+        time.sleep(4)
         sys.exit(1)
     layer = dataSource.GetLayer()    
     totfeatures = layer.GetFeatureCount()
@@ -83,6 +85,7 @@ def runLocalityImport(*args):
 
         #(3) Write to the dictionary
         facilities.append(facil_prop)
+    print "Import Success"
     return facilities
 
 
@@ -94,7 +97,7 @@ def runLakesImport(*args):
     else:
         filename = args[0]
         currentdir = ""
-    
+    print "Importing Lakes from", filename
     #filename = getFileName("La")    
     #currentdir = "C:/UrbanBEATSv1CaseStudies/"
 
@@ -103,6 +106,7 @@ def runLakesImport(*args):
     dataSource = driver.Open(filename, 0)
     if dataSource is None:
         print "Error, could not open file"
+        time.sleep(4)
         sys.exit(1)
     layer = dataSource.GetLayer()
     totfeatures = layer.GetFeatureCount()
@@ -125,7 +129,7 @@ def runLakesImport(*args):
         
         #(3) Write to output vector
         lakepoints.append([centreX, centreY, area])        
-        
+    print "Import Success"    
     return lakepoints
 
 
@@ -137,7 +141,7 @@ def runRiverImport(segmentmax, *args):
     else:
         filename = args[0]
         currentdir = ""
-        
+    print "Importing Rivers"    
     #filename = getFileName("Ri")    
     #currentdir = "C:/UrbanBEATSv1CaseStudies/"
 
@@ -146,6 +150,7 @@ def runRiverImport(segmentmax, *args):
     dataSource = driver.Open(filename, 0)
     if dataSource is None:
         print "Error, could not open file"
+        time.sleep(4)
         sys.exit(1)
     layer = dataSource.GetLayer()
     totfeatures = layer.GetFeatureCount()
@@ -167,6 +172,7 @@ def runRiverImport(segmentmax, *args):
             for j in range(len(linestrings)):
                 linestrings[j].Segmentize(segmentmax)
                 getAllPointsInRiverFeature(riverpoints, linestrings[j])
+    print "Import Success"
     return riverpoints
     
 

@@ -2,11 +2,11 @@
 """
 @file
 @author  Peter M Bach <peterbach@gmail.com>
-@version 0.5
+@version 1.0
 @section LICENSE
 
-This file is part of UrbanBEATS
-Copyright (C) 2012  Peter M Bach
+This file is part of UrbanBEATS (www.urbanbeatsmodel.com)
+Copyright (C) 2011, 2012  Peter M Bach
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License

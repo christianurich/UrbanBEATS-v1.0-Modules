@@ -2,11 +2,11 @@
 """
 @file
 @author  Peter M Bach <peterbach@gmail.com>
-@version 0.5
+@version 1.0
 @section LICENSE
 
-This file is part of VIBe2
-Copyright (C) 2011  Peter M Bach
+This file is part of UrbanBEATS (www.urbanbeatsmodel.com), DynaMind
+Copyright (C) 2011, 2012  Peter M Bach
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -33,6 +33,8 @@ class activatedelinblocksGUI(QtGui.QDialog):
         QtGui.QDialog.__init__(self, parent)
         self.ui = Ui_DelinBlocksDialog()
         self.ui.setupUi(self)
+        
+        self.cities = ["Adelaide", "Brisbane", "Cairns", "Canberra", "Copenhagen", "Innsbruck", "Kuala Lumpur", "London", "Melbourne", "Munich", "Perth", "Singapore", "Sydney", "Vienna"]
         
         #Set all default parameters contained in the module file into the GUI's fields
         
@@ -243,6 +245,12 @@ class activatedelinblocksGUI(QtGui.QDialog):
             self.ui.cbdlong_box.setEnabled(0)
             self.ui.cbdlat_box.setEnabled(0)
         
+        try:
+            citiesindex = self.cities.index(self.module.getParameterAsString("locationCity"))
+        except:
+            citiesindex = 0
+        self.ui.cbd_combo.setCurrentIndex(citiesindex)
+        
         self.ui.cbdlong_box.setText(self.module.getParameterAsString("locationLong"))
         self.ui.cbdlat_box.setText(self.module.getParameterAsString("locationLat"))
         self.ui.cbdmark_check.setChecked(int(self.module.getParameterAsString("marklocation")))
@@ -424,9 +432,9 @@ class activatedelinblocksGUI(QtGui.QDialog):
         gwoptions = ["Sea", "Surf"]
         self.module.setParameterValue("groundwater_datum", gwoptions[self.ui.groundwater_datumcombo.currentIndex()])
         
-        self.module.setParameterValue("include_road_net", str(int(self.ui.roadnet_check.isChecked())))
-        self.module.setParameterValue("include_supply_mains", str(int(self.ui.supplymains_check.isChecked())))
-        self.module.setParameterValue("include_sewer_mains", str(int(self.ui.sewermains_check.isChecked())))
+        #self.module.setParameterValue("include_road_net", str(int(self.ui.roadnet_check.isChecked())))
+        #self.module.setParameterValue("include_supply_mains", str(int(self.ui.supplymains_check.isChecked())))
+        #self.module.setParameterValue("include_sewer_mains", str(int(self.ui.sewermains_check.isChecked())))
         
         if self.ui.soc_par1_check.isChecked() == 1:
             include_soc_par1 = 1
@@ -478,7 +486,7 @@ class activatedelinblocksGUI(QtGui.QDialog):
         self.module.setParameterValue("vn4Patches", str(int(self.ui.neighb_vnpd_check.isChecked())))
         
         #Combo Box
-        flow_path_matrix = ["D8", "DI"]
+        flow_path_matrix = ["DI", "D8"]
         flow_method = flow_path_matrix[self.ui.flowpath_combo.currentIndex()]
         self.module.setParameterValue("flow_method", flow_method)
         
@@ -490,14 +498,16 @@ class activatedelinblocksGUI(QtGui.QDialog):
         #----------------------------------------------------------------------#
         self.module.setParameterValue("considerCBD", str(int(self.ui.considergeo_check.isChecked())))
         self.module.setParameterValue("marklocation", str(int(self.ui.cbdmark_check.isChecked())))
-
+        
         if self.ui.cbdknown_radio.isChecked() == True:
             locationOption = "S"        #Selection
         elif self.ui.cbdmanual_radio.isChecked() == True:
             locationOption = "C"        #Coordinates
         self.module.setParameterValue("locationOption", str(locationOption))
         
-        self.module.setParameterValue("locationCity", str(self.ui.cbd_combo.currentIndex()))
+        cityname = self.cities[self.ui.cbd_combo.currentIndex()]
+        self.module.setParameterValue("locationCity", str(cityname))
+        
         self.module.setParameterValue("locationLong", str(self.ui.cbdlong_box.text()))
         self.module.setParameterValue("locationLat", str(self.ui.cbdlat_box.text()))
 
