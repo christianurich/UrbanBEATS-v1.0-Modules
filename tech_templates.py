@@ -110,6 +110,11 @@ def createDataBaseString(blockstrategy):
     #print dbstring
     return dbstring
 
+def updateBasinService(basinstrategyobject):
+    """Goes through the basin strategy object and tallies up the total impervious area
+    serviced. This allows the strategy object to be sorted and scored.
+    """
+
 def writeReportFile(basinstrategyobject, filename):
     """Writes an output CSV file of the basin strategy object passed to the function
     and saves it to the file with the given <filename>.csv. The file can be opened in
@@ -122,31 +127,6 @@ def reportStrategy(strategyobject):
     this function for debugging"""
     
     return True
-
-def addBlockStrategyToBasin(blockstrategy, basinstrategy):
-    """Adds an In-Block Strategy Object to the basin strategy object, used to build
-    up the basin strategy"""
-    
-    return True
-
-def addSubbasinTechToBasin(subbasintech, basinstrategy):
-    """Adds a large regional system to the basin strategy, used to build up the 
-    basin strategy"""
-    
-    return True
-
-def getInBlockStrategy(basinstrategy, currentID):
-    """Retrieves the In-Block Strategy from a basin strategy object at the location
-    with currentID. If none is available, it returns zero"""
-    
-    return True
-
-def getSubbasinTech(basinstrategy, currentID):
-    """Searches the basin strategy for a regional system in Block with ID currentID
-    if none is available, returns zero instead"""
-
-    return True
-
 
 ### CLASSES IN THIS MODULE ###
 
@@ -221,6 +201,16 @@ class WaterTech(object):
     
 
 class BlockStrategy(object):
+    """Object, which contains all the WSUD technologies at the lot, street and neighbourhood
+    scales to make up the 'In-Block' Strategy. It applies to one block only and contains a
+    maximum of 7 possible technologies (5lot, 1street, 1neighbourhood).
+    
+    The combo is passed to the object as a vector, totalserviceabsolute specifies the total
+    service provided by the entire object, allotments tells us the number of allotments in
+    residential housing serviced, currentID pinpoints the location and the bin gives us an
+    indication of what bin-group this strategy should be in (when evaluating top 10 in-block
+    systems).
+    """
     def __init__(self, combo, totalserviceabsolute, allotments, currentID, bin):
         self.__lotRES_tech = combo[0]
         self.__lotHDR_tech = combo[1]
@@ -272,7 +262,106 @@ class BlockStrategy(object):
     def getTotalBasinContribution(self, basinAimp):
         return self.__service/basinAimp
     
+class BasinManagementStrategy(object):
+    """Class for the complete water management strategy within a basin of the case study.
+    Contains all the information about the basin as well as location of different technologies
+    in place within this basin, their service levels and scoring.
+    """
+    def __init__(self, strategyID, basinID, basinblockIDs, partakeIDs, basin_info):
+        #basin_info = [cumulative_Aimp, cumulative_population, cumulative_public_area]
+        
+        self.__basinID = basinID                #IDs for strategy basin and blocks
+        self.__strategyID = strategyID
+        self.__blocks = len(basinblockIDs)
+        self.__basinblockIDs = (basinblockIDs)
+        self.__subbas_partake_IDs = partakeIDs
+        
+        self.__basinAimp = basin_info[0]    #Impervious Area
+        self.__eif_served = 0   #effective impervious fraction served
+        self.__eia_served = 0   #effective impervious area served
+        
+        self.__basinPop = basin_info[1]
+        self.__basinPublic = basin_info[2]
+        
+        self.criteriamatrix = ["tec", "env", "ecn", "soc"]
+        self.__MCA_scores = [0,0,0,0]
+        self.__MCA_totscore = 0
+        
+        #Create Arrays to hold the strategy information
+        self.__basindetails = {}        #Holds the information on all upstream IDs
+        self.__subbasinarray = {}
+        for i in partakeIDs:
+            self.__subbasinarray[i] = []
+            self.__basindetails[i] = []
+        
+        self.__degreesarray = {}    
+        self.__inblockarray = {}
+        for i in basinblockIDs:
+            self.__inblockarray[i] = []
+            self.__degreesarray[i] = [0,0]
     
+    def getPropImpServed(self):
+        return self.__eif_served
+    
+    def getTotalImpAreaServed(self):
+        return self.__eia_served
+    
+    def getBasinBlockIDs(self):
+        return self.__basinblockIDs
+    
+    def getSubbasPartakeIDs(self):
+        return self.__subbas_partake_IDs
+    
+    def setMCAscore(self, criteria, score):
+        self.__MCA_scores[self.criteriamatrix.index(criteria)] = score
+    
+    def getMCAscore(self, criteria):
+        return self.__MCA_scores[self.criteriamatrix.index(criteria)]
+        
+    def addSubBasinInfo(self, currentID, upstreamIDs, subbasinIDs, totalAimp_subbasin):
+        """Adds information about the basin and sub-basin to the strategy to allow quick retrieval
+        of catchment details for computation.
+        """
+        try:
+            self.__basindetails[currentID] = [currentID, upstreamIDs, subbasinIDs, totalAimp_subbasin]
+        except KeyError:
+            return True
+        
+    def appendTechnology(self, currentID, deg, chosen_object, type):
+        """Appends a given technology object to either the in-block list of systems or 
+        the subbasin list of systems at the location currentID. Additionally saves the
+        degree of service implementation as well.
+        """
+        try:
+            if type == "s":
+                self.__subbasinarray[currentID] = chosen_object
+                self.__degreesarray[currentID][1] = deg
+            elif type == "b":
+                self.__inblockarray[currentID] = chosen_object
+                self.__degreesarray[currentID][0] = deg
+            return True
+        except KeyError:
+            return True
+        
+    def getIndividualTechStrat(self, currentID, type):
+        """Retrieves the object for a particular in-block or subbasin strategy/system
+        that is located in the block with the ID currentID. If none exists in that location,
+        model returns None.
+        """
+        try:
+            if type == "s":
+                strat = self.__subbasinarray[currentID]
+            elif type == "b":
+                strat = self.__inblockarray[currentID]
+            if len(strat) == 0:
+                return None
+            else:
+                return strat[0]
+        except KeyError:
+            return None
+            
+                
+"""
 #class BlockStrategy(object):
 #    #Class for Water Management Strategy, which consists of lot, street, neighbourhood scales
 #    #options that can be added to it using the WSUD class
@@ -903,4 +992,4 @@ class BasinManagementStrategy(object):
     
     def reportMCAscores(self):
         return [self.__mcatech_score, self.__mcaenv_score, self.__mcaecn_score, self.__mcasoc_score, self.__mcatot_score]
-    
+    """
