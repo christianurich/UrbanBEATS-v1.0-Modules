@@ -149,40 +149,6 @@ class Urbplanbb(Module):
         self.roof_connected = "Direct"          #how is the roof connected to drainage? Direct/Disconnected/Varied?
         self.imperv_prop_dced = 10              #proportion of impervious area disconnected
         
-        #--> Water Demands
-        self.createParameter("freq_kitchen", DOUBLE, "")
-        self.createParameter("freq_shower", DOUBLE, "")
-        self.createParameter("freq_toilet", DOUBLE, "")
-        self.createParameter("freq_laundry", DOUBLE, "")
-        self.createParameter("dur_kitchen", DOUBLE, "")
-        self.createParameter("dur_shower", DOUBLE, "")
-        self.createParameter("demandvary_kitchen", DOUBLE, "")
-        self.createParameter("demandvary_shower", DOUBLE, "")
-        self.createParameter("demandvary_toilet", DOUBLE, "")
-        self.createParameter("demandvary_laundry", DOUBLE, "")
-        self.createParameter("ffp_kitchen", STRING, "")
-        self.createParameter("ffp_shower", STRING, "")
-        self.createParameter("ffp_toilet", STRING, "")
-        self.createParameter("ffp_laundry", STRING, "")
-        self.createParameter("priv_irr_vol", DOUBLE, "")
-        self.createParameter("ffp_garden", STRING, "")
-        self.freq_kitchen = 2                   #Household Demands START
-        self.freq_shower = 2
-        self.freq_toilet = 2
-        self.freq_laundry = 2
-        self.dur_kitchen = 10
-        self.dur_shower = 5
-        self.demandvary_kitchen = 0.00
-        self.demandvary_shower = 0.00
-        self.demandvary_toilet = 0.00
-        self.demandvary_laundry = 0.00
-        self.ffp_kitchen = "PO"
-        self.ffp_shower = "PO"
-        self.ffp_toilet = "PO"
-        self.ffp_laundry = "PO"
-        self.priv_irr_vol = 1                   #Private irrigation volume [ML/ha/yr]
-        self.ffp_garden = "PO"
-        
         #--> Advanced Parameters
         self.min_allot_width = 10       #minimum width of an allotment = 10m if exceeded, then will build double allotments
         self.houseLUIthresh = [3.0, 5.4]   #house min and max threshold for LUI
@@ -242,12 +208,6 @@ class Urbplanbb(Module):
         self.createParameter("loadingbay_A", DOUBLE, "")
         self.createParameter("lscape_hsbalance", DOUBLE, "")
         self.createParameter("lscape_impdced", DOUBLE, "")
-        self.createParameter("com_demand", DOUBLE, "")
-        self.createParameter("com_demandvary", DOUBLE, "")
-        self.createParameter("li_demand", DOUBLE, "")
-        self.createParameter("li_demandvary", DOUBLE, "")
-        self.createParameter("hi_demand", DOUBLE, "")
-        self.createParameter("hi_demandvary", DOUBLE, "")
         self.employment_mode = "D"      #I = input, D = distribution, S = single
         self.ind_edist = 100                    #Employment Mode D: suggests the industrial employment distribution in employees/ha
         self.com_edist = 100                    #Employment Mode D: suggests the commercial employment distribution in employees/ha
@@ -271,19 +231,12 @@ class Urbplanbb(Module):
         self.loadingbay_A = 27
         self.lscape_hsbalance = 1
         self.lscape_impdced = 10
-        self.com_demand = 40
-        self.com_demandvary = 10
-        self.li_demand = 40
-        self.li_demandvary = 10
-        self.hi_demand = 40
-        self.hi_demandvary = 10
         
         self.nonres_far = {}
         self.nonres_far["LI"] = 70
         self.nonres_far["HI"] = 150
         self.nonres_far["COM"] = 220 
         self.nonres_far["ORC"] = 110 
-        
         
         #--> Civic Facilities
         self.createParameter("mun_explicit", BOOL, "")
@@ -427,15 +380,6 @@ class Urbplanbb(Module):
         self.svu4supply_prop = 30
         self.svu4waste_prop = 30
         self.svu4storm_prop = 40
-        
-        self.createParameter("public_irr_vol", DOUBLE, "")
-        self.createParameter("irrigate_parks", BOOL, "")
-        self.createParameter("irrigate_refs", BOOL, "")
-        self.createParameter("public_irr_wq", STRING, "")
-        self.public_irr_vol = 1
-        self.irrigate_parks = 1
-        self.irrigate_refs = 1
-        self.public_irr_wq = "PO"       #PO = potable, NP = non-potable, RW = rainwater, SW = stormwater, GW = greywater
         
         ############################
         #Others Parameters
@@ -762,7 +706,6 @@ class Urbplanbb(Module):
                     currentAttList.addAttribute("ResLotTIA", resdict["ResLotTIA"])
                     currentAttList.addAttribute("ResLotEIA", resdict["ResLotEIA"])
                     currentAttList.addAttribute("ResGarden", resdict["ResGarden"])
-                    currentAttList.addAttribute("DemPrivI", resdict["DemPrivI"])
                     currentAttList.addAttribute("ResRoofCon", resdict["ResRoofCon"])
                     
                     frontageTIF = 1 - (resdict["avSt_RES"] / resdict["TotalFrontage"])
@@ -785,9 +728,7 @@ class Urbplanbb(Module):
                     currentAttList.addAttribute("av_HDRes", resdict["av_HDRes"])
                     currentAttList.addAttribute("HDRGarden", resdict["HDRGarden"])
                     currentAttList.addAttribute("HDRCarPark", resdict["HDRCarPark"])
-                    currentAttList.addAttribute("DemAptI", resdict["DemAptI"])
                     #...
-                    
                     #Add to cumulative area variables
                     blk_tia += resdict["HDR_TIA"]
                     blk_eia += resdict["HDR_EIA"]
@@ -875,8 +816,6 @@ class Urbplanbb(Module):
                     currentAttList.addAttribute("LIAeLgrey", indLI_dict["Alandscape"]-indLI_dict["EstateGreenArea"])
                     currentAttList.addAttribute("LIAeEIA", indLI_dict["EstateEffectiveImpervious"])
                     currentAttList.addAttribute("LIAeTIA", indLI_dict["EstateImperviousArea"])
-                    currentAttList.addAttribute("LI_IDD", indLI_dict["indoordailydemand"])
-                    currentAttList.addAttribute("LI_OAD", indLI_dict["outdoorannualdemand"])
                     
                     #Add to cumulative area variables
                     blk_tia += indLI_dict["Estates"] *(indLI_dict["EstateImperviousArea"] + indLI_dict["FrontageEIA"])
@@ -902,8 +841,6 @@ class Urbplanbb(Module):
                     currentAttList.addAttribute("HIAeLgrey", indHI_dict["Alandscape"]-indHI_dict["EstateGreenArea"])
                     currentAttList.addAttribute("HIAeEIA", indHI_dict["EstateEffectiveImpervious"])
                     currentAttList.addAttribute("HIAeTIA", indHI_dict["EstateImperviousArea"])
-                    currentAttList.addAttribute("HI_IDD", indHI_dict["indoordailydemand"])
-                    currentAttList.addAttribute("HI_OAD", indHI_dict["outdoorannualdemand"])
             
                     #Add to cumulative area variables
                     blk_tia += indHI_dict["Estates"] *(indHI_dict["EstateImperviousArea"] + indHI_dict["FrontageEIA"])
@@ -929,8 +866,6 @@ class Urbplanbb(Module):
                     currentAttList.addAttribute("COMAeLgrey", com_dict["Alandscape"]-com_dict["EstateGreenArea"])
                     currentAttList.addAttribute("COMAeEIA", com_dict["EstateEffectiveImpervious"])
                     currentAttList.addAttribute("COMAeTIA", com_dict["EstateImperviousArea"])
-                    currentAttList.addAttribute("COM_IDD", com_dict["indoordailydemand"])
-                    currentAttList.addAttribute("COM_OAD", com_dict["outdoorannualdemand"])
                     
                     #Add to cumulative area variables
                     blk_tia += com_dict["Estates"] *(com_dict["EstateImperviousArea"] + com_dict["FrontageEIA"])
@@ -956,8 +891,6 @@ class Urbplanbb(Module):
                     currentAttList.addAttribute("ORCAeLgrey", orc_dict["Alandscape"]-orc_dict["EstateGreenArea"])
                     currentAttList.addAttribute("ORCAeEIA", orc_dict["EstateEffectiveImpervious"])
                     currentAttList.addAttribute("ORCAeTIA", orc_dict["EstateImperviousArea"])
-                    currentAttList.addAttribute("ORC_IDD", orc_dict["indoordailydemand"])
-                    currentAttList.addAttribute("ORC_OAD", orc_dict["outdoorannualdemand"])
                     
                     #Add to cumulative area variables
                     blk_tia += orc_dict["Estates"] *(orc_dict["EstateImperviousArea"] + orc_dict["FrontageEIA"])
@@ -965,11 +898,6 @@ class Urbplanbb(Module):
                     blk_roof += orc_dict["Estates"] * orc_dict["EstateBuildingArea"]
                     blk_avspace += orc_dict["Estates"] * (orc_dict["EstateGreenArea"] + orc_dict["av_St"])
                     
-            #CALCULATE PUBLIC OPEN SPACE IRRIGATION DEMAND
-            Apubirrigate = A_ref*self.irrigate_refs + A_park*self.irrigate_parks + otherperv*self.unc_landirrigate / 10000    #total irrigation area in hectares
-            Vpubirrigate = Apubirrigate*self.public_irr_vol     #Area of irrigation * annual rate = [ML/yr]
-            currentAttList.addAttribute("DemPublicI", Vpubirrigate)     #annual irrigation volume [ML/yr]
-            
             #TALLY UP TOTAL BLOCK DETAILS
             currentAttList.addAttribute("Blk_TIA", blk_tia)
             currentAttList.addAttribute("Blk_EIA", blk_eia)
@@ -989,12 +917,6 @@ class Urbplanbb(Module):
         map_attr.addAttribute("RefLimit", self.ref_limit_stormwater)            #Limit Reserves and Floodways to SW Management
         map_attr.addAttribute("UndevAllow", self.und_allowdev)                  #Allow developing water infrastructure in undev areas
         map_attr.addAttribute("HwyMedLimit", self.hwy_restrict)                 #Restrict tech placement along Highway medians
-        map_attr.addAttribute("MinWQPubIrr", self.public_irr_wq)                #Minimum acceptable water quality for public irrigation
-        #map_attr.addAttribute("MinWQPrivIrr", ....)                            #Minimum acceptable water quality for private irrigation
-        #map_attr.addAttribute("MinWQKitchen", ....)                            #Minimum acceptable water quality for Kitchen demand
-        #map_attr.addAttribute("MinWQToilet", ....)                             #Minimum acceptable water quality for Toilet Demand
-        #map_attr.addAttribute("MinWQShower", ....)                             #Minimum acceptable water quality for Shower Demand
-        #map_attr.addAttribute("MinWQLaundry", ....)                            #Minimum acceptable water quality for Laundry Demand
         
         print "End of Module"
     
@@ -1283,10 +1205,6 @@ class Urbplanbb(Module):
         resdict["ResLotEIA"] = AConnectedImp
         resdict["ResGarden"] = Agarden
         
-        Virrigation = self.priv_irr_vol * Agarden/10000
-        VtotIrrigation = Nallotments * Virrigation
-        resdict["DemPrivI"] = VtotIrrigation
-        
         return resdict
 
     def designResidentialApartments(self, currentAttList, map_attr, A_res, pop, ratios, Afloor):
@@ -1360,11 +1278,7 @@ class Urbplanbb(Module):
             resdict["av_HDRes"] = av_RESHDR
             resdict["HDRGarden"] = Agarden
             resdict["HDRCarPark"] = Aparking
-            
-            VtotIrrigation = self.priv_irr_vol * Agarden/10000
-            resdict["DemAptI"] = VtotIrrigation
             return resdict
-
         else:
             pass
             #print "Exceeded floors, executing 2nd method"
@@ -1402,9 +1316,6 @@ class Urbplanbb(Module):
             resdict["av_HDRes"] = av_RESHDR
             resdict["HDRGarden"] = Agarden
             resdict["HDRCarPark"] = Aparking
-            
-            VtotIrrigation = self.priv_irr_vol * Agarden/10000
-            resdict["DemAptI"] = VtotIrrigation
             return resdict
         else:
             pass
@@ -1443,9 +1354,6 @@ class Urbplanbb(Module):
         resdict["HDRGarden"] = Agarden
         resdict["HDRCarPark"] = Aparking
         
-        VtotIrrigation = self.priv_irr_vol * Agarden/10000
-        resdict["DemAptI"] = VtotIrrigation
-        
         return resdict
 
     def calculateParkingArea(self, Aout, Alive, cpMin, cpMax):
@@ -1477,13 +1385,6 @@ class Urbplanbb(Module):
         elif parking_HDR == "Off" or parking_HDR == "Var":
             Aparking = 0
         return Aparking
-
-    def calcHouseholdDemand(self, resdict):
-        """Calculates the residential household demand patterns"""
-        
-        pass
-        
-        return resdict
 
     def retrieveResType(self, lui):
         """Retrieves the residence type for the specified lui, if the type
@@ -1753,19 +1654,6 @@ class Urbplanbb(Module):
         nresdict["EstateGreenArea"] = Agreen
         nresdict["EstateImperviousArea"] = Aimp_total
         nresdict["EstateEffectiveImpervious"] = Aimp_connected
-        
-        #STEP 6: Water demands (sample the demand and calculate the demand)
-        if type == "LI":    
-            demandrate = round(random.uniform(self.li_demand*(1-float(self.li_demandvary/100)), self.li_demand*(1+float(self.li_demandvary/100))),2)
-        elif type == "HI":
-            demandrate = round(random.uniform(self.hi_demand*(1-float(self.hi_demandvary/100)), self.hi_demand*(1+float(self.hi_demandvary/100))),2)
-        elif type == "COM" or type == "ORC": 
-            demandrate = round(random.uniform(self.com_demand*(1-float(self.com_demandvary/100)), self.com_demand*(1+float(self.com_demandvary/100))),2)
-        indoordailydemand = demandrate * Afloor / 1000      #[kL/day]
-        outdoorannualdemand = self.public_irr_vol * Alandscape
-        
-        nresdict["indoordailydemand"] = indoordailydemand
-        nresdict["outdoorannualdemand"] = outdoorannualdemand
         
         return nresdict
         

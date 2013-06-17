@@ -136,75 +136,6 @@ class activateurbplanbbGUI(QtGui.QDialog):
         
         self.ui.avg_imp_dced_spin.setValue(int(self.module.getParameterAsString("imperv_prop_dced")))
         
-        #--> Water Demands
-        self.ui.freq_kitchen_box.setText(self.module.getParameterAsString("freq_kitchen"))
-        self.ui.freq_shower_box.setText(self.module.getParameterAsString("freq_shower"))
-        self.ui.freq_toilet_box.setText(self.module.getParameterAsString("freq_toilet"))
-        self.ui.freq_laundry_box.setText(self.module.getParameterAsString("freq_laundry"))
-        self.ui.dur_kitchen_box.setText(self.module.getParameterAsString("dur_kitchen"))
-        self.ui.dur_shower_box.setText(self.module.getParameterAsString("dur_shower"))
-        self.ui.demandvary_kitchen_box.setText(self.module.getParameterAsString("demandvary_kitchen"))
-        self.ui.demandvary_shower_box.setText(self.module.getParameterAsString("demandvary_shower"))
-        self.ui.demandvary_toilet_box.setText(self.module.getParameterAsString("demandvary_toilet"))
-        self.ui.demandvary_laundry_box.setText(self.module.getParameterAsString("demandvary_laundry"))
-        self.ui.priv_irr_vol_box.setText(self.module.getParameterAsString("priv_irr_vol"))
-        
-        #COMBO BOX
-        if self.module.getParameterAsString("ffp_kitchen") == "PO":
-            self.ui.ffp_kitchen_combo.setCurrentIndex(0)
-        elif self.module.getParameterAsString("ffp_kitchen") == "NP":
-            self.ui.ffp_kitchen_combo.setCurrentIndex(1)
-        elif self.module.getParameterAsString("ffp_kitchen") == "RW":
-            self.ui.ffp_kitchen_combo.setCurrentIndex(2)
-        elif self.module.getParameterAsString("ffp_kitchen") == "SW":
-            self.ui.ffp_kitchen_combo.setCurrentIndex(3)
-        elif self.module.getParameterAsString("ffp_kitchen") == "GW":
-            self.ui.ffp_kitchen_combo.setCurrentIndex(4)
-        
-        if self.module.getParameterAsString("ffp_shower") == "PO":
-            self.ui.ffp_shower_combo.setCurrentIndex(0)
-        elif self.module.getParameterAsString("ffp_shower") == "NP":
-            self.ui.ffp_shower_combo.setCurrentIndex(1)
-        elif self.module.getParameterAsString("ffp_shower") == "RW":
-            self.ui.ffp_shower_combo.setCurrentIndex(2)
-        elif self.module.getParameterAsString("ffp_shower") == "SW":
-            self.ui.ffp_shower_combo.setCurrentIndex(3)
-        elif self.module.getParameterAsString("ffp_shower") == "GW":
-            self.ui.ffp_shower_combo.setCurrentIndex(4)
-        
-        if self.module.getParameterAsString("ffp_toilet") == "PO":
-            self.ui.ffp_toilet_combo.setCurrentIndex(0)
-        elif self.module.getParameterAsString("ffp_toilet") == "NP":
-            self.ui.ffp_toilet_combo.setCurrentIndex(1)
-        elif self.module.getParameterAsString("ffp_toilet") == "RW":
-            self.ui.ffp_toilet_combo.setCurrentIndex(2)
-        elif self.module.getParameterAsString("ffp_toilet") == "SW":
-            self.ui.ffp_toilet_combo.setCurrentIndex(3)
-        elif self.module.getParameterAsString("ffp_toilet") == "GW":
-            self.ui.ffp_toilet_combo.setCurrentIndex(4)
-            
-        if self.module.getParameterAsString("ffp_laundry") == "PO":
-            self.ui.ffp_laundry_combo.setCurrentIndex(0)
-        elif self.module.getParameterAsString("ffp_laundry") == "NP":
-            self.ui.ffp_laundry_combo.setCurrentIndex(1)
-        elif self.module.getParameterAsString("ffp_laundry") == "RW":
-            self.ui.ffp_laundry_combo.setCurrentIndex(2)
-        elif self.module.getParameterAsString("ffp_laundry") == "SW":
-            self.ui.ffp_laundry_combo.setCurrentIndex(3)
-        elif self.module.getParameterAsString("ffp_laundry") == "GW":
-            self.ui.ffp_laundry_combo.setCurrentIndex(4)
-            
-        if self.module.getParameterAsString("ffp_garden") == "PO":
-            self.ui.ffp_garden_combo.setCurrentIndex(0)
-        elif self.module.getParameterAsString("ffp_garden") == "NP":
-            self.ui.ffp_garden_combo.setCurrentIndex(1)
-        elif self.module.getParameterAsString("ffp_garden") == "RW":
-            self.ui.ffp_garden_combo.setCurrentIndex(2)
-        elif self.module.getParameterAsString("ffp_garden") == "SW":
-            self.ui.ffp_garden_combo.setCurrentIndex(3)
-        elif self.module.getParameterAsString("ffp_garden") == "GW":
-            self.ui.ffp_garden_combo.setCurrentIndex(4)
-        
         ##########################
         #Non-Residential Tab
         ##########################
@@ -275,14 +206,6 @@ class activateurbplanbbGUI(QtGui.QDialog):
         #--> Landscaping & Drainage
         self.ui.lscape_hsbalance_slide.setValue(int(self.module.getParameterAsString("lscape_hsbalance")))
         self.ui.lscape_impdced_spin.setValue(int(self.module.getParameterAsString("lscape_impdced")))
-        
-        #--> Water Demands
-        self.ui.comdemand_box.setText(self.module.getParameterAsString("com_demand"))
-        self.ui.lidemand_box.setText(self.module.getParameterAsString("li_demand"))
-        self.ui.hidemand_box.setText(self.module.getParameterAsString("hi_demand"))
-        self.ui.comdemand_spin.setValue(int(self.module.getParameterAsString("com_demandvary")))
-        self.ui.lidemand_spin.setValue(int(self.module.getParameterAsString("li_demandvary")))
-        self.ui.hidemand_spin.setValue(int(self.module.getParameterAsString("hi_demandvary")))
         
         #--> Municipal Facilities
         if self.module.getParameterAsString("mun_explicit") == "1":
@@ -393,8 +316,6 @@ class activateurbplanbbGUI(QtGui.QDialog):
         self.ui.trans_busdepot_box.setChecked(bool(int(self.module.getParameterAsString("trans_busdepot"))))
         self.ui.trans_rail_box.setChecked(bool(int(self.module.getParameterAsString("trans_railterminal"))))
         
-        print "Debug3"
-        
         ##########################
         #Open Space Tab
         ##########################
@@ -463,24 +384,6 @@ class activateurbplanbbGUI(QtGui.QDialog):
         QtCore.QObject.connect(self.ui.svu_supply_check, QtCore.SIGNAL("clicked()"), self.svu_supply_update)
         QtCore.QObject.connect(self.ui.svu_waste_check, QtCore.SIGNAL("clicked()"), self.svu_waste_update)
         QtCore.QObject.connect(self.ui.svu_storm_check, QtCore.SIGNAL("clicked()"), self.svu_storm_update)
-        
-        self.ui.public_irr_volume.setText(self.module.getParameterAsString("public_irr_vol"))
-        self.ui.public_irr_pg.setChecked(bool(int(self.module.getParameterAsString("irrigate_parks"))))
-        self.ui.public_irr_ref.setChecked(bool(int(self.module.getParameterAsString("irrigate_refs"))))
-        
-        #COMBO BOX
-        if self.module.getParameterAsString("public_irr_wq") == "PO":
-            self.ui.public_irr_wq.setCurrentIndex(0)
-        elif self.module.getParameterAsString("public_irr_wq") == "NP":
-            self.ui.public_irr_wq.setCurrentIndex(1)
-        elif self.module.getParameterAsString("public_irr_wq") == "RW":
-            self.ui.public_irr_wq.setCurrentIndex(2)
-        elif self.module.getParameterAsString("public_irr_wq") == "SW":
-            self.ui.public_irr_wq.setCurrentIndex(3)
-        elif self.module.getParameterAsString("public_irr_wq") == "GW":
-            self.ui.public_irr_wq.setCurrentIndex(4)
-        
-        print "Debug4"
         
         ##########################
         #Others Tab
@@ -567,7 +470,6 @@ class activateurbplanbbGUI(QtGui.QDialog):
         
         self.ui.und_allowdev_check.setChecked(bool(int(self.module.getParameterAsString("und_allowdev"))))
         
-        print "Debug 5"
         #CONNECT DETAILS WITH THE OK BUTTON SO THAT GUI UPDATES MODULE
         QtCore.QObject.connect(self.ui.buttonBox, QtCore.SIGNAL("accepted()"), self.save_values)
         
@@ -838,25 +740,6 @@ class activateurbplanbbGUI(QtGui.QDialog):
         
         self.module.setParameterValue("imperv_prop_dced", str(int(self.ui.avg_imp_dced_spin.value())))
         
-        #--> Water Demands
-        self.module.setParameterValue("freq_kitchen", str(self.ui.freq_kitchen_box.text()))
-        self.module.setParameterValue("freq_shower", str(self.ui.freq_shower_box.text()))
-        self.module.setParameterValue("freq_toilet", str(self.ui.freq_toilet_box.text()))
-        self.module.setParameterValue("freq_laundry", str(self.ui.freq_laundry_box.text()))
-        self.module.setParameterValue("dur_kitchen", str(self.ui.dur_kitchen_box.text()))
-        self.module.setParameterValue("dur_shower", str(self.ui.dur_shower_box.text()))
-        self.module.setParameterValue("demandvary_kitchen", str(self.ui.demandvary_kitchen_box.text()))
-        self.module.setParameterValue("demandvary_shower", str(self.ui.demandvary_shower_box.text()))
-        self.module.setParameterValue("demandvary_toilet", str(self.ui.demandvary_toilet_box.text()))
-        self.module.setParameterValue("demandvary_laundry", str(self.ui.demandvary_laundry_box.text()))
-        self.module.setParameterValue("priv_irr_vol", str(self.ui.priv_irr_vol_box.text()))
-        
-        self.module.setParameterValue("ffp_kitchen", str(ffp_matrix[self.ui.ffp_kitchen_combo.currentIndex()]))
-        self.module.setParameterValue("ffp_shower", str(ffp_matrix[self.ui.ffp_shower_combo.currentIndex()]))
-        self.module.setParameterValue("ffp_toilet", str(ffp_matrix[self.ui.ffp_toilet_combo.currentIndex()]))
-        self.module.setParameterValue("ffp_laundry", str(ffp_matrix[self.ui.ffp_laundry_combo.currentIndex()]))
-        self.module.setParameterValue("ffp_garden", str(ffp_matrix[self.ui.ffp_garden_combo.currentIndex()]))
-        
         ##########################
         #Non-Residential Tab
         ##########################
@@ -902,14 +785,6 @@ class activateurbplanbbGUI(QtGui.QDialog):
         lscape_impdced = str(self.ui.lscape_impdced_spin.value())
         self.module.setParameterValue("lscape_impdced", lscape_impdced)
 
-        #--> Water Demands
-        self.module.setParameterValue("com_demand", str(self.ui.comdemand_box.text()))
-        self.module.setParameterValue("li_demand", str(self.ui.lidemand_box.text()))
-        self.module.setParameterValue("hi_demand", str(self.ui.hidemand_box.text()))
-        self.module.setParameterValue("com_demandvary", str(self.ui.comdemand_spin.value()))
-        self.module.setParameterValue("li_demandvary", str(self.ui.lidemand_spin.value()))
-        self.module.setParameterValue("hi_demandvary", str(self.ui.hidemand_spin.value()))
-        
         #--> Municipal Facilities
         self.module.setParameterValue("mun_explicit", str(int(self.ui.civ_consider_check.isChecked())))
         self.module.setParameterValue("edu_school", str(int(self.ui.edu_school_box.isChecked())))
@@ -997,12 +872,6 @@ class activateurbplanbbGUI(QtGui.QDialog):
         self.module.setParameterValue("svu4supply_prop", str(self.ui.svu_supply_spin.value()))
         self.module.setParameterValue("svu4waste_prop", str(self.ui.svu_waste_spin.value()))
         self.module.setParameterValue("svu4storm_prop", str(self.ui.svu_storm_spin.value()))
-        
-        #--> Public Open Space Irrigation
-        self.module.setParameterValue("public_irr_vol", str(self.ui.public_irr_volume.text()))
-        self.module.setParameterValue("irrigate_parks", str(int(self.ui.public_irr_pg.isChecked())))
-        self.module.setParameterValue("irrigate_refs", str(int(self.ui.public_irr_ref.isChecked())))
-        self.module.setParameterValue("public_irr_wq", str(ffp_matrix[self.ui.public_irr_wq.currentIndex()]))
         
         ##########################
         #Others Tab

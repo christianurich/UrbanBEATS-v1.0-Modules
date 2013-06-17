@@ -60,7 +60,8 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.ui.targets_reliability_spin.setValue(float(self.module.getParameterAsString("targets_reliability")))
         
         #-------- SERVICE LEVELS ----------------------------------------------#
-        self.ui.service_swm.setValue(float(self.module.getParameterAsString("service_swm")))
+        self.ui.service_swmQty.setValue(float(self.module.getParameterAsString("service_swmQty")))
+        self.ui.service_swmWQ.setValue(float(self.module.getParameterAsString("service_swmWQ")))
         self.ui.service_wr_private.setValue(float(self.module.getParameterAsString("service_wr_private")))
         self.ui.service_wr_public.setValue(float(self.module.getParameterAsString("service_wr_public")))
         
@@ -69,6 +70,8 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.ui.service_com.setChecked(bool(int(self.module.getParameterAsString("service_com"))))
         self.ui.service_li.setChecked(bool(int(self.module.getParameterAsString("service_li"))))
         self.ui.service_hi.setChecked(bool(int(self.module.getParameterAsString("service_hi"))))
+        
+        self.ui.service_redundancy.setValue(float(self.module.getParameterAsString("service_redundancy")))
         
         #-------- STRATEGY SETUP ----------------------------------------------#
         if self.module.getParameterAsString("strategy_lot_check") == "1":
@@ -270,6 +273,197 @@ class activatetechplacementGUI(QtGui.QDialog):
         QtCore.QObject.connect(self.ui.area_retrofit_combo, QtCore.SIGNAL("currentIndexChanged(int)"), self.update_retrofitoptions)
         
         #######################################
+        #Water Use and Recycling Tab
+        #######################################
+        #--> Water Demands
+        self.ui.freq_kitchen_box.setText(self.module.getParameterAsString("freq_kitchen"))
+        self.ui.freq_shower_box.setText(self.module.getParameterAsString("freq_shower"))
+        self.ui.freq_toilet_box.setText(self.module.getParameterAsString("freq_toilet"))
+        self.ui.freq_laundry_box.setText(self.module.getParameterAsString("freq_laundry"))
+        self.ui.dur_kitchen_box.setText(self.module.getParameterAsString("dur_kitchen"))
+        self.ui.dur_shower_box.setText(self.module.getParameterAsString("dur_shower"))
+        self.ui.demandvary_kitchen_box.setValue(int(self.module.getParameterAsString("demandvary_kitchen")))
+        self.ui.demandvary_shower_box.setValue(int(self.module.getParameterAsString("demandvary_shower")))
+        self.ui.demandvary_toilet_box.setValue(int(self.module.getParameterAsString("demandvary_toilet")))
+        self.ui.demandvary_laundry_box.setValue(int(self.module.getParameterAsString("demandvary_laundry")))
+        self.ui.priv_irr_vol_box.setText(self.module.getParameterAsString("priv_irr_vol"))
+        
+        #COMBO BOX
+        if self.module.getParameterAsString("ffp_kitchen") == "PO":
+            self.ui.ffp_kitchen_combo.setCurrentIndex(0)
+        elif self.module.getParameterAsString("ffp_kitchen") == "NP":
+            self.ui.ffp_kitchen_combo.setCurrentIndex(1)
+        elif self.module.getParameterAsString("ffp_kitchen") == "RW":
+            self.ui.ffp_kitchen_combo.setCurrentIndex(2)
+        elif self.module.getParameterAsString("ffp_kitchen") == "SW":
+            self.ui.ffp_kitchen_combo.setCurrentIndex(3)
+        elif self.module.getParameterAsString("ffp_kitchen") == "GW":
+            self.ui.ffp_kitchen_combo.setCurrentIndex(4)
+        
+        if self.module.getParameterAsString("ffp_shower") == "PO":
+            self.ui.ffp_shower_combo.setCurrentIndex(0)
+        elif self.module.getParameterAsString("ffp_shower") == "NP":
+            self.ui.ffp_shower_combo.setCurrentIndex(1)
+        elif self.module.getParameterAsString("ffp_shower") == "RW":
+            self.ui.ffp_shower_combo.setCurrentIndex(2)
+        elif self.module.getParameterAsString("ffp_shower") == "SW":
+            self.ui.ffp_shower_combo.setCurrentIndex(3)
+        elif self.module.getParameterAsString("ffp_shower") == "GW":
+            self.ui.ffp_shower_combo.setCurrentIndex(4)
+        
+        if self.module.getParameterAsString("ffp_toilet") == "PO":
+            self.ui.ffp_toilet_combo.setCurrentIndex(0)
+        elif self.module.getParameterAsString("ffp_toilet") == "NP":
+            self.ui.ffp_toilet_combo.setCurrentIndex(1)
+        elif self.module.getParameterAsString("ffp_toilet") == "RW":
+            self.ui.ffp_toilet_combo.setCurrentIndex(2)
+        elif self.module.getParameterAsString("ffp_toilet") == "SW":
+            self.ui.ffp_toilet_combo.setCurrentIndex(3)
+        elif self.module.getParameterAsString("ffp_toilet") == "GW":
+            self.ui.ffp_toilet_combo.setCurrentIndex(4)
+            
+        if self.module.getParameterAsString("ffp_laundry") == "PO":
+            self.ui.ffp_laundry_combo.setCurrentIndex(0)
+        elif self.module.getParameterAsString("ffp_laundry") == "NP":
+            self.ui.ffp_laundry_combo.setCurrentIndex(1)
+        elif self.module.getParameterAsString("ffp_laundry") == "RW":
+            self.ui.ffp_laundry_combo.setCurrentIndex(2)
+        elif self.module.getParameterAsString("ffp_laundry") == "SW":
+            self.ui.ffp_laundry_combo.setCurrentIndex(3)
+        elif self.module.getParameterAsString("ffp_laundry") == "GW":
+            self.ui.ffp_laundry_combo.setCurrentIndex(4)
+            
+        if self.module.getParameterAsString("ffp_garden") == "PO":
+            self.ui.ffp_garden_combo.setCurrentIndex(0)
+        elif self.module.getParameterAsString("ffp_garden") == "NP":
+            self.ui.ffp_garden_combo.setCurrentIndex(1)
+        elif self.module.getParameterAsString("ffp_garden") == "RW":
+            self.ui.ffp_garden_combo.setCurrentIndex(2)
+        elif self.module.getParameterAsString("ffp_garden") == "SW":
+            self.ui.ffp_garden_combo.setCurrentIndex(3)
+        elif self.module.getParameterAsString("ffp_garden") == "GW":
+            self.ui.ffp_garden_combo.setCurrentIndex(4)
+        
+        self.ui.comdemand_box.setText(self.module.getParameterAsString("com_demand"))
+        self.ui.lidemand_box.setText(self.module.getParameterAsString("li_demand"))
+        self.ui.hidemand_box.setText(self.module.getParameterAsString("hi_demand"))
+        self.ui.comdemand_spin.setValue(int(self.module.getParameterAsString("com_demandvary")))
+        self.ui.lidemand_spin.setValue(int(self.module.getParameterAsString("li_demandvary")))
+        self.ui.hidemand_spin.setValue(int(self.module.getParameterAsString("hi_demandvary")))
+        
+        self.ui.public_irr_volume.setText(self.module.getParameterAsString("public_irr_vol"))
+        self.ui.public_irr_nonres.setChecked(bool(int(self.module.getParameterAsString("irrigate_nonres"))))
+        self.ui.public_irr_pg.setChecked(bool(int(self.module.getParameterAsString("irrigate_parks"))))
+        self.ui.public_irr_ref.setChecked(bool(int(self.module.getParameterAsString("irrigate_refs"))))
+        
+        #COMBO BOX
+        if self.module.getParameterAsString("public_irr_wq") == "PO":
+            self.ui.public_irr_wq.setCurrentIndex(0)
+        elif self.module.getParameterAsString("public_irr_wq") == "NP":
+            self.ui.public_irr_wq.setCurrentIndex(1)
+        elif self.module.getParameterAsString("public_irr_wq") == "RW":
+            self.ui.public_irr_wq.setCurrentIndex(2)
+        elif self.module.getParameterAsString("public_irr_wq") == "SW":
+            self.ui.public_irr_wq.setCurrentIndex(3)
+        elif self.module.getParameterAsString("public_irr_wq") == "GW":
+            self.ui.public_irr_wq.setCurrentIndex(4)
+        
+        #--> Water Efficiency
+        ### NOTE: Not linking Rating System Combo box, AS6400 the only available system currently
+        
+        if self.module.getParameterAsString("WEF_loc_house") == "1":
+            self.ui.WEF_loc_house_check.setChecked(1)
+        else:
+            self.ui.WEF_loc_house_check.setChecked(0)
+        
+        if self.module.getParameterAsString("WEF_loc_apart") == "1":
+            self.ui.WEF_loc_apart_check.setChecked(1)
+        else:
+            self.ui.WEF_loc_apart_check.setChecked(0)
+            
+        if self.module.getParameterAsString("WEF_loc_nonres") == "1":
+            self.ui.WEF_loc_nonres_check.setChecked(1)
+        else:
+            self.ui.WEF_loc_nonres_check.setChecked(0)
+        
+        if self.module.getParameterAsString("WEF_method") == "C":
+            self.ui.WEF_constant_radio.setChecked(1)
+            self.ui.WEF_constant_combo.setEnabled(1)
+            self.ui.WEF_distribution_combo.setEnabled(0)
+            self.ui.WEF_distribution_select.setEnabled(0)
+            self.ui.WEF_distribution_check.setEnabled(0)
+        elif self.module.getParameterAsString("WEF_method") == "D":
+            self.ui.WEF_distribution_radio.setChecked(1)
+            self.ui.WEF_constant_combo.setEnabled(0)
+            self.ui.WEF_distribution_combo.setEnabled(1)
+            self.ui.WEF_distribution_select.setEnabled(1)
+            self.ui.WEF_distribution_check.setEnabled(1)
+        
+        QtCore.QObject.connect(self.ui.WEF_constant_radio, QtCore.SIGNAL("clicked()"), self.update_WEF_determine)
+        QtCore.QObject.connect(self.ui.WEF_distribution_radio, QtCore.SIGNAL("clicked()"), self.update_WEF_determine)
+        
+        self.ui.WEF_constant_combo.setCurrentIndex(int(self.module.getParameterAsString("WEF_c_rating"))-1)
+        self.ui.WEF_distribution_combo.setCurrentIndex(int(self.module.getParameterAsString("WEF_d_rating"))-1)
+        
+        self.WEFdist = ["LH", "LL", "NM", "UF"]
+        self.ui.WEF_distribution_select.setCurrentIndex(self.WEFdist.index(self.module.getParameterAsString("WEF_distribution")))
+        
+        self.ui.WEF_distribution_check.setChecked(bool(int(self.module.getParameterAsString("WEF_includezero"))))
+        
+        #--> Harvesting Strategy + Additional Info
+        self.ui.rec_demrange_min.setValue(int(self.module.getParameterAsString("rec_demrange_min")))
+        self.ui.rec_demrange_max.setValue(int(self.module.getParameterAsString("rec_demrange_max")))
+        self.ui.rec_ww_kitchen.setChecked(bool(int(self.module.getParameterAsString("ww_kitchen"))))
+        self.ui.rec_ww_shower.setChecked(bool(int(self.module.getParameterAsString("ww_shower"))))
+        self.ui.rec_ww_toilet.setChecked(bool(int(self.module.getParameterAsString("ww_toilet"))))
+        self.ui.rec_ww_laundry.setChecked(bool(int(self.module.getParameterAsString("ww_laundry"))))
+        
+        if self.module.getParameterAsString("hs_strategy") == "ud":
+            self.ui.radio_hsdown.setChecked(1)
+        elif self.module.getParameterAsString("hs_strategy") == "uu":
+            self.ui.radio_hsup.setChecked(1)
+        elif self.module.getParameterAsString("hs_strategy") == "ua":
+            self.ui.radio_hsall.setChecked(1)
+        
+        self.sbmethod = ["Eqn", "Sim"]
+        self.ui.rec_assessment_combo.setCurrentIndex(self.sbmethod.index(self.module.getParameterAsString("sb_method")))
+        
+        self.ui.rec_rainfall_spin.setValue(int(self.module.getParameterAsString("rain_length")))
+        
+        if self.module.getParameterAsString("WEFstatus") == "1":
+            self.ui.WEF_consider.setChecked(1)
+            self.ui.WEF_rating_system_combo.setEnabled(1)
+            self.ui.WEF_loc_house_check.setEnabled(1)
+            self.ui.WEF_loc_apart_check.setEnabled(1)
+            self.ui.WEF_constant_radio.setEnabled(1)
+            self.ui.WEF_distribution_radio.setEnabled(1)
+            if self.ui.WEF_constant_radio.isChecked() == 1:
+                self.ui.WEF_constant_combo.setEnabled(1)
+            else:
+                self.ui.WEF_constant_combo.setEnabled(0)
+            if self.ui.WEF_distribution_radio.isChecked() == 1:
+                self.ui.WEF_distribution_combo.setEnabled(1)
+                self.ui.WEF_distribution_select.setEnabled(1)
+                self.ui.WEF_distribution_check.setEnabled(1)
+            else:
+                self.ui.WEF_distribution_combo.setEnabled(0)
+                self.ui.WEF_distribution_select.setEnabled(0)
+                self.ui.WEF_distribution_check.setEnabled(0)
+        else:
+            self.ui.WEF_consider.setChecked(0)
+            self.ui.WEF_rating_system_combo.setEnabled(0)
+            self.ui.WEF_loc_house_check.setEnabled(0)
+            self.ui.WEF_loc_apart_check.setEnabled(0)
+            self.ui.WEF_constant_radio.setEnabled(0)
+            self.ui.WEF_distribution_radio.setEnabled(0)
+            self.ui.WEF_constant_combo.setEnabled(0)
+            self.ui.WEF_distribution_combo.setEnabled(0)
+            self.ui.WEF_distribution_select.setEnabled(0)
+            self.ui.WEF_distribution_check.setEnabled(0)
+        
+        QtCore.QObject.connect(self.ui.WEF_consider, QtCore.SIGNAL("clicked()"), self.WEF_consider_update)
+        
+        #######################################
         #Choose & Customize Technologies Tab
         #######################################
         
@@ -319,6 +513,11 @@ class activatetechplacementGUI(QtGui.QDialog):
             self.ui.BFprec_check.setChecked(0)
         
         #Available Applications
+        if self.module.getParameterAsString("BFflow") == "1":
+            self.ui.BFflow_check.setChecked(1)
+        else:
+            self.ui.BFflow_check.setChecked(0)
+        
         if self.module.getParameterAsString("BFpollute") == "1":
             self.ui.BFpollute_check.setChecked(1)
         else:
@@ -365,7 +564,9 @@ class activatetechplacementGUI(QtGui.QDialog):
         elif self.module.getParameterAsString("BFspec_FD") == "0.8":
             self.ui.BFspecs_FD_combo.setCurrentIndex(3)
         
+        self.ui.BFminsize_box.setText(self.module.getParameterAsString("BFminsize"))
         self.ui.BFmaxsize_box.setText(self.module.getParameterAsString("BFmaxsize"))
+        self.ui.BFavglifespin.setValue(int(self.module.getParameterAsString("BFavglife")))
         
         if self.module.getParameterAsString("BFlined") == "1":
             self.ui.BFlined_check.setChecked(1)
@@ -459,6 +660,7 @@ class activatetechplacementGUI(QtGui.QDialog):
         elif self.module.getParameterAsString("ISspec_FD") == "0.8":
             self.ui.ISspecs_FD_combo.setCurrentIndex(3)
         
+        self.ui.ISminsize_box.setText(self.module.getParameterAsString("ISminsize"))
         self.ui.ISmaxsize_box.setText(self.module.getParameterAsString("ISmaxsize"))
         self.ui.ISavglifespin.setValue(int(self.module.getParameterAsString("ISavglife")))
         
@@ -496,6 +698,11 @@ class activatetechplacementGUI(QtGui.QDialog):
         else:
             self.ui.PBpollute_check.setChecked(0)
         
+        if self.module.getParameterAsString("PBrecycle") == "1":
+            self.ui.PBrecycle_check.setChecked(1)
+        else:
+            self.ui.PBrecycle_check.setChecked(0)
+        
         #Design Curves
         if self.module.getParameterAsString("PBdesignUB") == "1":
             self.ui.PBdesignUB_box.setChecked(1)
@@ -528,7 +735,9 @@ class activatetechplacementGUI(QtGui.QDialog):
         elif self.module.getParameterAsString("PBspec_MD") == "1.25":
             self.ui.PBspecs_combo.setCurrentIndex(4)    
         
+        self.ui.PBminsize_box.setText(self.module.getParameterAsString("PBminsize"))
         self.ui.PBmaxsize_box.setText(self.module.getParameterAsString("PBmaxsize"))
+        self.ui.PBavglifespin.setValue(int(self.module.getParameterAsString("PBavglife")))
         
         #futher design info coming soon
         
@@ -641,6 +850,11 @@ class activatetechplacementGUI(QtGui.QDialog):
         else:
             self.ui.WSURpollute_check.setChecked(0)
         
+        if self.module.getParameterAsString("WSURrecycle") == "1":
+            self.ui.WSURrecycle_check.setChecked(1)
+        else:
+            self.ui.WSURrecycle_check.setChecked(0)
+        
         #Design Curves
         if self.module.getParameterAsString("WSURdesignUB") == "1":
             self.ui.WSURdesignUB_box.setChecked(1)
@@ -675,8 +889,9 @@ class activatetechplacementGUI(QtGui.QDialog):
         elif self.module.getParameterAsString("WSURspec_EDD") == "0.75":
             self.ui.WSURspecs_combo.setCurrentIndex(5)
         
+        self.ui.WSURminsize_box.setText(self.module.getParameterAsString("WSURminsize"))
         self.ui.WSURmaxsize_box.setText(self.module.getParameterAsString("WSURmaxsize"))
-        
+        self.ui.WSURavglifespin.setValue(int(self.module.getParameterAsString("WSURavglife")))
         #futher design info coming soon
         
         #---------- Swales/Buffer Strips --------------------------------------#
@@ -723,8 +938,9 @@ class activatetechplacementGUI(QtGui.QDialog):
         #Design Information
         
         #combo box with specs
+        self.ui.SWminsize_box.setText(self.module.getParameterAsString("SWminsize"))
         self.ui.SWmaxsize_box.setText(self.module.getParameterAsString("SWmaxsize"))
-        
+        self.ui.SWavglifespin.setValue(int(self.module.getParameterAsString("SWavglife")))
         #futher design info coming soon
         
         #--------- Tree Pits --------------------------------------------------#
@@ -750,81 +966,6 @@ class activatetechplacementGUI(QtGui.QDialog):
             self.ui.WTstatus_box.setChecked(1)
         else:
             self.ui.WTstatus_box.setChecked(0)
-        
-        #---------- Water Efficient Appliances --------------------------------#
-        if self.module.getParameterAsString("WEFstatus") == "1":
-            self.ui.WEFstatus_box.setChecked(1)
-        else:
-            self.ui.WEFstatus_box.setChecked(0)
-        
-        ### NOTE: Not linking Rating System Combo box, AS6400 the only available system currently
-        
-        self.ui.LEG_minrate_spin.setValue(int(self.module.getParameterAsString("LEG_minrate")))
-        self.ui.PPP_likelihood_spin.setValue(int(self.module.getParameterAsString("PPP_likelihood")))
-        
-        if self.module.getParameterAsString("WEF_implement_method") == "LEG":
-            self.ui.WEF_implement_method_combo.setCurrentIndex(0)
-        elif self.module.getParameterAsString("WEF_implement_method") == "PPP":
-            self.ui.WEF_implement_method_combo.setCurrentIndex(1)
-        elif self.module.getParameterAsString("WEF_implement_method") == "SEC":
-            self.ui.WEF_implement_method_combo.setCurrentIndex(2)
-        elif self.module.getParameterAsString("WEF_implement_method") == "D4W":
-            self.ui.WEF_implement_method_combo.setCurrentIndex(3)
-        
-        if self.module.getParameterAsString("LEG_force") == "1":
-            self.ui.LEG_force_check.setChecked(1)
-        else:
-            self.ui.LEG_force_check.setChecked(0)
-            
-        if self.module.getParameterAsString("PPP_force") == "1":
-            self.ui.PPP_force_check.setChecked(1)
-        else:
-            self.ui.PPP_force_check.setChecked(0)
-        
-        if self.module.getParameterAsString("SEC_force") == "1":
-            self.ui.SEC_force_check.setChecked(1)
-        else:
-            self.ui.SEC_force_check.setChecked(0)
-        
-        if self.module.getParameterAsString("SEC_urbansim") == "1":
-            self.ui.SEC_urbansim_check.setChecked(1)
-        else:
-            self.ui.SEC_urbansim_check.setChecked(0)
-            
-        if self.module.getParameterAsString("D4W_UDMactive") == "1":
-            self.ui.D4W_UDMactive_check.setChecked(1)
-        else:
-            self.ui.D4W_UDMactive_check.setChecked(0)
-        
-        if self.module.getParameterAsString("D4W_STMactive") == "1":
-            self.ui.D4W_STMactive_check.setChecked(1)
-        else:
-            self.ui.D4W_STMactive_check.setChecked(0)
-        
-        if self.module.getParameterAsString("D4W_EVMactive") == "1":
-            self.ui.D4W_EVMactive_check.setChecked(1)
-        else:
-            self.ui.D4W_EVMactive_check.setChecked(0)
-        
-        if self.module.getParameterAsString("WEF_loc_famhouse") == "1":
-            self.ui.WEF_loc_famhouse_check.setChecked(1)
-        else:
-            self.ui.WEF_loc_famhouse_check.setChecked(0)
-        
-        if self.module.getParameterAsString("WEF_loc_apart") == "1":
-            self.ui.WEF_loc_apart_check.setChecked(1)
-        else:
-            self.ui.WEF_loc_apart_check.setChecked(0)
-            
-        if self.module.getParameterAsString("WEF_loc_nonres") == "1":
-            self.ui.WEF_loc_nonres_check.setChecked(1)
-        else:
-            self.ui.WEF_loc_nonres_check.setChecked(0)
-        
-        if self.module.getParameterAsString("WEF_flow_method") == "M":
-            self.ui.WEF_radio_medflow.setChecked(True)
-        if self.module.getParameterAsString("WEF_flow_method") == "S":
-            self.ui.WEF_radio_stochflow.setChecked(True)
         
         #--- ## --- Regional Information --------------------------------------#
         if self.module.getParameterAsString("regioncity") == "Adelaide":
@@ -894,14 +1035,10 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.ui.bottomlines_socW_spin.setValue(int(self.module.getParameterAsString("bottomlines_soc_w")))
         
         #-------- EVALUATION SCOPE & METHOD -----------------------------------#
-        if self.module.getParameterAsString("score_method") == "AHP":
+        if self.module.getParameterAsString("score_method") == "WPM":
             self.ui.eval_method_combo.setCurrentIndex(0)
-        elif self.module.getParameterAsString("score_method") == "RAHP":
-            self.ui.eval_method_combo.setCurrentIndex(1)
-        elif self.module.getParameterAsString("score_method") == "WPM":
-            self.ui.eval_method_combo.setCurrentIndex(2)
         elif self.module.getParameterAsString("score_method") == "WSM":
-            self.ui.eval_method_combo.setCurrentIndex(3)
+            self.ui.eval_method_combo.setCurrentIndex(1)
         
         if self.module.getParameterAsString("scope_stoch") == "1":
             self.ui.scope_stoch_check.setChecked(1)
@@ -980,10 +1117,6 @@ class activatetechplacementGUI(QtGui.QDialog):
     def adjustRigourSubbas(self, currentValue):
         self.ui.strategy_subbas_rigour_box.setText(str(currentValue))
         
-    ### RECYCLE TAB ###
-    
-    
-    
     ### RETROFIT TAB ###
     def decom_update(self, currentValue):
         self.ui.decom_box.setText(str(currentValue)+"%")
@@ -1033,6 +1166,44 @@ class activatetechplacementGUI(QtGui.QDialog):
             self.ui.renew_box.setEnabled(1)
             self.ui.radioKeep.setEnabled(1)
             self.ui.radioDecom.setEnabled(1)    
+    
+    ### WATER USE AND RECYCLING ###
+    def WEF_consider_update(self):
+        if self.ui.WEF_consider.isChecked() == 1:
+            self.ui.WEF_rating_system_combo.setEnabled(1)
+            self.ui.WEF_loc_house_check.setEnabled(1)
+            self.ui.WEF_loc_apart_check.setEnabled(1)
+            self.ui.WEF_constant_radio.setEnabled(1)
+            self.ui.WEF_distribution_radio.setEnabled(1)
+            if self.ui.WEF_constant_radio.isChecked() == 1:
+                self.ui.WEF_constant_combo.setEnabled(1)
+            elif self.ui.WEF_distribution_radio.isChecked() == 1:
+                self.ui.WEF_distribution_combo.setEnabled(1)
+                self.ui.WEF_distribution_select.setEnabled(1)
+                self.ui.WEF_distribution_check.setEnabled(1)
+        else:
+            self.ui.WEF_consider.setChecked(0)
+            self.ui.WEF_rating_system_combo.setEnabled(0)
+            self.ui.WEF_loc_house_check.setEnabled(0)
+            self.ui.WEF_loc_apart_check.setEnabled(0)
+            self.ui.WEF_constant_radio.setEnabled(0)
+            self.ui.WEF_distribution_radio.setEnabled(0)
+            self.ui.WEF_constant_combo.setEnabled(0)
+            self.ui.WEF_distribution_combo.setEnabled(0)
+            self.ui.WEF_distribution_select.setEnabled(0)
+            self.ui.WEF_distribution_check.setEnabled(0)
+    
+    def update_WEF_determine(self):
+        if self.ui.WEF_constant_radio.isChecked() == True:
+            self.ui.WEF_constant_combo.setEnabled(1)
+            self.ui.WEF_distribution_combo.setEnabled(0)
+            self.ui.WEF_distribution_select.setEnabled(0)
+            self.ui.WEF_distribution_check.setEnabled(0)
+        elif self.ui.WEF_distribution_radio.isChecked() == True:
+            self.ui.WEF_constant_combo.setEnabled(0)
+            self.ui.WEF_distribution_combo.setEnabled(1)
+            self.ui.WEF_distribution_select.setEnabled(1)
+            self.ui.WEF_distribution_check.setEnabled(1)
     
     ### TECHNOLOGIES TABS ###
     
@@ -1153,7 +1324,8 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.module.setParameterValue("targets_harvest", str(self.ui.targets_reuse_spin.value()))
         
         #-------- SERVICE LEVELS ----------------------------------------------#
-        self.module.setParameterValue("service_swm", str(self.ui.service_swm.value()))
+        self.module.setParameterValue("service_swmQty", str(self.ui.service_swmQty.value()))
+        self.module.setParameterValue("service_swmWQ", str(self.ui.service_swmWQ.value()))
         self.module.setParameterValue("service_wr_private", str(self.ui.service_wr_private.value()))
         self.module.setParameterValue("service_wr_public", str(self.ui.service_wr_public.value()))
         
@@ -1163,6 +1335,7 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.module.setParameterValue("service_li", str(int(self.ui.service_li.isChecked())))
         self.module.setParameterValue("service_hi", str(int(self.ui.service_li.isChecked())))
         
+        self.module.setParameterValue("service_redundancy", str(self.ui.service_redundancy.value()))
         #-------- STRATEGY SETUP ----------------------------------------------#
         self.module.setParameterValue("strategy_lot_check", str(int(self.ui.strategy_lot_check.isChecked())))
         self.module.setParameterValue("strategy_street_check", str(int(self.ui.strategy_street_check.isChecked())))
@@ -1283,6 +1456,98 @@ class activatetechplacementGUI(QtGui.QDialog):
             renewal_alternative = "D"
         self.module.setParameterValue("renewal_alternative", renewal_alternative)
         
+        #######################################
+        #Water Use and Recycling Tab
+        #######################################
+        #--> Water Demands
+        ffp_matrix = ["PO", "NP", "RW", "SW", "GW"]
+        self.module.setParameterValue("freq_kitchen", str(self.ui.freq_kitchen_box.text()))
+        self.module.setParameterValue("freq_shower", str(self.ui.freq_shower_box.text()))
+        self.module.setParameterValue("freq_toilet", str(self.ui.freq_toilet_box.text()))
+        self.module.setParameterValue("freq_laundry", str(self.ui.freq_laundry_box.text()))
+        self.module.setParameterValue("dur_kitchen", str(self.ui.dur_kitchen_box.text()))
+        self.module.setParameterValue("dur_shower", str(self.ui.dur_shower_box.text()))
+        self.module.setParameterValue("demandvary_kitchen", str(self.ui.demandvary_kitchen_box.value()))
+        self.module.setParameterValue("demandvary_shower", str(self.ui.demandvary_shower_box.value()))
+        self.module.setParameterValue("demandvary_toilet", str(self.ui.demandvary_toilet_box.value()))
+        self.module.setParameterValue("demandvary_laundry", str(self.ui.demandvary_laundry_box.value()))
+        self.module.setParameterValue("priv_irr_vol", str(self.ui.priv_irr_vol_box.text()))
+        
+        self.module.setParameterValue("ffp_kitchen", str(ffp_matrix[self.ui.ffp_kitchen_combo.currentIndex()]))
+        self.module.setParameterValue("ffp_shower", str(ffp_matrix[self.ui.ffp_shower_combo.currentIndex()]))
+        self.module.setParameterValue("ffp_toilet", str(ffp_matrix[self.ui.ffp_toilet_combo.currentIndex()]))
+        self.module.setParameterValue("ffp_laundry", str(ffp_matrix[self.ui.ffp_laundry_combo.currentIndex()]))
+        self.module.setParameterValue("ffp_garden", str(ffp_matrix[self.ui.ffp_garden_combo.currentIndex()]))
+        
+        self.module.setParameterValue("com_demand", str(self.ui.comdemand_box.text()))
+        self.module.setParameterValue("li_demand", str(self.ui.lidemand_box.text()))
+        self.module.setParameterValue("hi_demand", str(self.ui.hidemand_box.text()))
+        self.module.setParameterValue("com_demandvary", str(self.ui.comdemand_spin.value()))
+        self.module.setParameterValue("li_demandvary", str(self.ui.lidemand_spin.value()))
+        self.module.setParameterValue("hi_demandvary", str(self.ui.hidemand_spin.value()))
+        
+        self.module.setParameterValue("public_irr_vol", str(self.ui.public_irr_volume.text()))
+        self.module.setParameterValue("irrigate_nonres", str(int(self.ui.public_irr_nonres.isChecked())))
+        self.module.setParameterValue("irrigate_parks", str(int(self.ui.public_irr_pg.isChecked())))
+        self.module.setParameterValue("irrigate_refs", str(int(self.ui.public_irr_ref.isChecked())))
+        self.module.setParameterValue("public_irr_wq", str(ffp_matrix[self.ui.public_irr_wq.currentIndex()]))
+        
+        #--> Water Efficiency
+        if self.ui.WEF_consider.isChecked() == 1:
+            WEFstatus = 1
+        else:
+            WEFstatus = 0
+        self.module.setParameterValue("WEFstatus", str(WEFstatus))
+        
+        ###NOTE: NOT LINKING COMBO BOX WITH RATING SYSTEM, AS6400 the only one for now
+        
+        if self.ui.WEF_loc_house_check.isChecked() == 1:
+            WEF_loc_house = 1
+        else:
+            WEF_loc_house = 0
+        self.module.setParameterValue("WEF_loc_house", str(WEF_loc_house))
+        
+        if self.ui.WEF_loc_apart_check.isChecked() == 1:
+            WEF_loc_apart = 1
+        else:
+            WEF_loc_apart = 0
+        self.module.setParameterValue("WEF_loc_apart", str(WEF_loc_apart))
+        
+        if self.ui.WEF_loc_nonres_check.isChecked() == 1:
+            WEF_loc_nonres = 1
+        else:
+            WEF_loc_nonres = 0
+        self.module.setParameterValue("WEF_loc_nonres", str(WEF_loc_nonres))
+        
+        if self.ui.WEF_constant_radio.isChecked() == 1:
+            WEF_method = "C"
+        elif self.ui.WEF_distribution_radio.isChecked() == 1:
+            WEF_method = "D"
+        self.module.setParameterValue("WEF_method", str(WEF_method))
+        
+        self.module.setParameterValue("WEF_c_rating", str(self.ui.WEF_constant_combo.currentIndex()+1))
+        self.module.setParameterValue("WEF_d_rating", str(self.ui.WEF_distribution_combo.currentIndex()+1))
+        self.module.setParameterValue("WEF_distribution", str(self.WEFdist[self.ui.WEF_distribution_select.currentIndex()]))
+        self.module.setParameterValue("WEF_includezero", str(int(self.ui.WEF_distribution_check.isChecked())))
+        
+        #--> Water Recycling Strategy & Additional Options
+        self.module.setParameterValue("rec_demrange_min", str(self.ui.rec_demrange_min.value()))
+        self.module.setParameterValue("rec_demrange_max", str(self.ui.rec_demrange_max.value()))
+        self.module.setParameterValue("ww_kitchen", str(int(self.ui.rec_ww_kitchen.isChecked())))
+        self.module.setParameterValue("ww_shower", str(int(self.ui.rec_ww_shower.isChecked())))
+        self.module.setParameterValue("ww_toilet", str(int(self.ui.rec_ww_toilet.isChecked())))
+        self.module.setParameterValue("ww_laundry", str(int(self.ui.rec_ww_laundry.isChecked())))
+
+        if self.ui.radio_hsdown.isChecked() == 1:
+            hs_strategy = "ud"
+        elif self.ui.radio_hsup.isChecked() == 1:
+            hs_strategy = "uu"
+        elif self.ui.radio_hsall.isChecked() == 1:
+            hs_strategy = "ua"
+        self.module.setParameterValue("hs_strategy", str(hs_strategy))
+        
+        self.module.setParameterValue("sb_method", str(self.sbmethod[self.ui.rec_assessment_combo.currentIndex()]))
+        self.module.setParameterValue("rain_length", str(self.ui.rec_rainfall_spin.value()))
         
         #######################################
         #Choose & Customize Technologies Tab
@@ -1342,6 +1607,12 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.module.setParameterValue("BFprec", str(BFprec))
         
         #Available Applications
+        if self.ui.BFflow_check.isChecked() == 1:
+            BFflow = 1
+        else:
+            BFflow = 0
+        self.module.setParameterValue("BFflow", str(BFflow))
+        
         if self.ui.BFpollute_check.isChecked() == 1:
             BFpollute = 1
         else:
@@ -1369,8 +1640,9 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.module.setParameterValue("BFspec_EDD", str(BFspec_EDD))
         self.module.setParameterValue("BFspec_FD", str(BFspec_FD))
         
-        BFmaxsize = str(self.ui.BFmaxsize_box.text())
-        self.module.setParameterValue("BFmaxsize", BFmaxsize)
+        self.module.setParameterValue("BFminsize", str(self.ui.BFminsize_box.text()))
+        self.module.setParameterValue("BFmaxsize", str(self.ui.BFmaxsize_box.text()))
+        self.module.setParameterValue("BFavglife", str(self.ui.BFavglifespin.value()))
         
         if self.ui.BFlined_check.isChecked() == 1:
             BFlined = 1
@@ -1460,6 +1732,7 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.module.setParameterValue("ISspec_EDD", str(ISspec_EDD))
         self.module.setParameterValue("ISspec_FD", str(ISspec_FD))
         
+        self.module.setParameterValue("ISminsize", str(self.ui.ISminsize_box.text()))
         self.module.setParameterValue("ISmaxsize", str(self.ui.ISmaxsize_box.text()))
         self.module.setParameterValue("ISavglife", str(self.ui.ISavglifespin.value()))
         
@@ -1503,6 +1776,12 @@ class activatetechplacementGUI(QtGui.QDialog):
             PBpollute = 0
         self.module.setParameterValue("PBpollute", str(PBpollute))
         
+        if self.ui.PBrecycle_check.isChecked() == 1:
+            PBrecycle = 1
+        else:
+            PBrecycle = 0
+        self.module.setParameterValue("PBrecycle", str(PBrecycle))
+        
         #Design Curves
         if self.ui.PBdesignUB_box.isChecked() == 1:
             PBdesignUB = 1
@@ -1521,8 +1800,9 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.module.setParameterValue("PBspec_MD", str(PBspec_MD))
         print PBspec_MD
         
-        PBmaxsize = str(self.ui.PBmaxsize_box.text())
-        self.module.setParameterValue("PBmaxsize", PBmaxsize)
+        self.module.setParameterValue("PBminsize", str(self.ui.PBminsize_box.text()))
+        self.module.setParameterValue("PBmaxsize", str(self.ui.PBmaxsize_box.text()))
+        self.module.setParameterValue("PBavglife", str(self.ui.PBavglifespin.value()))
         #further design parameters coming soon...
         
         #---------- Porous/Pervious Pavements ---------------------------------#
@@ -1651,6 +1931,12 @@ class activatetechplacementGUI(QtGui.QDialog):
             WSURpollute = 0
         self.module.setParameterValue("WSURpollute", str(WSURpollute))
         
+        if self.ui.WSURrecycle_check.isChecked() == 1:
+            WSURrecycle = 1
+        else:
+            WSURrecycle = 0
+        self.module.setParameterValue("WSURrecycle", str(WSURrecycle))
+        
         #Design Curves
         if self.ui.WSURdesignUB_box.isChecked() == 1:
             WSURdesignUB = 1
@@ -1668,8 +1954,9 @@ class activatetechplacementGUI(QtGui.QDialog):
         WSURspec_EDD = WSURspec_matrix[WSURspec_EDDindex]
         self.module.setParameterValue("WSURspec_EDD", str(WSURspec_EDD))
         
-        WSURmaxsize = str(self.ui.WSURmaxsize_box.text())
-        self.module.setParameterValue("WSURmaxsize", WSURmaxsize)
+        self.module.setParameterValue("WSURminsize", str(self.ui.WSURminsize_box.text()))
+        self.module.setParameterValue("WSURmaxsize", str(self.ui.WSURmaxsize_box.text()))
+        self.module.setParameterValue("WSURavglife", str(self.ui.WSURavglifespin.value()))
         #further design parameters coming soon...
         
         #---------- Swales/Buffer Strips --------------------------------------#
@@ -1711,8 +1998,9 @@ class activatetechplacementGUI(QtGui.QDialog):
         
         #Design Information
         #combo box
-        SWmaxsize = str(self.ui.SWmaxsize_box.text())
-        self.module.setParameterValue("SWmaxsize", SWmaxsize)
+        self.module.setParameterValue("SWminsize", str(self.ui.SWminsize_box.text()))
+        self.module.setParameterValue("SWmaxsize", str(self.ui.SWmaxsize_box.text()))
+        self.module.setParameterValue("SWavglife", str(self.ui.SWavglifespin.value()))
         #further design parameters coming soon...
         
         #--------- Tree Pits --------------------------------------------------#
@@ -1742,94 +2030,6 @@ class activatetechplacementGUI(QtGui.QDialog):
         else:
             WTstatus = 0
         self.module.setParameterValue("WTstatus", str(WTstatus))
-        
-        #---------- Water Efficient Appliances --------------------------------#
-        if self.ui.WEFstatus_box.isChecked() == 1:
-            WEFstatus = 1
-        else:
-            WEFstatus = 0
-        self.module.setParameterValue("WEFstatus", str(WEFstatus))
-        
-        ###NOTE: NOT LINKING COMBO BOX WITH RATING SYSTEM, AS6400 the only one for now
-        
-        LEG_minrate = str(self.ui.LEG_minrate_spin.value())
-        self.module.setParameterValue("LEG_minrate", LEG_minrate)
-        
-        PPP_likelihood = str(self.ui.PPP_likelihood_spin.value())
-        self.module.setParameterValue("PPP_likelihood", PPP_likelihood)
-        
-            #COMBO BOXES
-        WEF_implement_method_matrix = ["LEG", "PPP", "SEC", "D4W"]
-        
-        WEF_implement_index = self.ui.WEF_implement_method_combo.currentIndex()
-        WEF_implement_method = WEF_implement_method_matrix[WEF_implement_index]
-        self.module.setParameterValue("WEF_implement_method", WEF_implement_method)
-        
-        if self.ui.LEG_force_check.isChecked() == 1:
-            LEG_force = 1
-        else:
-            LEG_force = 0
-        self.module.setParameterValue("LEG_force", str(LEG_force))
-        
-        if self.ui.PPP_force_check.isChecked() == 1:
-            PPP_force = 1
-        else:
-            PPP_force = 0
-        self.module.setParameterValue("PPP_force", str(PPP_force))
-        
-        if self.ui.SEC_force_check.isChecked() == 1:
-            SEC_force = 1
-        else:
-            SEC_force = 0
-        self.module.setParameterValue("SEC_force", str(SEC_force))
-        
-        if self.ui.SEC_urbansim_check.isChecked() == 1:
-            SEC_urbansim = 1
-        else:
-            SEC_urbansim = 0
-        self.module.setParameterValue("SEC_urbansim", str(SEC_urbansim))
-        
-        if self.ui.D4W_UDMactive_check.isChecked() == 1:
-            D4W_UDMactive = 1
-        else:
-            D4W_UDMactive = 0
-        self.module.setParameterValue("D4W_UDMactive", str(D4W_UDMactive))
-        
-        if self.ui.D4W_STMactive_check.isChecked() == 1:
-            D4W_STMactive = 1
-        else:
-            D4W_STMactive = 0
-        self.module.setParameterValue("D4W_STMactive", str(D4W_STMactive))
-        
-        if self.ui.D4W_EVMactive_check.isChecked() == 1:
-            D4W_EVMactive = 1
-        else:
-            D4W_EVMactive = 0
-        self.module.setParameterValue("D4W_EVMactive", str(D4W_EVMactive))
-        
-        if self.ui.WEF_loc_famhouse_check.isChecked() == 1:
-            WEF_loc_famhouse = 1
-        else:
-            WEF_loc_famhouse = 0
-        self.module.setParameterValue("WEF_loc_famhouse", str(WEF_loc_famhouse))
-        
-        if self.ui.WEF_loc_apart_check.isChecked() == 1:
-            WEF_loc_apart = 1
-        else:
-            WEF_loc_apart = 0
-        self.module.setParameterValue("WEF_loc_apart", str(WEF_loc_apart))
-        
-        if self.ui.WEF_loc_nonres_check.isChecked() == 1:
-            WEF_loc_nonres = 1
-        else:
-            WEF_loc_nonres = 0
-        self.module.setParameterValue("WEF_loc_nonres", str(WEF_loc_nonres))
-        
-        if self.ui.WEF_radio_medflow.isChecked() == True:
-            WEF_flow_method = "M"
-        elif self.ui.WEF_radio_stochflow.isChecked() == True:
-            WEF_flow_method = "S"
-        self.module.setParameterValue("WEF_flow_method", WEF_flow_method)
         
         #--- ## --- REGIONAL INFORMATION---------------------------------------#
         regioncity_matrix = ["Adelaide", "Brisbane", "Melbourne", "Perth", "Sydney"]

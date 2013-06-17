@@ -31,7 +31,7 @@ import tech_designbydcv as ddcv
 ########################################################
 
 #---BIOFILTRATION SYSTEM/RAINGARDEN [BF]----------------------------------------
-def design_BF(Aimp, dcv, targets, tech_apps, soilK, maxsize ):
+def design_BF(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize):
     #Design of Biofiltration systems
     #   input: Imparea = Impervious Area to treat
     #          tarQ = Runoff reduction target
@@ -47,20 +47,24 @@ def design_BF(Aimp, dcv, targets, tech_apps, soilK, maxsize ):
     tarTN *= tech_apps[1]
     
     if Aimp == 0:   #if there is no impervious area to design for, why bother?
-        return [np.inf, 1]
-    #size the system    
+        return [None, 1]
+    #size the system for runoff reduction and pollution reduction independently
     if soilK != 0:
         psystem = ddcv.retrieveDesign(dcv, "BF", soilK, [tarQ, tarTSS, tarTP, tarTN, 100])
     else:
         psystem = np.inf
         
-    if psystem == np.inf:
-        return [np.inf, 1]
-    #print "Psystem", psystem
-    system_area = Aimp * psystem
-    #print system_area
+    if psystem == np.inf or psystem == 0:
+        return [None, 1]
+    
+    system_area = max(Aimp * psystem, minsize)  #the larger of the two
+    
     #if the system design has passed to this point: i.e. not impossible and there is impervious to treat, then add planning constraints
     
+    if system_area > maxsize:          #if the final design exceeds the maximum allowable size, forget it!
+        #print "Warning, Maximum System Size Exceeded"
+        return [None, 1]
+        
     #an infiltrating system (extra space around it required), determine the setback required
     if soilK > 180:
         setback = 1.0   #metres
@@ -72,17 +76,13 @@ def design_BF(Aimp, dcv, targets, tech_apps, soilK, maxsize ):
         setback = 5.0   #metres
     
     Areq = m.pow((m.sqrt(system_area)+2*setback),2)
-    #print "Arequired", Areq
+#    print "Arequired", Areq
     diff = Areq/system_area
     #final check, if the system has exceeded maximum size, return 'impossible' = inf
-    if Areq > maxsize:          #if the final design exceeds the maximum allowable size, forget it!
-        #print "Warning, Maximum System Size Exceeded"
-        return [np.inf, 1]
-        
     return [Areq, diff]
 
 #---INFILTRATION SYSTEMS [IS]---------------------------------------------------
-def design_IS(Aimp, dcv, targets, tech_apps, soilK, maxsize ):
+def design_IS(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
     #Design of Infiltration systems
     #   input: Imparea = Impervious Area to treat
     #          tarQ = Runoff reduction target
@@ -98,17 +98,23 @@ def design_IS(Aimp, dcv, targets, tech_apps, soilK, maxsize ):
     tarTN *= tech_apps[1]
     
     if Aimp == 0:   #if there is no impervious area to design for, why bother?
-        return [np.inf, 1]
+        return [None, 1]
+    
     #size the system
     if soilK != 0:
         psystem = ddcv.retrieveDesign(dcv, "IS", soilK, [tarQ, tarTSS, tarTP, tarTN, 100])
+        #print psystem
     else:
         psystem = np.inf
         
-    if psystem == np.inf:       #if the system cannot be designed, it will return infinity
-        return [np.inf, 1]
+    if psystem == np.inf or psystem == 0:       #if the system cannot be designed, it will return infinity
+        return [None, 1]
     
-    system_area = Aimp * psystem
+    system_area = max(Aimp * psystem, minsize)  #the larger of the two
+    
+    if system_area > maxsize:          #if the final design exceeds the maximum allowable size, forget it!
+        #print "Warning, Maximum System Size Exceeded"
+        return [None, 1]
     
     #if the system design has passed to this point: i.e. not impossible and there is impervious to treat, then add planning constraints
     #find setback requirement based on soilK
@@ -126,18 +132,15 @@ def design_IS(Aimp, dcv, targets, tech_apps, soilK, maxsize ):
         setback = 4.0   #metres
     else:
         #print "Soil is unsuitable for infiltration"
-        return [np.inf, 1]
+        return [None, 1]
 
     Areq = m.pow((m.sqrt(system_area)+2*setback),2)
+#    print "Required Area: ", Areq
     diff = Areq/system_area
-    if Areq > maxsize:          #if the final design exceeds the maximum allowable size, forget it!
-        #print "Warning, Maximum System Size Exceeded"
-        return [np.inf, 1]
-    
     return [Areq, diff]
 
 #---PONDS & BASINS [PB]---------------------------------------------------------
-def design_PB(Aimp, dcv, targets, tech_apps, soilK, maxsize ):
+def design_PB(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
     #Design of Ponds & Lakes
     #   input: Imparea = Impervious Area to treat
     #          tarQ = Runoff reduction target
@@ -153,28 +156,27 @@ def design_PB(Aimp, dcv, targets, tech_apps, soilK, maxsize ):
     tarTN *= tech_apps[1]
     
     if Aimp == 0:   #if there is no impervious area to design for, why bother?
-        return [np.inf, 1]
+        return [None, 1]
     #size the system
     if soilK != 0:
         psystem = ddcv.retrieveDesign(dcv, "PB", soilK, [tarQ, tarTSS, tarTP, tarTN, 100])
     else:
         psystem = np.inf
         
-    if psystem == np.inf:       #if the system cannot be designed, it will return infinity
-        return [np.inf, 1]
+    if psystem == np.inf or psystem == 0:       #if the system cannot be designed, it will return infinity
+        return [None, 1]
     
-    system_area = Aimp * psystem
+    system_area = max(Aimp * psystem, minsize)  #the larger of the two
+    
+    if system_area > maxsize:          #if the final design exceeds the maximum allowable size, forget it!
+        #print "Warning, Maximum System Size Exceeded"
+        return [None, 1]
     
     #add extra area to the system (multipliers for batters)
     batter_multiplier = 1.3
     
     Areq = system_area * batter_multiplier
     diff = Areq/system_area
-    
-    if Areq > maxsize:          #if the final design exceeds the maximum allowable size, forget it!
-        #print "Warning, Maximum System Size Exceeded"
-        return [np.inf, 1]
-    
     return [Areq, diff]
 
 #---RAINWATER TANKS [RT]--------------------------------------------------------
@@ -189,7 +191,7 @@ def design_RT(self, currentID):
     return True
 
 #---SURFACE WETLANDS [WSUR]-----------------------------------------------------
-def design_WSUR(Aimp, dcv, targets, tech_apps, soilK, maxsize ):
+def design_WSUR(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
     #Design of Ponds & Lakes
     #   input: Imparea = Impervious Area to treat
     #          tarQ = Runoff reduction target
@@ -205,17 +207,21 @@ def design_WSUR(Aimp, dcv, targets, tech_apps, soilK, maxsize ):
     tarTN *= tech_apps[1]
     
     if Aimp == 0:   #if there is no impervious area to design for, why bother?
-        return [np.inf, 1]
+        return [None, 1]
     #size the system
     if soilK != 0:
-        psystem = ddcv.retrieveDesign(dcv, "PB", soilK, [tarQ, tarTSS, tarTP, tarTN, 100])
+        psystem = ddcv.retrieveDesign(dcv, "WSUR", soilK, [tarQ, tarTSS, tarTP, tarTN, 100])
     else:
         psystem = np.inf    
     
-    if psystem == np.inf:       #if the system cannot be designed, it will return infinity
-        return [np.inf, 1]
+    if psystem == np.inf or psystem == 0:       #if the system cannot be designed, it will return infinity
+        return [None, 1]
     
-    system_area = Aimp * psystem
+    system_area = max(Aimp * psystem, minsize)  #the larger of the two
+       
+    if system_area > maxsize:   #if the final design exceeds the maximum allowable size, forget it!
+        #print "Warning, Maximum System Size Exceeded"
+        return [None, 1]
     
     #add extra area to the system (multipliers for batters)
     batter_multiplier = 1.3
@@ -223,14 +229,10 @@ def design_WSUR(Aimp, dcv, targets, tech_apps, soilK, maxsize ):
     Areq = system_area * batter_multiplier
     diff = Areq/system_area
     
-    if Areq > maxsize:          #if the final design exceeds the maximum allowable size, forget it!
-        #print "Warning, Maximum System Size Exceeded"
-        return [np.inf, 1]
-    
     return [Areq, diff]
 
 #---SWALES & BUFFER STRIPS [SW]-------------------------------------------------
-def design_SW(Aimp, dcv, targets, tech_apps, soilK, maxsize ):
+def design_SW(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
     #Design of Ponds & Lakes
     #   input: Imparea = Impervious Area to treat
     #          tarQ = Runoff reduction target
@@ -278,23 +280,23 @@ def design_SW(Aimp, dcv, targets, tech_apps, soilK, maxsize ):
     
     #calculate surface area of system required
     if cannot_meet == 1:
-        return [np.inf, 1]
+        return [None, 1]
     else:
         size_req = max(sizes)
-        Asystem = Aimp * size_req/100
+        Asystem = max(Aimp * size_req/100, minsize)
+    
+    if Asystem > maxsize:          #if the final design exceeds the maximum allowable size, forget it!
+        #print "Warning, Maximum System Size Exceeded"
+        Areq = None
     
     #add extra area to the system
     
     if Aimp == 0:
-        Areq = np.inf
+        Areq = None
         #print "no area - no system"
     else:
         Areq = Asystem      #swales drain into a pipe, so no additional area required, just need to check what minimum allowable width is
-    
-    if Areq > maxsize:          #if the final design exceeds the maximum allowable size, forget it!
-        #print "Warning, Maximum System Size Exceeded"
-        Areq = np.inf
-    
+
     diff = 1.0
     
     return [Areq, diff]

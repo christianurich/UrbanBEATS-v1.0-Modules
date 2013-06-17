@@ -162,7 +162,7 @@ def findTargetSize(bracket, targetvalues):
 def getFinalSizeRequirement(klow, kup, minsizes, maxsizes, ksat):        
     #retrieves the final system size required based on two sets of sizes for the lower and upper kbracket
     if klow == kup:       #if there was only one bracket, no interpolation needed
-        #print max(minsizes) #min and max sizes are identical        
+        print max(minsizes) #min and max sizes are identical        
         return max(minsizes)    #the maximum size among the brackets
         
     Apercent = []   #initialize possible areas

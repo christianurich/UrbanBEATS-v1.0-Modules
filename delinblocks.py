@@ -436,7 +436,7 @@ class Delinblocks(Module):      #DYNAMIND
                     "Singapore" : [372162.693079949, 141518.167286989],
                     "Sydney" : [334154.239302794, 6251091.03554923],
                     "Vienna" : [602067.456062062, 5340352.522405760]    }
-        self.soildictionary = [180, 36, 3.6, 0.36]    #mm/hr - 1=sand, 2=sandy clay, 3=medium clay, 4=heavy clay
+        self.soildictionary = [3600, 180, 36, 3.6, 0.36]    #mm/hr - 1=coarse sand, 2=sand, 3=sandy clay, 4=medium clay, 5=heavy clay
 
 #    def printc(self, message):      #UBCORE FUNCTION
 #        self.activesim.console.appendPlainText(str(time.asctime())+" | "+str(message))
@@ -1648,10 +1648,9 @@ class Delinblocks(Module):      #DYNAMIND
 #        return True #END OF UBCORE VERSION ------------------------------------------------------------------------------
     
     def drawFlowPaths(self, city, currentID, downstreamID, currentAttList, max_Zdrop, avg_slope, typenum):  #DYNAMIND VERSION ------
-        print "BlockID", currentID
         uuid = self.getBlockUUID(downstreamID,city)
         if  uuid == "":
-            print "Error block not found: " + str(downstreamID)
+            print "Block not found, is an outlet: " + str(downstreamID)
             return True
         
         f = city.getFace(uuid)
@@ -1748,6 +1747,7 @@ class Delinblocks(Module):      #DYNAMIND
 
         for i in range(numblocks):
             currentID = i+1
+            print currentID, "going to get UUID ---"
             uuid = self.getBlockUUID(int(currentID), city)
             if uuid == "":
                 print "Error, Block"+ str(currentID)+" not found."

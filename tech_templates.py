@@ -26,41 +26,47 @@ import random as rand
 import numpy as np
 
 ### EXTERNAL FUNCTIONS THAT CAN MANIPULATE THE CLASSES OF THIS MODULE ###
-def CalculateMCATechScores(strategyobject, areaEIA, bracketwidth, techarray, tech, env, ecn, soc):
+def CalculateMCATechScores(strategyobject, totalvalues, priorities, techarray, tech, env, ecn, soc):
     """Calculates the individual multicriteria scores for the given strategy object
     and saves it into its attributes, takes the techarray and four other vectors
     containing MCA scores as input.
+        - strategyobject = the strategy object containing the information about the technologies
+        - totalvalues[0] = total impervious area to work with for Qty
+        - totalvalues[1] = total impervious area to work with for WQ
+        - totalvalues[2] = total population to work with
+        - totalvalues[3] = total public open space to work with
+        - bracketwidth = 
     """
-    
-    techs = strategyobject.getTechnologies()
-    servicebin = strategyobject.getBlockBin()
-    totService = strategyobject.getTotalBasinContribution(areaEIA)
-    totImpServed = strategyobject.getService()
-    if totService > 1:
-        print "THERE IS AN ISSUE HERE!!!"
-    
-    penaltyfactor = 1.0-float(abs(totService - servicebin)/bracketwidth)
-    
+    techs = strategyobject.getTechnologies()    #grab the array of technologies in the block
     mca_tech = 0        #Initialize trackers
     mca_env = 0
     mca_ecn = 0
     mca_soc = 0
     
-    for i in techs:
-        if i == 0:
-            continue
-        lotcount = float(strategyobject.getQuantity(i.getLandUse()))
+    service_abbr = ["Qty", "WQ", "RPriv", "RPub"]       #these are the four main services for the objectives
+    for j in range(len(totalvalues)):
+        abbr = service_abbr[j]  #current service abbr to find value from object
+        mca_techsub, mca_envsub, mca_ecnsub, mca_socsub = 0,0,0,0       #Initialize sub-trackers
+        for i in techs: #loop across techs
+            if i == 0:  #no score
+                continue
+            lotcount = float(strategyobject.getQuantity(i.getLandUse()))        #get lot-count based on land use
+            
+            #Sub-Score = (individual Tech score) x (imp served by tech / imp served by strategy) X number of techs implemented
+            mca_techsub += sum(tech[techarray.index(i.getType())]) * i.getService(abbr)/totalvalues[j] * lotcount
+            mca_envsub += sum(env[techarray.index(i.getType())]) * i.getService(abbr)/totalvalues[j] * lotcount
+            mca_ecnsub += sum(ecn[techarray.index(i.getType())]) * i.getService(abbr)/totalvalues[j] * lotcount
+            mca_socsub += sum(soc[techarray.index(i.getType())]) * i.getService(abbr)/totalvalues[j] * lotcount
         
-        #Score = (individual Tech score) x (imp served by tech / imp served by strategy) X number of techs implemented
-        mca_tech += sum(tech[techarray.index(i.getType())]) * i.getService()/areaEIA * lotcount
-        mca_env += sum(env[techarray.index(i.getType())]) * i.getService()/areaEIA * lotcount
-        mca_ecn += sum(ecn[techarray.index(i.getType())]) * i.getService()/areaEIA * lotcount
-        mca_soc += sum(soc[techarray.index(i.getType())]) * i.getService()/areaEIA * lotcount
+        mca_tech += mca_techsub * priorities[j]   #Before next loop, add the sub-scores, scaled by their priorities
+        mca_env += mca_envsub * priorities[j]     #to the total criteria scores
+        mca_ecn += mca_ecnsub * priorities[j]     #Score = (sub-score) x (priority weighting for current objective)
+        mca_soc += mca_socsub * priorities[j]     #If current objective not selected, priority = 0
         
-    strategyobject.setMCAscore("tec", mca_tech*penaltyfactor)
-    strategyobject.setMCAscore("env", mca_env*penaltyfactor)
-    strategyobject.setMCAscore("ecn", mca_ecn*penaltyfactor)
-    strategyobject.setMCAscore("soc", mca_soc*penaltyfactor)
+    strategyobject.setMCAscore("tec", mca_tech)
+    strategyobject.setMCAscore("env", mca_env)
+    strategyobject.setMCAscore("ecn", mca_ecn)
+    strategyobject.setMCAscore("soc", mca_soc)
     return True
 
 def CalculateMCAStratScore(strategyobject, weightings):
@@ -87,8 +93,9 @@ def rescaleList(list, method):
         for i in range(len(list)):
             list[i] = list[i]/float(len(list))
     elif method == 'normalize':
+        j = sum(list)
         for i in range(len(list)):
-            list[i] = list[i]/sum(list)
+            list[i] = list[i]/j
     return list
 
 def createDataBaseString(blockstrategy):
@@ -103,23 +110,103 @@ def createDataBaseString(blockstrategy):
         if i == 0:
             dbstring += "'0',0,0,"
         else:
-            dbstring += "'"+str(i.getType())+"',"+str(blockstrategy.getQuantity(i.getLandUse()))+","+str(i.getService())+","
-            
-    dbstring += str(blockstrategy.getService())+","+str(blockstrategy.getMCAscore("tec"))+","+str(blockstrategy.getMCAscore("env"))+","
+            dbstring += "'"+str(i.getType())+"',"+str(blockstrategy.getQuantity(i.getLandUse()))+",'"+str(convertArrayToDBString(i.getService("all")))+"',"
+          
+    dbstring += "'"+str(convertArrayToDBString(blockstrategy.getService("all")))+"',"+str(blockstrategy.getMCAscore("tec"))+","+str(blockstrategy.getMCAscore("env"))+","
     dbstring += str(blockstrategy.getMCAscore("ecn"))+","+str(blockstrategy.getMCAscore("soc"))+","+str(blockstrategy.getTotalMCAscore())
-    #print dbstring
+    return dbstring
+
+def convertArrayToDBString(arrayinput):
+    dbstring = ""
+    for i in range(len(arrayinput)):
+        dbstring += str(arrayinput[i])
+        if i != (len(arrayinput)-1):
+            dbstring += " | "
     return dbstring
 
 def updateBasinService(basinstrategyobject):
     """Goes through the basin strategy object and tallies up the total impervious area
     serviced. This allows the strategy object to be sorted and scored.
     """
+    subbasin = basinstrategyobject.getSubbasinArray()
+    inblocks = basinstrategyobject.getInBlocksArray()
+    print subbasin
+    print inblocks
+    
+    #Loop across four different objectives
+    abbr_matrix = ["Qty", "WQ", "RPriv", "RPub"]
+    for j in range(len(abbr_matrix)):
+        total_service = 0       #initialize tracker
+        abbr = abbr_matrix[j]
+        for i in subbasin:
+            if subbasin[i] == 0:
+                continue
+            total_service += subbasin[i].getService(abbr)  #get the service for that particular tech and purpose
+        for i in inblocks:
+            if inblocks[i] == 0:
+                continue
+            total_service += inblocks[i].getService(abbr)
+        
+        basinstrategyobject.setService(abbr, total_service)
+    basinstrategyobject.setServicePvalues()
+    return True
+
+def calculateBasinStrategyMCAScores(basinstrategyobject, priorities, techarray, tech, env, ecn, soc, weightings):
+    """Scores the provided strategy object by accessing its information and ranking technologies
+    using the provided MCA scoring matrix
+    """
+    techcumu = 0
+    envcumu = 0
+    ecncumu = 0
+    soccumu = 0
+    mcatotal = 0
+    
+    totalvalues = basinstrategyobject.getBasinTotalValues()     #returns [x, x, x, x] containing totals
+    subbasin = basinstrategyobject.getSubbasinArray()
+    inblocks = basinstrategyobject.getInBlocksArray()
+    
+    for i in inblocks:
+        if inblocks[i] == 0:
+            continue
+        techcumu += inblocks[i].getMCAscore("tec")      #Have already been scaled to priorities and based on
+        envcumu += inblocks[i].getMCAscore("env")       #services, therefore no need to do again.
+        ecncumu += inblocks[i].getMCAscore("ecn")
+        soccumu += inblocks[i].getMCAscore("soc")
+    
+    service_abbr = ["Qty", "WQ", "RPriv", "RPub"]       #these are the four main services for the objectives
+    for j in range(len(totalvalues)):   #loop across four service objectives
+        abbr = service_abbr[j]          #Current abbreviation used to retrieve service values
+        mca_techsub, mca_envsub, mca_ecnsub, mca_socsub = 0,0,0,0       #initialize sub-trackers
+                       
+        for i in subbasin:
+            if subbasin[i] == 0:
+                continue
+            mca_techsub += sum(tech[techarray.index(subbasin[i].getType())]) * subbasin[i].getService(abbr)/totalvalues[j]
+            mca_envsub += sum(env[techarray.index(subbasin[i].getType())]) * subbasin[i].getService(abbr)/totalvalues[j]
+            mca_ecnsub += sum(ecn[techarray.index(subbasin[i].getType())]) * subbasin[i].getService(abbr)/totalvalues[j]
+            mca_socsub += sum(soc[techarray.index(subbasin[i].getType())]) * subbasin[i].getService(abbr)/totalvalues[j]
+
+        techcumu += mca_techsub * priorities[j] #add to the cumulative MCA scores, scaled by their relative priorities
+        envcumu += mca_envsub * priorities[j]
+        ecncumu += mca_ecnsub * priorities[j]
+        soccumu += mca_socsub * priorities[j]
+
+    #Normalize the weightings
+    weightings = rescaleList(weightings, 'normalize')
+
+    mca_total = techcumu * weightings[0] + envcumu * weightings[1] + ecncumu * weightings[2] + soccumu * weightings[3]
+    basinstrategyobject.setMCAscore("tec", techcumu)
+    basinstrategyobject.setMCAscore("env", envcumu)
+    basinstrategyobject.setMCAscore("ecn", ecncumu)
+    basinstrategyobject.setMCAscore("soc", soccumu)
+    basinstrategyobject.setTotalMCAscore(mca_total)
+    return True
 
 def writeReportFile(basinstrategyobject, filename):
     """Writes an output CSV file of the basin strategy object passed to the function
     and saves it to the file with the given <filename>.csv. The file can be opened in
     Excel for convenient viewing"""
-
+    
     return True
 
 def reportStrategy(strategyobject):
@@ -136,17 +223,25 @@ class WaterTech(object):
                 type = system type  in terms of abbreviation
                 size = surface area/volume/specification number depending on system type
                 scale = a letter signifiying scale of application, L-lot, S-street, N-neighbourhood, R-regional (sub-basin)
-                service = impervious area served by the system (in sqm) or population or an amount of public space
+                service = imp area, population, public open space servied by the system. An array of length 4.
                 areafactor = a factor for multiplying the system footprint to get planning-allocated area
                 landuse = the type of land use the system was designed for
+                blockID = the location of the system (i.e. block ID)
+            For individual water techs, the design increment represents the service level they can provide.
+            The serviced imp.area/pop/public space divided by its total value is either equal to this increment
+            or zero because the service cannot be met at all. i.e. [1, 1, 1, 1] or [1, 1, 0, 1]. This is binary.
         """
         self.__type = type
-        self.__size = size
+        self.__size = size              #Area of system or volume if tank
         self.__scale = scale
-        self.__service = float(service)
+        self.__service = {}
+        self.__service["Qty"] = float(service[0])       #impervious area treated for runoff reduction
+        self.__service["WQ"] = float(service[1])        #impervious area treated for pollution control
+        self.__service["RPriv"] = float(service[2])     #total population serviced by recycling
+        self.__service["RPub"] = float(service[3])      #total public open space area irrigation recycled
         self.__areafactor = areafactor
         self.__landuse = landuse
-        self.__designincrement = 1.0
+        self.__designincrement = 1.0    #If design increment = 1.0, then service matrix will be either all imp area or zero
         self.__blockID = blockID
 
         #Assign some descriptive variables to the object
@@ -183,23 +278,18 @@ class WaterTech(object):
     def getScale(self):
         return self.__scale
     
-    def getService(self):
-        return self.__service
-    
-    def getContributionToBasin(self, basinMeasure):
-        if basinMeasure == 0:
-            contribution = 0
+    def getService(self, category):
+        if category == "all":
+            return [self.__service["Qty"], self.__service["WQ"], self.__service["RPriv"], self.__service["RPub"]]
         else:
-            contribution = self.__area_service / basinMeasure
-        return contribution
-    
+            return self.__service[category]
+        
     def getLandUse(self):
         return self.__landuse
     
     def getLocation(self):
         return self.__blockID
     
-
 class BlockStrategy(object):
     """Object, which contains all the WSUD technologies at the lot, street and neighbourhood
     scales to make up the 'In-Block' Strategy. It applies to one block only and contains a
@@ -219,9 +309,14 @@ class BlockStrategy(object):
         self.__lotCOM_tech = combo[4]
         self.__street_tech = combo[5]
         self.__neigh_tech = combo[6]
-        self.__service = totalserviceabsolute   #e.g. total imp served, total pop served
+        self.__blockservice = {} #e.g. total imp served, total pop served
+        self.__blockservice["Qty"] = totalserviceabsolute[0]            #Impervious area [sqm]
+        self.__blockservice["WQ"] = totalserviceabsolute[1]             #Impervious area [sqm]
+        self.__blockservice["RPriv"] = totalserviceabsolute[2]          #Population [people]
+        self.__blockservice["RPub"] = totalserviceabsolute[3]           #Public open space [sqm]
+        self.__blockbin = bin   #Maximum of the blockservice matrix e.g. [0.5, 0.5, 0.5, 0.5] --> 0.5 service
+                                                                        #[0.76, 0.2, 0.1, 0] --> 0.76 service
         self.__location = currentID
-        self.__blockbin = bin
         
         self.__allotments = allotments  #a list of lotcounts [RES Lots, HDR Lots, LI estates, HI estates, COM estates]
         self.lucmatrix = ["RES", "HDR", "LI", "HI", "COM", "Street", "Neigh"]
@@ -253,14 +348,20 @@ class BlockStrategy(object):
     def getTechnologies(self):
         return [self.__lotRES_tech, self.__lotHDR_tech, self.__lotLI_tech, self.__lotHI_tech, self.__lotCOM_tech, self.__street_tech, self.__neigh_tech]
         
-    def getService(self):
-        return self.__service
+    def getService(self, category):
+        if category == "all":
+            return [self.__blockservice["Qty"], self.__blockservice["WQ"], self.__blockservice["RPriv"], self.__blockservice["RPub"]]
+        else:
+            return self.__blockservice[category]
     
     def getLocation(self):
         return self.__location
     
-    def getTotalBasinContribution(self, basinAimp):
-        return self.__service/basinAimp
+    def getTotalBasinContribution(self, category, totalvalue):
+        """Returns the total contribution of a particular service within the basin
+        e.g. water quantity managment across the total impervious area or recycling
+        across the whole population."""
+        return self.__service[category]/totalvalue
     
 class BasinManagementStrategy(object):
     """Class for the complete water management strategy within a basin of the case study.
@@ -277,11 +378,16 @@ class BasinManagementStrategy(object):
         self.__subbas_partake_IDs = partakeIDs
         
         self.__basinAimp = basin_info[0]    #Impervious Area
-        self.__eif_served = 0   #effective impervious fraction served
-        self.__eia_served = 0   #effective impervious area served
-        
         self.__basinPop = basin_info[1]
         self.__basinPublic = basin_info[2]
+        
+        #Service Metrics
+        self.__basin_services = {"Qty":0, "WQ":0, "RPriv":0, "RPub":0}
+                                        #Qty: effective impervious area served
+                                        #WQ: effective impervious area served
+                                        #RPriv: total population served for recycling
+                                        #RPub: total public open space served
+        self.__basin_serviceP = [0,0,0,0]
         
         self.criteriamatrix = ["tec", "env", "ecn", "soc"]
         self.__MCA_scores = [0,0,0,0]
@@ -291,20 +397,46 @@ class BasinManagementStrategy(object):
         self.__basindetails = {}        #Holds the information on all upstream IDs
         self.__subbasinarray = {}
         for i in partakeIDs:
-            self.__subbasinarray[i] = []
-            self.__basindetails[i] = []
+            self.__subbasinarray[i] = 0
+            self.__basindetails[i] = 0
         
         self.__degreesarray = {}    
         self.__inblockarray = {}
         for i in basinblockIDs:
-            self.__inblockarray[i] = []
+            self.__inblockarray[i] = 0
             self.__degreesarray[i] = [0,0]
     
-    def getPropImpServed(self):
-        return self.__eif_served
+    def getBasinEIA(self):
+        return self.__basinAimp
     
-    def getTotalImpAreaServed(self):
-        return self.__eia_served
+    def getBasinPop(self):
+        return self.__basinPop
+    
+    def getBasinPublicSpace(self):
+        return self.__basinPublic
+    
+    def getBasinTotalValues(self):
+        """Used in the MCA function to get the scores and totals to loop across for different
+        objectives"""
+        return [self.__basinAimp, self.__basinAimp, self.__basinPop, self.__basinPublic]
+    
+    def setService(self, category, value):
+        self.__basin_services[category] = value
+        return True
+    
+    def getService(self, category):
+        return self.__basin_services[category]
+    
+    def setServicePvalues(self):
+        totalvalues = self.getBasinTotalValues()
+        self.__basin_serviceP[0] = self.getService("Qty")/totalvalues[0]
+        self.__basin_serviceP[1] = self.getService("WQ")/totalvalues[1]
+        self.__basin_serviceP[2] = self.getService("RPriv")/totalvalues[2]
+        self.__basin_serviceP[3] = self.getService("RPub")/totalvalues[3]
+        return True
+    
+    def getServicePvalues(self):
+        return self.__basin_serviceP
     
     def getBasinBlockIDs(self):
         return self.__basinblockIDs
@@ -317,679 +449,128 @@ class BasinManagementStrategy(object):
     
     def getMCAscore(self, criteria):
         return self.__MCA_scores[self.criteriamatrix.index(criteria)]
-        
-    def addSubBasinInfo(self, currentID, upstreamIDs, subbasinIDs, totalAimp_subbasin):
+    
+    def setTotalMCAscore(self, score):
+        self.__MCA_totscore = score
+    
+    def getTotalMCAscore(self):
+        return self.__MCA_totscore
+    
+    def getSubbasinArray(self):
+        return self.__subbasinarray
+    
+    def getInBlocksArray(self):
+        return self.__inblockarray
+    
+    def addSubBasinInfo(self, currentID, upstreamIDs, subbasinIDs, totals_subbas):
         """Adds information about the basin and sub-basin to the strategy to allow quick retrieval
         of catchment details for computation.
+            totalvalues_subbas = [imp-area, population, public-space]
         """
         try:
-            self.__basindetails[currentID] = [currentID, upstreamIDs, subbasinIDs, totalAimp_subbasin]
+            self.__basindetails[currentID] = [currentID, upstreamIDs, subbasinIDs, totals_subbas]
         except KeyError:
             return True
         
-    def appendTechnology(self, currentID, deg, chosen_object, type):
+    def appendTechnology(self, currentID, deg, chosen_object, scaletype):
         """Appends a given technology object to either the in-block list of systems or 
         the subbasin list of systems at the location currentID. Additionally saves the
         degree of service implementation as well.
+            - deg used later for sampling from the appropriate bin
+            - scaletype = "s" for subbasin, "b" for in-block
         """
         try:
-            if type == "s":
+            if scaletype == "s":
                 self.__subbasinarray[currentID] = chosen_object
                 self.__degreesarray[currentID][1] = deg
-            elif type == "b":
+            elif scaletype == "b":
                 self.__inblockarray[currentID] = chosen_object
                 self.__degreesarray[currentID][0] = deg
             return True
         except KeyError:
             return True
         
-    def getIndividualTechStrat(self, currentID, type):
+    def getIndividualTechStrat(self, currentID, scaletype):
         """Retrieves the object for a particular in-block or subbasin strategy/system
         that is located in the block with the ID currentID. If none exists in that location,
         model returns None.
+            - scaletype = "s" for subbasin, "b" for in-block
         """
         try:
-            if type == "s":
+            if scaletype == "s":
                 strat = self.__subbasinarray[currentID]
-            elif type == "b":
+            elif scaletype == "b":
                 strat = self.__inblockarray[currentID]
-            if len(strat) == 0:
+            if strat == 0:
                 return None
             else:
-                return strat[0]
+                return strat
         except KeyError:
             return None
-            
-                
-"""
-#class BlockStrategy(object):
-#    #Class for Water Management Strategy, which consists of lot, street, neighbourhood scales
-#    #options that can be added to it using the WSUD class
-#    def __init__(self, degrees, combo, allotments, totalimp):
-#        #Strategy Class must hold a list of WSUD systems, each WSUD with its representative scale
-#        #of application.
-#        #       degrees = lot, street, neighbourhood degrees (0, 0, 0) proportions
-#        #       combo = three WSUD objects one for each scale   [lot, street, neighbourhood]
-#        #       allotments = total number of houses
-#        #       totalimp = total imperviousness of the site being assessed
-        
-#        #degrees or service + combinations
-#        self.__stratdegs = degrees
-#        self.__stratlist = combo
-        
-#        #SERVICE LEVEL OF IMPERVIOUS AREA
-#        self.__allotments = allotments
-#        self.__totalimp = totalimp
-        
-#        self.__lot_servimp = 0          #holds total lot area serviced
-#        self.__street_servimp = 0       #holds total street imp area serviced
-#        self.__neigh_servimp = 0        #holds total neighbourhood imp area serviced
-#        self.__tot_servimp = 0          #holds the total area of imp area serviced
-#        self.__prop_totimpserv = 0      #holds the % of imp area serviced
-        
-#        #MCA SCORES
-#        self.__mcaenv_score = 0
-#        self.__mcatech_score = 0
-#        self.__mcasoc_score = 0
-#        self.__mcaecn_score = 0
-#        self.__mcatot_score = 0
-        
-#        #print "Details"
-#        #print self.__stratdegs
-#        #print allotments
     
-#    def checkTechnologies(self):
-#        #Checks the technologies in the combinations matrix and calculates areas served
-#        #Also corrects for 0 technologies
-#        #LOT SCALE - get the area served
-#        if self.__stratlist[0] == 0 or self.__stratdegs[0] == 0:
-#            self.__lot_servimp = 0
-#        else:
-#            self.__lot_servimp = float(self.__stratdegs[0]) * float(self.__allotments) * float(self.__stratlist[0].getAreaServed())
-#            #serviced area = (degree) x (# allotments) x (area served per allotment)
-            
-#        #print self.__lot_servimp
-        
-#        #STREET SCALE - get the area served
-#        if self.__stratlist[1] == 0 or self.__stratdegs[1] == 0:
-#            self.__street_servimp = 0
-#        else:
-#            self.__street_servimp = float(self.__stratlist[1].getAreaServed())
-#            #serviced area = (degree) x (# allotments) x (area served per allotment)
-        
-#        #print self.__street_servimp 
-        
-#        #NEIGHBOURHOOD SCALE - get the area served
-#        if self.__stratlist[2] == 0 or self.__stratdegs[2] == 0:
-#            self.__neigh_servimp = 0
-#        else:
-#            self.__neigh_servimp = float(self.__stratlist[2].getAreaServed())
-#            #serviced area = (degree) x (# allotments) x (area served per allotment)
-    
-#        #print self.__neigh_servimp
-    
-#        #Get total served and proportion served
-#        self.__tot_servimp = float(self.__lot_servimp + self.__street_servimp + self.__neigh_servimp)
-        
-#        #Calculate service level
-#        if self.__totalimp == 0:
-#            self.__prop_totimpserv = 0
-#        else:
-#            self.__prop_totimpserv = np.round(float(self.__tot_servimp/self.__totalimp),4)
-        
+ 
+#    def reportBasinStrategy(self):
+#        print "-----------------------------------------"
+#        print "Basin ID", self.__basinID
+#        print "-----------------------------------------"
+#        print "Total Blocks in basin: ", self.__blocks
+#        print "Total Impervious Area: ", self.__basinAimp/10000, " ha"
+#        print "Block IDs"
+#        print self.__basinblockIDs
+#        print "Blocks that can fit a precinct-scale system:"
+#        print self.__precpartakeIDs 
+#        print ""
+#        print "Chosen Objects for precinct"
+#        print self.__precarray
+#        print "Chosen Objects for in-block"
+#        print self.__blockarray
 #        return True
+    
+#    def writeReportFile(self):
+#        f = open("UB_BasinStrategy No "+str(self.__basinID)+"-"+str(self.__strategyID)+".csv", 'w')
+#        f.write("UrbanBEATS Basin Strategy File for Strategy No. "+str(self.__strategyID)+"\n\n")
+#        f.write("Basin ID:,"+str(self.__basinID)+"\n")
+#        f.write("Total Service:,"+str(self.getPropImpServed())+"%\n")
+#        f.write("Blocks within basin:,"+str(len(self.__basinblockIDs))+"\n")
+#        f.write("Blocks containing precinct-scale opportunities:,"+str(len(self.__precpartakeIDs))+"\n\n")
+#        f.write("Tech Score, Env Score, Ecn Score, Soc Score, Total Score\n")
+#        scorestring = ""
+#        for i in self.getMCAsubscores():
+#            scorestring += str(i)+","
+#        scorestring += str(self.getMCAtotscore())+","
+#        f.write(scorestring+"\n\n")
         
-#    #UPDATE AND GET COUNT OF TECHNOLOGIES IN STRATEGY
-#    def reportStrategy(self):
-#        outputstring = "Combo: ("
-#        for i in self.__stratdegs:
-#            outputstring += str(i)+","
-#        outputstring += ") "
-#        for i in self.__stratlist:
-#            if i == 0:
-#                outputstring += "0,"
-#            else:
-#                outputstring += str(i.getType())+","
-#        return outputstring
-    
-#    def writeReportCombo(self):
-#        outputstring = ""
-#        for i in self.__stratdegs:
-#            outputstring += str(i)+","
-#        return outputstring
-    
-#    def writeReportSystems(self):
-#        outputstring = ""
-#        for i in self.__stratlist:
-#            if i == 0:
-#                outputstring += "0,0,0,0,"
-#            else:
-#                outputstring += str(i.getType())+","+str(i.getScale())+","+str(i.getSize())+","+str(i.getAreaServed())+","
-#        return outputstring
-    
-#    def writeReportScores(self):
-#        outputstring = ""
-#        sub_scores = self.getMCAsubscores()
-#        for i in sub_scores:
-#            outputstring += str(i)+","
-#        outputstring += str(self.getMCAtotscore())+","
-#        return outputstring
-    
-#    def getSystemList(self):
-#        return self.__stratlist
-    
-#    def getSystemDegs(self):
-#        return self.__stratdegs
-    
-#    def getLotImplementation(self):
-#        return self.__stratdegs[0]*100
-    
-#    def getAllotments(self):
-#        return self.__allotments
-    
-#    ################################################
-#    ##    Functions for Service Levels            ##
-#    ################################################
-#    def getTotalImpServed(self):
-#        return self.__prop_totimpserv
-    
-#    def getTotalAImpServed(self):
-#        return float(self.__tot_servimp)
-    
-#    def getTotalBasinContribution(self, basin_Aimp):
-#        if basin_Aimp == 0:
-#            contribution = 0
-#        else:
-#            contribution = self.__tot_servimp/basin_Aimp
-#        return contribution
-    
-    
-#    ################################################
-#    ##    MCA Functions for Strategy              ##
-#    ################################################
-#    def calcTechScores(self, mca_techindex, mca_matrixtech, mca_matrixenv, mca_matrixecn, mca_matrixsoc, t2s):
-#        if self.__tot_servimp == 0:
-#            sew_weights = [0, 0, 0]
-#        else:
-#            sew_weights = [self.__lot_servimp/self.__totalimp , self.__street_servimp/self.__totalimp, self.__neigh_servimp/self.__totalimp]
-#        #print "Sew_Weights"
-#        #print sew_weights
+#        f.write("Block ID, Lot System, Size, Service, Houses [%], Allotments, Street System, Size, Service, Neigh System, Size, Service, Prec System, Size, Service,\n")
         
-#        tech_techscores = []
-#        tech_envscores = []
-#        tech_ecnscores = []
-#        tech_socscores = []
-        
-#        #get individual tech scores
-#        for tech in self.__stratlist:
-#            if tech == 0:                       #if the tech score is zero, then use the BAU type (business as usual)
-#                row_num = 1
+#        for i in range(len(self.__basinblockIDs)):
+#            #get strategy list
+#            outputstring1 = ""
+#            if len(self.__blockarray[i]) == 0:
+#                outputstring1 = "0,0,0,0,0,0,0,0,0,0,0,"
 #            else:
-#                row_num = mca_techindex.index(tech.getType())   #otherwise get the index row number
-#            if mca_matrixtech == 0 or len(mca_matrixtech) == 0:             #if there are no tech score matrices
-#                tech_techscores = [0]
-#            else:
-#                tech_techscores.append(sum(mca_matrixtech[row_num])/len(mca_matrixtech[row_num]))    #total score for that technology
-#            if mca_matrixenv == 0 or len(mca_matrixenv) == 0:
-#                tech_envscores = [0]
-#            else:
-#                tech_envscores.append(sum(mca_matrixenv[row_num])/len(mca_matrixenv[row_num]))
-#            if mca_matrixecn == 0 or len(mca_matrixecn) == 0:
-#                tech_ecnscores = [0]
-#            else:
-#                tech_ecnscores.append(sum(mca_matrixecn[row_num])/len(mca_matrixecn[row_num]))
-#            if mca_matrixsoc == 0 or len(mca_matrixsoc) == 0:
-#                tech_socscores = [0]
-#            else:
-#                tech_socscores.append(sum(mca_matrixsoc[row_num])/len(mca_matrixsoc[row_num]))
-        
-#        final_techscore = 0
-#        final_envscore = 0
-#        final_ecnscore = 0
-#        final_socscore = 0
-        
-#        if t2s == 'EqW':                                #Equal Weighting - simply sum the three different scores
-#            final_techscore = sum(tech_techscores)
-#            final_envscore = sum(tech_envscores)
-#            final_ecnscore = sum(tech_ecnscores)
-#            final_socscore = sum(tech_socscores)
-#        elif t2s == 'SeW':                              #Service-based weighting - need to do area proportions and sum accordingly
-#            for scl in range(len(sew_weights)):                 #loop over [lot-weight, street-weight, neigh-weight]
-#                if sum(tech_techscores) == 0:                   #tech_techscores = [lot_score, street_score, neigh_score] tallied earlier
-#                    final_techscore = 0                         #add to final scores of each criteri the sub-scores weighted for each SEW-weight
+#                stratlist = self.__blockarray[i][0].getSystemList()
+#                for j in range(len(stratlist)):
+#                    if stratlist[j] == 0:
+#                        outputstring1 += "0,0,0,"
+#                    else:
+#                        outputstring1 += str(stratlist[j].getType())+","+str(stratlist[j].getSize())+","+str(stratlist[j].getBasinContribution(self.__basinAimp))+","
+#                    if j == 0 and stratlist[j] != 0:
+#                        outputstring1 += str(self.__blockarray[i][0].getLotImplementation())+","+str(self.__blockarray[i][0].getAllotments())+","
+#                    elif j == 0 and stratlist[j] == 0:
+#                        outputstring1 += "0,0,"
+            
+#            #get precinct-scale stuff
+#            outputstring2 = ""
+#            if self.__basinblockIDs[i] in self.__precpartakeIDs:                   #if the ID is also a precinct ID check if there's a tech
+#                ix = self.__precpartakeIDs.index(self.__basinblockIDs[i])          #get index to reference
+#                if len(self.__precarray[ix]) == 0:                                   #check if there's a tech object or not
+#                    outputstring2 = "0,0,0,"
 #                else:
-#                    final_techscore += tech_techscores[scl]*sew_weights[scl]
-#                if sum(tech_envscores) == 0:
-#                    final_envscore = 0
-#                else:
-#                    final_envscore += tech_envscores[scl]*sew_weights[scl] 
-#                if sum(tech_ecnscores) == 0:
-#                    final_ecnscore = 0
-#                else:
-#                    final_ecnscore += tech_ecnscores[scl]*sew_weights[scl]
-#                if sum(tech_socscores) == 0:
-#                    final_socscore = 0
-#                else:
-#                    final_socscore += tech_socscores[scl]*sew_weights[scl]
-        
-#        self.__mcatech_score = final_techscore  #Set final scores
-#        self.__mcaenv_score = final_envscore
-#        self.__mcaecn_score = final_ecnscore
-#        self.__mcasoc_score = final_socscore
+#                    outputstring2 = str(self.__precarray[ix][0].getType())+","+str(self.__precarray[ix][0].getSize())+","+str(self.__precarray[ix][0].getBasinContribution(self.__basinAimp))+","
+#            else:
+#                outputstring2 = "0,0,0,"
+#            #combine option strings
+#            f.write(str(self.__basinblockIDs[i])+","+outputstring1+outputstring2+"\n")
+#        f.close()
 #        return True
-                       
-#    def calcStratScoreSingle(self, method, stoch, techW, envW, ecnW, socW):
-#        totW = 0
-#        for i in [techW, envW, ecnW, socW]:          #IF ONE OF THE CRITERIA ISN'T FEATURED, 
-#            if i == 0:                                  #NEED TO ACCOUNT FOR THIS WHEN NORMALIZING WEIGHTINGS
-#                pass
-#            else:
-#                totW += i               #normalize the weightings
-#        if totW == 0:
-#            techWfinal = 0.25
-#            envWfinal = 0.25
-#            ecnWfinal = 0.25
-#            socWfinal = 0.25
-#        else:
-#            techWfinal = techW/totW
-#            envWfinal = envW/totW
-#            ecnWfinal = ecnW/totW
-#            socWfinal = socW/totW
-        
-#        if stoch == 1:       #introduce distortion in terms of the weightings   #INCLUDE STOCHASTIC NOISE? 
-#            distort = [rand.random(),rand.random(), rand.random(), rand.random()]
-#        else:
-#            distort = [0,0,0,0]
-        
-#        #DEPENDING ON METHOD, TALLY WILL BE DIFFERENT! FOR NOW USE WEIGHTED SUM METHOD!    
-#        tech = self.__mcatech_score * (techWfinal + distort[0])
-#        env = self.__mcaenv_score * (envWfinal + distort[1])
-#        ecn = self.__mcaecn_score * (ecnWfinal + distort[2])
-#        soc = self.__mcasoc_score * (socWfinal + distort[3])
-        
-#        final_score = tech + env + ecn + soc
-        
-#        self.__mcatot_score = final_score
-#        return True 
     
-#    def calcStratScorePareto(self, method, techP, envP, ecnP, socP):
-#        #Performs the Pareto Exploratory Evaluation i.e. multiple alternative criteria
-#        #weightings applied with the current individual scores to determine the sensitivity
-#        #of the scores to variable weightings.
-        
-        
-#        #get combinations for Pareto
-#        techW = [0]              #if increment = 4, then techW = [0, 2.5, 5, 7.5, 10] weighting
-#        envW = [0]
-#        ecnW = [0]
-#        socW = [0]
-        
-#        for i in range(int(techP)):
-#            techW.append((i+1)*10/techP)        #1st: 1*10/4 = 2.5, 2nd: 2*10/4 = 5...
-#        for i in range(int(envP)):
-#            envW.append((i+1)*10/envP)
-#        for i in range(int(ecnP)):
-#            ecnW.append((i+1)*10/ecnP)
-#        for i in range(int(socP)):
-#            socW.append((i+1)*10/socP)
-        
-#        combos = []
-#        for i in techW:
-#            for j in envW:
-#                for k in ecnW:
-#                    for l in socW:
-#                        combos.append([i, j, k, l])
-        
-#        score_sensitivity_matrix = []
-#        #loop across each combo
-#        for cc in combos:
-#            #cc = current combo e.g. [4, 4, 6, 8]
-#            totW = 0
-#            for i in cc:          #IF ONE OF THE CRITERIA ISN'T FEATURED, 
-#                if i == 0:                                  #NEED TO ACCOUNT FOR THIS WHEN NORMALIZING WEIGHTINGS
-#                    pass
-#                else:
-#                    totW += i               #normalize the weightings
-#            if totW == 0:
-#                techWfinal = 0.25
-#                envWfinal = 0.25
-#                ecnWfinal = 0.25
-#                socWfinal = 0.25
-#            else:
-#                techWfinal = cc[0]/totW
-#                envWfinal = cc[1]/totW
-#                ecnWfinal = cc[2]/totW
-#                socWfinal = cc[3]/totW
-#            #NO STOCHASTICS IN PARETO MODE
-        
-#            #DEPENDING ON METHOD, TALLY WILL BE DIFFERENT! FOR NOW USE WEIGHTED SUM METHOD!    
-#            tech = self.__mcatech_score * (techWfinal)
-#            env = self.__mcaenv_score * (envWfinal)
-#            ecn = self.__mcaecn_score * (ecnWfinal)
-#            soc = self.__mcasoc_score * (socWfinal)
-            
-#            final_combo_score = tech + env + ecn + soc
-#            score_sensitivity_matrix.append([cc, final_combo_score])
-        
-#        self.__mcatot_score = score_sensitivity_matrix
-        
-#        return True 
-
-#    def getMCAsubscores(self):
-#        return [self.__mcatech_score, self.__mcaenv_score, self.__mcaecn_score, self.__mcasoc_score]
-    
-#    def getMCAtotscore(self):
-#        return self.__mcatot_score
-    
-#    def reportMCAscores(self):
-#        return [self.__mcatech_score, self.__mcaenv_score, self.__mcaecn_score, self.__mcasoc_score, self.__mcatot_score]
-
-################################################## END OF BlockStrategy CLASS ###########################################################
-
-
-###THIS ONE IS USED IN OLD CODE!!!
-class BasinManagementStrategy(object):
-    def __init__(self, strategyID, basinID, basinblockIDs, partakeIDs, cumu_Aimp):
-        #basinblockIDs - all IDs inside the basin
-        #partakeIDs - all blocks that can hold precinct techs
-        #cumu_Aimp - total impervious area of basin
-        
-        #Details about the basin's blocks
-        self.__basinID = basinID
-        self.__strategyID = strategyID
-        self.__blocks = len(basinblockIDs)
-        self.__basinblockIDs = basinblockIDs
-        self.__precpartakeIDs = partakeIDs
-        
-        self.__degreesarray = []                #will hold the chosen degrees - prec_alt_chosen, block_alt_chosen (length of basinblockIDs)
-        self.__subbasinarray = []               #holds info on the subbasins (length of precpartakeIDs)
-        self.__blockarray = []                  #holds all objects for block strategies (length of basinblockIDs)
-        self.__precarray = []                   #holds all objects for precinct strategies (length of precpartakeIDs)
-        for i in basinblockIDs:
-            self.__blockarray.append([])        #ID position determined by basinblockIDs.index(ID)
-            self.__degreesarray.append([0,0])   #two elements... [ID][0] = blockstrategy's degree, [ID][1] = precinct strategy's degree
-        for i in partakeIDs:
-            self.__precarray.append([])         #ID position determined by partakeIDs.index(ID)
-            self.__subbasinarray.append([])
-        
-        self.__basinAimp = cumu_Aimp
-        self.__propImpserved = 0                #
-        self.__total_imp_served = 0             #
-        
-        #MCA SCORES
-        self.__mcaenv_score = 0
-        self.__mcatech_score = 0
-        self.__mcasoc_score = 0
-        self.__mcaecn_score = 0
-        self.__mcatot_score = 0
-        
-    #METHODS FOR ADDING SYSTEMS TO THE OVERALL STRATEGY - NEED TO SPECIFY THE LOCATION (i.e. BLOCK ID) with every system
-    def addSubBasinInfo(self, currentID, upstreamIDs, subbasinIDs, totalAimp_subbasin):
-        i = self.__precpartakeIDs.index(currentID)    #i = short for INDEX
-        self.__subbasinarray[i].append(currentID)
-        self.__subbasinarray[i].append(upstreamIDs)
-        self.__subbasinarray[i].append(subbasinIDs)
-        self.__subbasinarray[i].append(totalAimp_subbasin)
-        return True
-        
-    def addPrecTechnology(self, currentID, deg, chosen_object):
-        i = self.__precpartakeIDs.index(currentID)    #i = short for INDEX
-        j = self.__basinblockIDs.index(currentID)     #j = index in other array
-        self.__precarray[i].append(chosen_object)
-        self.__degreesarray[i][1] = deg
-        return True
-    
-    def addBlockStrategy(self, currentID, deg, chosen_stratobject):
-        i = self.__basinblockIDs.index(currentID)
-        self.__blockarray[i].append(chosen_stratobject)
-        self.__degreesarray[i][0] = deg
-        return True
-    
-    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #                                                                                             #
-    #METHODS TO UPDATE AND RETRIEVE IMPERVIOUS SURFACE AND POPULATION SERVICE LEVELS OF STRATEGY  #
-    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #                                                                                            
-    def updateBasinService(self):
-        self.__total_imp_served = float(0.0)
-        for i in self.__precarray:
-            if len(i) == 0:
-                continue
-            self.__total_imp_served += float(i[0].getAreaServed())
-        for i in self.__blockarray:
-            if len(i) == 0:
-                continue
-            self.__total_imp_served += float(i[0].getTotalAImpServed())
-        self.__propImpserved = self.__total_imp_served/self.__basinAimp * 100
-        return [self.__total_imp_served, self.__propImpserved]
-    
-    def getPropImpServed(self):
-        return self.__propImpserved             #returns imperviousness serviced
-    
-    def getTotalImpServed(self):
-        return self.__total_imp_served          #returns impervious area served
-    
-    def getBasinBlockIDs(self):
-        return self.__basinblockIDs
-    
-    def getInBlockStrategy(self, currentID):
-        strat = self.__blockarray[self.__basinblockIDs.index(currentID)]
-        if len(strat) == 0:
-            strat = None
-        else:
-            strat = strat[0]
-        return strat
-    
-    def getOutBlockStrategy(self, currentID):
-        if currentID in self.__precpartakeIDs:
-            strat = self.__precarray[self.__precpartakeIDs.index(currentID)]
-            if len(strat) == 0:
-                strat = None
-            else:
-                strat = strat[0]
-        else:
-            strat = None
-        return strat
-    
-    def getOutBlockStrategyDeg(self, currentID):
-        if currentID in self.__precpartakeIDs:
-            strat = self.__precarray[self.__precpartakeIDs.index(currentID)]
-            if len(strat) == 0:
-                degofstrat = None
-            else:
-                degofstrat = self.__degreesarray[self.__precpartakeIDs.index(currentID)][1]
-        else:
-            degofstrat = None
-        return degofstrat
-        
-    def reportBasinStrategy(self):
-        print "-----------------------------------------"
-        print "Basin ID", self.__basinID
-        print "-----------------------------------------"
-        print "Total Blocks in basin: ", self.__blocks
-        print "Total Impervious Area: ", self.__basinAimp/10000, " ha"
-        print "Block IDs"
-        print self.__basinblockIDs
-        print "Blocks that can fit a precinct-scale system:"
-        print self.__precpartakeIDs 
-        print ""
-        print "Chosen Objects for precinct"
-        print self.__precarray
-        print "Chosen Objects for in-block"
-        print self.__blockarray
-        return True
-    
-    def writeReportFile(self):
-        f = open("UB_BasinStrategy No "+str(self.__basinID)+"-"+str(self.__strategyID)+".csv", 'w')
-        f.write("UrbanBEATS Basin Strategy File for Strategy No. "+str(self.__strategyID)+"\n\n")
-        f.write("Basin ID:,"+str(self.__basinID)+"\n")
-        f.write("Total Service:,"+str(self.getPropImpServed())+"%\n")
-        f.write("Blocks within basin:,"+str(len(self.__basinblockIDs))+"\n")
-        f.write("Blocks containing precinct-scale opportunities:,"+str(len(self.__precpartakeIDs))+"\n\n")
-        f.write("Tech Score, Env Score, Ecn Score, Soc Score, Total Score\n")
-        scorestring = ""
-        for i in self.getMCAsubscores():
-            scorestring += str(i)+","
-        scorestring += str(self.getMCAtotscore())+","
-        f.write(scorestring+"\n\n")
-        
-        f.write("Block ID, Lot System, Size, Service, Houses [%], Allotments, Street System, Size, Service, Neigh System, Size, Service, Prec System, Size, Service,\n")
-        
-        for i in range(len(self.__basinblockIDs)):
-            #get strategy list
-            outputstring1 = ""
-            if len(self.__blockarray[i]) == 0:
-                outputstring1 = "0,0,0,0,0,0,0,0,0,0,0,"
-            else:
-                stratlist = self.__blockarray[i][0].getSystemList()
-                for j in range(len(stratlist)):
-                    if stratlist[j] == 0:
-                        outputstring1 += "0,0,0,"
-                    else:
-                        outputstring1 += str(stratlist[j].getType())+","+str(stratlist[j].getSize())+","+str(stratlist[j].getBasinContribution(self.__basinAimp))+","
-                    if j == 0 and stratlist[j] != 0:
-                        outputstring1 += str(self.__blockarray[i][0].getLotImplementation())+","+str(self.__blockarray[i][0].getAllotments())+","
-                    elif j == 0 and stratlist[j] == 0:
-                        outputstring1 += "0,0,"
-            
-            #get precinct-scale stuff
-            outputstring2 = ""
-            if self.__basinblockIDs[i] in self.__precpartakeIDs:                   #if the ID is also a precinct ID check if there's a tech
-                ix = self.__precpartakeIDs.index(self.__basinblockIDs[i])          #get index to reference
-                if len(self.__precarray[ix]) == 0:                                   #check if there's a tech object or not
-                    outputstring2 = "0,0,0,"
-                else:
-                    outputstring2 = str(self.__precarray[ix][0].getType())+","+str(self.__precarray[ix][0].getSize())+","+str(self.__precarray[ix][0].getBasinContribution(self.__basinAimp))+","
-            else:
-                outputstring2 = "0,0,0,"
-            #combine option strings
-            f.write(str(self.__basinblockIDs[i])+","+outputstring1+outputstring2+"\n")
-        f.close()
-        return True
-    
-    # # # # # # # # # # # # # # # # # # #
-    # MCA FUNCTIONS FOR BASIN STRATEGY  #
-    # # # # # # # # # # # # # # # # # # #
-    def calcTechScores(self, mca_techindex, mca_matrixtech, mca_matrixenv, mca_matrixecn, mca_matrixsoc):
-        basin_precscores = []        #matrix holds the precince scores for all techs at prec scale
-        #get individual tech scores
-        for i in self.__precarray:
-            if len(i) == 0:                       #if the tech score is zero, then use the BAU type (business as usual)
-                continue
-            tech = i[0]
-            row_num = mca_techindex.index(tech.getType())   #otherwise get the index row number
-            contribution = i[0].getBasinContribution(self.__basinAimp)
-            
-            tech_techscores = []
-            tech_envscores = []
-            tech_ecnscores = []
-            tech_socscores = []
-            
-            if mca_matrixtech == 0 or len(mca_matrixtech) == 0:             #if there are no tech score matrices
-                tech_techscores = [0]
-            else:
-                tech_techscores.append(sum(mca_matrixtech[row_num])/len(mca_matrixtech[row_num]))    #total score for that technology
-            if mca_matrixenv == 0 or len(mca_matrixenv) == 0:
-                tech_envscores = [0]
-            else:
-                tech_envscores.append(sum(mca_matrixenv[row_num])/len(mca_matrixenv[row_num]))
-            if mca_matrixecn == 0 or len(mca_matrixecn) == 0:
-                tech_ecnscores = [0]
-            else:
-                tech_ecnscores.append(sum(mca_matrixecn[row_num])/len(mca_matrixecn[row_num]))
-            if mca_matrixsoc == 0 or len(mca_matrixsoc) == 0:
-                tech_socscores = [0]
-            else:
-                tech_socscores.append(sum(mca_matrixsoc[row_num])/len(mca_matrixsoc[row_num]))
-        
-            final_techscore = sum(tech_techscores)
-            final_envscore = sum(tech_envscores)
-            final_ecnscore = sum(tech_ecnscores)
-            final_socscore = sum(tech_socscores)
-            
-            basin_precscores.append([[final_techscore, final_envscore, final_ecnscore, final_socscore],contribution])
-        
-        print "Basin Precinct Tech Scores"
-        print basin_precscores
-        
-        basin_blockscores = []  #matrix holds the block scores
-        #get all block scores
-        for i in self.__blockarray:
-            if len(i) == 0:
-                continue
-            subscores = i[0].getMCAsubscores()
-            contribution = i[0].getTotalBasinContribution(self.__basinAimp)
-            basin_blockscores.append([subscores, contribution])
-        
-        print "Basin Block Scores"
-        print basin_blockscores
-        
-        #Tally up prec sub-scores and add to existing score variable
-        for i in range(len(basin_precscores)):
-            self.__mcatech_score += basin_precscores[i][0][0]* basin_precscores[i][1]
-            self.__mcaenv_score += basin_precscores[i][0][1]* basin_precscores[i][1]
-            self.__mcaecn_score += basin_precscores[i][0][2]* basin_precscores[i][1]
-            self.__mcasoc_score += basin_precscores[i][0][3]* basin_precscores[i][1]
-        
-        print "Subscores for precinct"
-        print [self.__mcatech_score, self.__mcaenv_score, self.__mcaecn_score, self.__mcasoc_score]
-        
-        #Tally up block sub-scores add to existing scores
-        for i in range(len(basin_blockscores)):
-            self.__mcatech_score += basin_blockscores[i][0][0] * basin_blockscores[i][1]
-            self.__mcaenv_score += basin_blockscores[i][0][1] * basin_blockscores[i][1]
-            self.__mcaecn_score += basin_blockscores[i][0][2] * basin_blockscores[i][1]
-            self.__mcasoc_score += basin_blockscores[i][0][3] * basin_blockscores[i][1]
-        
-        print "Subscores for precinct + Block"
-        print [self.__mcatech_score, self.__mcaenv_score, self.__mcaecn_score, self.__mcasoc_score]
-        
-        return True
-    
-    def calcStratScoreSingle(self, method, stoch, techW, envW, ecnW, socW):
-        totW = 0
-        for i in [techW, envW, ecnW, socW]:          #IF ONE OF THE CRITERIA ISN'T FEATURED, 
-            if i == 0:                                  #NEED TO ACCOUNT FOR THIS WHEN NORMALIZING WEIGHTINGS
-                pass
-            else:
-                totW += i               #normalize the weightings
-        if totW == 0:
-            techWfinal = 0.25
-            envWfinal = 0.25
-            ecnWfinal = 0.25
-            socWfinal = 0.25
-        else:
-            techWfinal = techW/totW
-            envWfinal = envW/totW
-            ecnWfinal = ecnW/totW
-            socWfinal = socW/totW
-        
-        if stoch == 1:       #introduce distortion in terms of the weightings   #INCLUDE STOCHASTIC NOISE? 
-            distort = [rand.random(),rand.random(), rand.random(), rand.random()]
-        else:
-            distort = [0,0,0,0]
-        
-        #DEPENDING ON METHOD, TALLY WILL BE DIFFERENT! FOR NOW USE WEIGHTED SUM METHOD!    
-        tech = self.__mcatech_score * (techWfinal + distort[0])
-        env = self.__mcaenv_score * (envWfinal + distort[1])
-        ecn = self.__mcaecn_score * (ecnWfinal + distort[2])
-        soc = self.__mcasoc_score * (socWfinal + distort[3])
-        
-        final_score = tech + env + ecn + soc
-        self.__mcatot_score = final_score
-        print "FINAL SCORE FOR WEIGHTINGS: ", [techWfinal, envWfinal, ecnWfinal, socWfinal], " IS: ", final_score
-        
-        return True
-    
-    
-    def calcStratScorePareto(self, method, techP, envP, ecnP, socP):
-        pass
-        return True
-    
-    def getMCAsubscores(self):
-        return [self.__mcatech_score, self.__mcaenv_score, self.__mcaecn_score, self.__mcasoc_score]
-    
-    def getMCAtotscore(self):
-        return self.__mcatot_score
-    
-    def reportMCAscores(self):
-        return [self.__mcatech_score, self.__mcaenv_score, self.__mcaecn_score, self.__mcasoc_score, self.__mcatot_score]
-    """
