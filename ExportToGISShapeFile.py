@@ -237,6 +237,7 @@ class ExportToGISShapeFile(Module):
             fielddefmatrix.append(ogr.FieldDefn("HDRGarden", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("HDRCarPark", ogr.OFTReal))
             
+            fielddefmatrix.append(ogr.FieldDefn("LIjobs", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("LIestates", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("avSt_LI", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("LIAfront", ogr.OFTReal))
@@ -251,6 +252,7 @@ class ExportToGISShapeFile(Module):
             fielddefmatrix.append(ogr.FieldDefn("LIAeEIA", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("LIAeTIA", ogr.OFTReal))
             
+            fielddefmatrix.append(ogr.FieldDefn("HIjobs", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("HIestates", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("avSt_HI", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("HIAfront", ogr.OFTReal))
@@ -265,6 +267,7 @@ class ExportToGISShapeFile(Module):
             fielddefmatrix.append(ogr.FieldDefn("HIAeEIA", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("HIAeTIA", ogr.OFTReal))
             
+            fielddefmatrix.append(ogr.FieldDefn("COMjobs", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("COMestates", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("avSt_COM", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("COMAfront", ogr.OFTReal))
@@ -279,6 +282,7 @@ class ExportToGISShapeFile(Module):
             fielddefmatrix.append(ogr.FieldDefn("COMAeEIA", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("COMAeTIA", ogr.OFTReal))
             
+            fielddefmatrix.append(ogr.FieldDefn("ORCjobs", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("ORCestates", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("avSt_ORC", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("ORCAfront", ogr.OFTReal))
@@ -455,6 +459,7 @@ class ExportToGISShapeFile(Module):
                 feature.SetField("HDRGarden", currentAttList.getAttribute("HDRGarden").getDouble())
                 feature.SetField("HDRCarPark", currentAttList.getAttribute("HDRCarPark").getDouble())
                 
+                feature.SetField("LIjobs", currentAttList.getAttribute("LIjobs").getDouble())
                 feature.SetField("LIestates", currentAttList.getAttribute("LIestates").getDouble())
                 feature.SetField("avSt_LI", currentAttList.getAttribute("avSt_LI").getDouble())
                 feature.SetField("LIAfront", currentAttList.getAttribute("LIAfront").getDouble())
@@ -469,6 +474,7 @@ class ExportToGISShapeFile(Module):
                 feature.SetField("LIAeEIA", currentAttList.getAttribute("LIAeEIA").getDouble())
                 feature.SetField("LIAeTIA", currentAttList.getAttribute("LIAeTIA").getDouble())
                 
+                feature.SetField("HIjobs", currentAttList.getAttribute("HIjobs").getDouble())
                 feature.SetField("HIestates", currentAttList.getAttribute("HIestates").getDouble())
                 feature.SetField("avSt_HI", currentAttList.getAttribute("avSt_HI").getDouble())
                 feature.SetField("HIAfront", currentAttList.getAttribute("HIAfront").getDouble())
@@ -483,6 +489,7 @@ class ExportToGISShapeFile(Module):
                 feature.SetField("HIAeEIA", currentAttList.getAttribute("HIAeEIA").getDouble())
                 feature.SetField("HIAeTIA", currentAttList.getAttribute("HIAeTIA").getDouble())
                 
+                feature.SetField("COMjobs", currentAttList.getAttribute("COMjobs").getDouble())
                 feature.SetField("COMestates", currentAttList.getAttribute("COMestates").getDouble())
                 feature.SetField("avSt_COM", currentAttList.getAttribute("avSt_COM").getDouble())
                 feature.SetField("COMAfront", currentAttList.getAttribute("COMAfront").getDouble())
@@ -497,6 +504,7 @@ class ExportToGISShapeFile(Module):
                 feature.SetField("COMAeEIA", currentAttList.getAttribute("COMAeEIA").getDouble())
                 feature.SetField("COMAeTIA", currentAttList.getAttribute("COMAeTIA").getDouble())
                 
+                feature.SetField("ORCjobs", currentAttList.getAttribute("ORCjobs").getDouble())
                 feature.SetField("ORCestates", currentAttList.getAttribute("ORCestates").getDouble())
                 feature.SetField("avSt_ORC", currentAttList.getAttribute("avSt_ORC").getDouble())
                 feature.SetField("ORCAfront", currentAttList.getAttribute("ORCAfront").getDouble())

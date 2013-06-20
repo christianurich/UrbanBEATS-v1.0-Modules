@@ -28,8 +28,8 @@ def loadClimateFile(filename, filetype, dt_in, dt_out, numyears):
     can take different styles, e.g. .ixx, .csv, etc.
         - filename: the full path to the file, so that the program can find it
         - format: the filetype extension that also defines how the raindata is delimited
-        - dt_in: input timestep of the file
-        - dt_out: desired output timestep of the file
+        - dt_in: input timestep of the file [mins]
+        - dt_out: desired output timestep of the file [mins]
         - numyears: extracts data from startyear + numyears and returns it
 
     Current support rainfile formats are: .csv, .ixx, .mse
@@ -202,11 +202,16 @@ def convertDataToInflowSeries(data, catchment, includedatestamp):
         - includedatestamp: if false, just returns a single-dimensional vector
         """
     inflowseries = []
-    for i in range(len(data)):
-        if includedatestamp:
-            inflowseries.append([data[i][0], data[i][1], data[i][2]/1000 * catchment])
-        else:
-            inflowseries.append(data[i][2]/1000 * catchment)
+    #Check for DateStamp
+    if type(data[0]) != type([]):       #NO has no date stamp
+        for i in range(len(data)):
+            inflowseries.append(data[i]/1000*catchment)
+    else:       #Has a date stamp
+        for i in range(len(data)):
+            if includedatestamp:
+                inflowseries.append([data[i][0], data[i][1], data[i][2]/1000 * catchment])
+            else:
+                inflowseries.append(data[i][2]/1000 * catchment)
     return inflowseries
 
 def createScaledDataSeries(annualvalue, scalingfactors, includedatestamp):
@@ -223,6 +228,71 @@ def createScaledDataSeries(annualvalue, scalingfactors, includedatestamp):
         else:
             dataseries.append(scalingfactors[i][2]*annualvalue)
     return dataseries
+
+def createConstantDataSeries(dailyvalue, timesteps):
+    """Converts a daily water usage value [kL/day] into a time series of length "timesteps"
+    and returns this as a vector that does not include a datestamp
+        - Dailyvalue: of water demand [kL/day]
+        - timesteps: total length of time period [days]
+    """
+    dataseries = []
+    for i in range(timesteps):
+        dataseries.append(dailyvalue)
+    return dataseries
+
+def mergeTimeSeries(timeseries1, timeseries2, includedatestamp):
+    """Merges two time series of the same time step into a single continuous time series.
+    If time steps differ, it will return the longer one
+        - timeseries1, 2: respective time series matrices either in the form [value] or [date, value]
+        - datestamp: removes the datestamp if False"""
+    merger = []
+    #Check the length of both time series to make sure they can be merged
+    length1 = len(timeseries1)
+    length2 = len(timeseries2)
+    if length1 != length2:      #return the longer one
+        print "Error, time series are not of same length"
+        if length1 > length2:
+            return timeseries1
+        else:
+            return timeseries2
+        
+    #Check format of time series (i.e. whether simply [data] or [[date, data]] format
+    if type(timeseries1[0]) == type([]):    #if of type list    
+        format1 = len(timeseries1[0])
+    else:
+        format1 = 1
+    if type(timeseries2[0]) == type([]):
+        format2 = len(timeseries2[0])       #can be done by checking the first row
+    else:
+        format2 = 1
+    #Possibilities: 1 - [data], 2 - [year, data], 3 - [year, month, data]
+    if format1 > 1 or format2 > 1:      #then there is date data
+        if format1 == format2:
+            controltseries = timeseries1        #If they are the same length, assume they have same data structure
+        elif format1 > format2:
+            controltseries = timeseries1
+        else:
+            controltseries = timeseries2
+    else:
+        includedatestamp = False
+        
+    for i in range(length1):
+        timestepsum = 0
+        if format1 > 1: 
+            timestepsum += timeseries1[i][len(timeseries1[i])-1]
+        else: 
+            timestepsum += timeseries1[i]
+        if format2 > 1: 
+            timestepsum += timeseries2[i][len(timeseries2[i])-1]
+        else: 
+            timestepsum += timeseries2[i]
+                
+        if includedatestamp:
+            merger.append(controltseries[i][0:(len(controltseries[0])-1)])
+            merger[i].append(timestepsum)
+        else:
+            merger.append(timestepsum)
+    return merger
 
 def removeDateStampFromSeries(data):
     """Removes the datestamp from the dataseries 'data' and returns a single-dimensional

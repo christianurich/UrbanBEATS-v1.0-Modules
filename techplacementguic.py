@@ -351,6 +351,11 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.ui.lidemand_spin.setValue(int(self.module.getParameterAsString("li_demandvary")))
         self.ui.hidemand_spin.setValue(int(self.module.getParameterAsString("hi_demandvary")))
         
+        demandunits = ['sqm', 'cap']
+        self.ui.comdemand_units.setCurrentIndex(demandunits.index(self.module.getParameterAsString("com_demandunits")))
+        self.ui.lidemand_units.setCurrentIndex(demandunits.index(self.module.getParameterAsString("li_demandunits")))
+        self.ui.hidemand_units.setCurrentIndex(demandunits.index(self.module.getParameterAsString("hi_demandunits")))
+        
         self.ui.public_irr_volume.setText(self.module.getParameterAsString("public_irr_vol"))
         self.ui.public_irr_nonres.setChecked(bool(int(self.module.getParameterAsString("irrigate_nonres"))))
         self.ui.public_irr_pg.setChecked(bool(int(self.module.getParameterAsString("irrigate_parks"))))
@@ -1310,8 +1315,8 @@ class activatetechplacementGUI(QtGui.QDialog):
         
         #-------- DESIGN RATIONALE --------------------------------------------#
         self.module.setParameterValue("ration_runoff", str(int(self.ui.ration_runoff_check.isChecked())))
-        self.module.setParameterValue("ration_pollute", str(int(self.ui.ration_runoff_check.isChecked())))
-        self.module.setParameterValue("ration_harvest", str(int(self.ui.ration_runoff_check.isChecked())))
+        self.module.setParameterValue("ration_pollute", str(int(self.ui.ration_pollute_check.isChecked())))
+        self.module.setParameterValue("ration_harvest", str(int(self.ui.ration_harvest_check.isChecked())))
         self.module.setParameterValue("runoff_pri", str(self.ui.runoff_pri_spin.value()))
         self.module.setParameterValue("pollute_pri", str(self.ui.pollute_pri_spin.value()))
         self.module.setParameterValue("harvest_pri", str(self.ui.harvest_pri_spin.value()))
@@ -1321,6 +1326,7 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.module.setParameterValue("targets_TSS", str(self.ui.targets_TSS_spin.value()))
         self.module.setParameterValue("targets_TN", str(self.ui.targets_TN_spin.value()))
         self.module.setParameterValue("targets_TP", str(self.ui.targets_TP_spin.value()))
+        self.module.setParameterValue("targets_reliability", str(self.ui.targets_reliability_spin.value()))
         self.module.setParameterValue("targets_harvest", str(self.ui.targets_reuse_spin.value()))
         
         #-------- SERVICE LEVELS ----------------------------------------------#
@@ -1485,6 +1491,11 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.module.setParameterValue("com_demandvary", str(self.ui.comdemand_spin.value()))
         self.module.setParameterValue("li_demandvary", str(self.ui.lidemand_spin.value()))
         self.module.setParameterValue("hi_demandvary", str(self.ui.hidemand_spin.value()))
+        
+        demandunits = ['sqm', 'cap']
+        self.module.setParameterValue("com_demandunits", str(demandunits[self.ui.comdemand_units.currentIndex()]))
+        self.module.setParameterValue("li_demandunits", str(demandunits[self.ui.lidemand_units.currentIndex()]))
+        self.module.setParameterValue("hi_demandunits", str(demandunits[self.ui.hidemand_units.currentIndex()]))
         
         self.module.setParameterValue("public_irr_vol", str(self.ui.public_irr_volume.text()))
         self.module.setParameterValue("irrigate_nonres", str(int(self.ui.public_irr_nonres.isChecked())))
@@ -1798,7 +1809,6 @@ class activatetechplacementGUI(QtGui.QDialog):
         PBspec_MDindex = self.ui.PBspecs_combo.currentIndex()
         PBspec_MD = PBspec_matrix[PBspec_MDindex]
         self.module.setParameterValue("PBspec_MD", str(PBspec_MD))
-        print PBspec_MD
         
         self.module.setParameterValue("PBminsize", str(self.ui.PBminsize_box.text()))
         self.module.setParameterValue("PBmaxsize", str(self.ui.PBmaxsize_box.text()))

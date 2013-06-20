@@ -23,6 +23,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """
 
+import numpy as np
+
 ### ------------------------------------------------------------------------ ###
 ###     SUBFUNCTIONS FOR STORAGE-BEHAVIOUR EQUATION                          ###
 ### ------------------------------------------------------------------------ ###
@@ -31,6 +33,15 @@ def calcDVavg(supplyvol, demandvol):
     """Calculates the dvAVG parameter to be used in the Storage Equation model"""
     dvavg = (supplyvol - demandvol)/(0.5 * (supplyvol + demandvol))
     return dvavg
+
+def calcRMSE(inflow, demand):
+    """Calculates the RMSE parameter to be used in the Storage Equation mode. A
+    simple function to evaluate a statistical objective function"""
+    ssd = 0
+    for i in range(len(inflow)):
+        ssd += pow((inflow[i]-demand[i]),2)
+    rmse = np.sqrt(ssd/len(inflow))
+    return rmse
     
 def getModelCoefficients(city):
     """Retrieve the model coefficients for the given city in question. The order
@@ -47,12 +58,14 @@ def getModelCoefficients(city):
     else:
         return coefficients[city]
 
-def loglogSWHEquation(city, targetrel, rmse, supplyvol, demandvol):
+def loglogSWHEquation(city, targetrel, supplyvol, demandvol):
     """Sizes a storage [% of average annual inflow] using the 'Universal SWH Equation'.
     Returns the size of the storage"""
     if targetrel > 95:
         targetrel = 95  #Warning, model not cut out to predict for reliabilities beyond 95%
-    dvavg = calcDVavg(supplyvol, demandvol)
+    print "Total Supply: ", sum(supplyvol), " TotalDemand: ", sum(demandvol)
+    dvavg = calcDVavg(sum(supplyvol), sum(demandvol))
+    rmse = calcRMSE(supplyvol, demandvol)
     print dvavg
     coefficients = getModelCoefficients(city)
     

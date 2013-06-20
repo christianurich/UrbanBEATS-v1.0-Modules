@@ -216,7 +216,27 @@ def reportStrategy(strategyobject):
     return True
 
 ### CLASSES IN THIS MODULE ###
+class RecycledStorage(object):
+    def __init__(self, type, volume, enduses, Aharvest, rel, supply, scale):
+        """An object to hold data on recycled storage"""
+        
+        self.__type = type
+        self.__volume = volume  #[kL]
+        self.__Aharvest = Aharvest #[sqm]
+        self.__rel = rel
+        self.__supply = supply  #Total demand supplied [kL/yr]
+        self.__enduses = enduses        #Contains 'K, L, T, S, I, PI'
+        self.__scale = scale    #L=lot N=Neighbourhood B=subbasin
 
+    def getSize(self):
+        return self.__volume
+    
+    def getSupply(self):
+        return self.__supply
+    
+    def getAreaOfHarvest(self):
+        return self.__Aharvest
+    
 class WaterTech(object):
     def __init__(self, type, size, scale, service, areafactor, landuse, blockID):
         """Technology type = initials of the tech e.g. BF = biofilter

@@ -32,6 +32,7 @@ import ubseriesread as ubseries         #sub-functions responsible for processin
 from techplacementguic import *
 
 import os, sqlite3, gc, random
+import numpy as np
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -93,8 +94,8 @@ class Techplacement(Module):
         self.ration_runoff = True                #Design for flood mitigation?
         self.ration_pollute = True               #Design for pollution management?
         self.ration_harvest = False              #Design for harvesting & reuse? Adds storage-sizing to certain systems
-        self.runoff_pri = 1                      #Priority of flood mitigation?
-        self.pollute_pri = 1                     #Priority of pollution management?
+        self.runoff_pri = 0                      #Priority of flood mitigation?
+        self.pollute_pri = 0                     #Priority of pollution management?
         self.harvest_pri = 1                     #Priority for harvesting & reuse
 	
 	self.priorities = []            #ADVANCED PARAMETER, holds the final weights for MCA
@@ -111,7 +112,7 @@ class Techplacement(Module):
         self.targets_TP = 30                #TP Load reduction target [%]
         self.targets_TN = 30                #TN Load reduction target [%]
         self.targets_harvest = 50           #required supply substitution % by recycling
-        self.targets_reliability = 50       #required reliability of harvesting systems    
+        self.targets_reliability = 80       #required reliability of harvesting systems    
         
         #CALCULATE SOME GLOBAL VARIABLES RELATING TO TARGETS
         self.system_tarQ = self.ration_runoff * self.targets_runoff
@@ -208,25 +209,33 @@ class Techplacement(Module):
         self.demandvary_shower = 0.00
         self.demandvary_toilet = 0.00
         self.demandvary_laundry = 0.00
-        self.ffp_kitchen = "PO"
-        self.ffp_shower = "PO"
-        self.ffp_toilet = "PO"
-        self.ffp_laundry = "PO"
+        self.ffp_kitchen = "SW"
+        self.ffp_shower = "SW"
+        self.ffp_toilet = "SW"
+        self.ffp_laundry = "SW"
         self.priv_irr_vol = 1                   #Private irrigation volume [ML/ha/yr]
-        self.ffp_garden = "PO"
+        self.ffp_garden = "SW"
         
         self.createParameter("com_demand", DOUBLE, "")
         self.createParameter("com_demandvary", DOUBLE, "")
+        self.createParameter("com_demandunits", STRING, "")
         self.createParameter("li_demand", DOUBLE, "")
         self.createParameter("li_demandvary", DOUBLE, "")
+        self.createParameter("li_demandunits", STRING, "")
         self.createParameter("hi_demand", DOUBLE, "")
         self.createParameter("hi_demandvary", DOUBLE, "")
+        self.createParameter("hi_demandunits", STRING, "")
+        self.createParameter("ffp_nonres", STRING, "")
         self.com_demand = 40
         self.com_demandvary = 10
+        self.com_demandunits = 'cap'    #sqm = per square metres floor area, cap = per capita
         self.li_demand = 40
         self.li_demandvary = 10
+        self.li_demandunits = 'cap'
         self.hi_demand = 40
         self.hi_demandvary = 10
+        self.hi_demandunits = 'cap'
+        self.ffp_nonres = "SW"
 
         self.createParameter("public_irr_vol", DOUBLE, "")
         self.createParameter("irrigate_nonres", DOUBLE, "")
@@ -237,7 +246,7 @@ class Techplacement(Module):
         self.irrigate_nonres = 1
         self.irrigate_parks = 1
         self.irrigate_refs = 0
-        self.public_irr_wq = "PO"       #PO = potable, NP = non-potable, RW = rainwater, SW = stormwater, GW = greywater
+        self.public_irr_wq = "SW"       #PO = potable, NP = non-potable, RW = rainwater, SW = stormwater, GW = greywater
         
         #WATER EFFICIENCY
         self.createParameter("WEFstatus", BOOL,"")
@@ -283,7 +292,7 @@ class Techplacement(Module):
         self.createParameter("sb_method", STRING, "")
         self.createParameter("rain_length", DOUBLE, "")
         self.sb_method = "Sim"  #Sim = simulation, Eqn = equation
-        self.rain_length = 10   #number of years.
+        self.rain_length = 2   #number of years.
         
         ##########################################################################
         #   RETROFIT CONDITIONS INPUTS                                           #
@@ -671,7 +680,7 @@ class Techplacement(Module):
                           "SF", "IRR", "WSUB", "WSUR", "SW", 
                           "TPS", "UT", "WWRR", "WT", "WEF"]
         self.scaleabbr = ["lot", "street", "neigh", "prec"]
-        
+        self.ffplevels = {"PO":1, "NP":2, "RW":3, "SW":4, "GW":5}  #Used to determine when a system is cleaner than the other
         self.sqlDB = 0  #Global variable to hold the 
         self.dbcurs = 0 #cursor to execute sqlcommands
         self.lot_incr = []
@@ -692,7 +701,7 @@ class Techplacement(Module):
         self.evapfile = "C:/UrbanBEATSv1Dev/ub_modules/resources/MelbourneEvap1998-2007-Day.csv"
         self.createParameter("evap_dt", DOUBLE, "")
         self.evap_dt = 1440     #[mins]
-
+        self.lot_raintanksizes = [1,2,4,5,7.5,10,15,20]       #[kL]
 
         ########################################################################
         
@@ -842,12 +851,14 @@ class Techplacement(Module):
             currentAttList.addAttribute("wd_RES_S", wdDict["RESshower"])        #[L/day]
             currentAttList.addAttribute("wd_RES_T", wdDict["REStoilet"])        #[L/day]
             currentAttList.addAttribute("wd_RES_L", wdDict["RESlaundry"])       #[L/day]
+            currentAttList.addAttribute("wd_RES_I", wdDict["RESirrigation"])    #[kL/yr]
             currentAttList.addAttribute("wd_RES_IN", wdDict["REStotalIN"])      #[kL/yr]
             currentAttList.addAttribute("wd_RES_OUT", wdDict["REStotalOUT"])    #[kL/yr]
             currentAttList.addAttribute("wd_HDR_K", wdDict["HDRkitchen"])       #[L/day]
             currentAttList.addAttribute("wd_HDR_S", wdDict["HDRshower"])        #[L/day]
             currentAttList.addAttribute("wd_HDR_T", wdDict["HDRtoilet"])        #[L/day]
             currentAttList.addAttribute("wd_HDR_L", wdDict["HDRlaundry"])       #[L/day]
+            currentAttList.addAttribute("wd_HDR_I", wdDict["HDRirrigation"])    #[kL/yr]
             currentAttList.addAttribute("wd_HDR_IN", wdDict["HDRtotalIN"])      #[kL/yr]
             currentAttList.addAttribute("wd_HDR_OUT", wdDict["HDRtotalOUT"])    #[kL/yr]
             currentAttList.addAttribute("wd_PrivIN", wdDict["TotalPrivateIN"])  #[kL/yr]
@@ -900,85 +911,104 @@ class Techplacement(Module):
 #            elif self.retrofit_scenario == "F":
 #                self.retrofit_Forced(currentID, sys_implement, city)
         
-#        ###-------------------------------------------------------------------###
-#        #  THIRD LOOP - OPPORTUNITIES ASSESSMENT ACROSS SCALES & IN-BLOCK TOP   #
-#        #                RANKED OPTIONS (ACROSS BLOCKS)                         #
-#        ###-------------------------------------------------------------------###
-#        #Initialize the database
-#        if os.path.isfile(r"D:\ubeatsdb2.db"):
-#            os.remove(r"D:\ubeatsdb2.db")
-#        self.sqlDB = sqlite3.connect(r"D:\ubeatsdb2.db")
-#        self.dbcurs = self.sqlDB.cursor()
+        ###-------------------------------------------------------------------###
+        #  THIRD LOOP - OPPORTUNITIES ASSESSMENT ACROSS SCALES & IN-BLOCK TOP   #
+        #                RANKED OPTIONS (ACROSS BLOCKS)                         #
+        ###-------------------------------------------------------------------###
+        #Initialize the database
+        if os.path.isfile(r"D:\ubeatsdb2.db"):
+            os.remove(r"D:\ubeatsdb2.db")
+        self.sqlDB = sqlite3.connect(r"D:\ubeatsdb2.db")
+        self.dbcurs = self.sqlDB.cursor()
         
-#        #Create Table for Individual Systems
-#        self.dbcurs.execute('''CREATE TABLE watertechs(BlockID, Type, Size, Scale, Service, Areafactor, Landuse, Designdegree)''')
-#        self.dbcurs.execute('''CREATE TABLE blockstrats(BlockID, Bin, RESType, RESQty, RESservice, HDRType, HDRQty, HDRService,
-#                            LIType, LIQty, LIService, HIType, HIQty, HIService, COMType, COMQty, COMService, StreetType, StreetQty, 
-#                            StreetService, NeighType, NeighQty, NeighService, TotService, MCATech, MCAEnv, MCAEcn, MCASoc, MCATotal)''')
-#        self.dbcurs.execute('''CREATE TABLE blockstratstop(BlockID, Bin, RESType, RESQty, RESservice, HDRType, HDRQty, HDRService,
-#                            LIType, LIQty, LIService, HIType, HIQty, HIService, COMType, COMQty, COMService, StreetType, StreetQty, 
-#                            StreetService, NeighType, NeighQty, NeighService, TotService, MCATech, MCAEnv, MCAEcn, MCASoc, MCATotal)''')
+        #Create Table for Individual Systems
+        self.dbcurs.execute('''CREATE TABLE watertechs(BlockID, Type, Size, Scale, Service, Areafactor, Landuse, Designdegree)''')
+        self.dbcurs.execute('''CREATE TABLE blockstrats(BlockID, Bin, RESType, RESQty, RESservice, HDRType, HDRQty, HDRService,
+                            LIType, LIQty, LIService, HIType, HIQty, HIService, COMType, COMQty, COMService, StreetType, StreetQty, 
+                            StreetService, NeighType, NeighQty, NeighService, TotService, MCATech, MCAEnv, MCAEcn, MCASoc, MCATotal)''')
+        self.dbcurs.execute('''CREATE TABLE blockstratstop(BlockID, Bin, RESType, RESQty, RESservice, HDRType, HDRQty, HDRService,
+                            LIType, LIQty, LIService, HIType, HIQty, HIService, COMType, COMQty, COMService, StreetType, StreetQty, 
+                            StreetService, NeighType, NeighQty, NeighService, TotService, MCATech, MCAEnv, MCAEcn, MCASoc, MCATotal)''')
         
-#        inblock_options = {}
-#        subbas_options = {}
+        inblock_options = {}
+        subbas_options = {}
         
-#        #Initialize increment variables
-#        self.lot_incr = self.setupIncrementVector(self.lot_rigour)
-#        self.street_incr = self.setupIncrementVector(self.street_rigour)
-#        self.neigh_incr = self.setupIncrementVector(self.neigh_rigour)
-#        self.subbas_incr = self.setupIncrementVector(self.subbas_rigour)
-        
-#        for i in range(int(blocks_num)):
-#            currentID = i+1
-#            print "Current on Block ",currentID
-#            currentAttList = self.getBlockUUID(currentID, city)
-#            if currentAttList.getAttribute("Status").getDouble() == 0:
-#                print "Block not active in simulation"
-#                continue
+        #Initialize increment variables
+        self.lot_incr = self.setupIncrementVector(self.lot_rigour)
+        self.street_incr = self.setupIncrementVector(self.street_rigour)
+        self.neigh_incr = self.setupIncrementVector(self.neigh_rigour)
+        self.subbas_incr = self.setupIncrementVector(self.subbas_rigour)
+        t = open("D:/Comparative.csv", 'w')
+        t.write("BlockID, RESStore[kL], HDRStore[kL] \n")
+        if bool(self.ration_harvest):   #if harvest is a management objective
+            #Initialize meteorological data vectors: Load rainfile and evaporation files, 
+            #create the scaling factors for evap data
+            print "Loading Climate Data... "
+            raindata = ubseries.loadClimateFile(self.rainfile, "csv", self.rain_dt, 1440, self.rain_length)
+            evapdata = ubseries.loadClimateFile(self.evapfile, "csv", self.evap_dt, 1440, self.rain_length)
+            evapscale = ubseries.convertVectorToScalingFactors(evapdata)
+            raindata = ubseries.removeDateStampFromSeries(raindata)             #Remove the date stamps
             
-#            #INITIALIZE VECTORS
-#            lot_techRES = []
-#            lot_techHDR = []
-#            lot_techLI = []
-#            lot_techHI = []
-#            lot_techCOM = []
-#            street_tech = []
-#            neigh_tech = []
-#            subbas_tech = []
+        for i in range(int(blocks_num)):
+            currentID = i+1
+            print "Current on Block ",currentID
+            currentAttList = self.getBlockUUID(currentID, city)
+            if currentAttList.getAttribute("Status").getDouble() == 0:
+                print "Block not active in simulation"
+                continue
             
-#            #Assess Lot Opportunities
-#            if len(techListLot) != 0:
-#                lot_techRES, lot_techHDR, lot_techLI, lot_techHI, lot_techCOM = self.assessLotOpportunities(techListLot, currentAttList)
-#            else:
-#                lot_techRES.append(0)      #append the "Do Nothing Option regardless"
-#                lot_techHDR.append(0)
-#                lot_techLI.append(0)
-#                lot_techHI.append(0)
-#                lot_techCOM.append(0)
+            #INITIALIZE VECTORS
+            lot_techRES = []
+            lot_techHDR = []
+            lot_techLI = []
+            lot_techHI = []
+            lot_techCOM = []
+            street_tech = []
+            neigh_tech = []
+            subbas_tech = []
+            
+            #Assess Lot Opportunities
+            if len(techListLot) != 0:
+                storeVols = []
+                if bool(int(self.ration_harvest)):
+                    store_volRES = self.determineStorageVolForLot(currentAttList, raindata, evapscale, "RW", "RES")
+                    store_volHDR = self.determineStorageVolForLot(currentAttList, raindata, evapscale, "RW", "HDR")
+                    storeVols = [store_volRES, store_volHDR] #IF 100% service is to occur
+                    t.write(str(currentID)+","+str(storeVols[0])+","+str(storeVols[1])+"\n")
+                lot_techRES, lot_techHDR, lot_techLI, lot_techHI, lot_techCOM = self.assessLotOpportunities(techListLot, currentAttList, storeVols)
+            else:
+                lot_techRES.append(0)      #append the "Do Nothing Option regardless"
+                lot_techHDR.append(0)
+                lot_techLI.append(0)
+                lot_techHI.append(0)
+                lot_techCOM.append(0)
                 
-#            #Assess Street Opportunities
-#            if len(techListStreet) != 0:
-#                street_tech = self.assessStreetOpportunities(techListStreet, currentAttList)
-#            else:
-#                street_tech.append(0)
+            #Assess Street Opportunities
+            if len(techListStreet) != 0:
+                street_tech = self.assessStreetOpportunities(techListStreet, currentAttList)
+            else:
+                street_tech.append(0)
                 
-#            #Assess Neigh Opportunities
-#            if len(techListNeigh) != 0:
-#                neigh_tech = self.assessNeighbourhoodOpportunities(techListNeigh, currentAttList)
-#            else:
-#                neigh_tech.append(0)
+            #Assess Neigh Opportunities
+            if len(techListNeigh) != 0:
+                if bool(int(self.ration_harvest)):
+                    neighSWstores = self.determineStorageVolNeigh(currentAttList, raindata, evapscale, "SW")
+                    print neighSWstores
+                neigh_tech = self.assessNeighbourhoodOpportunities(techListNeigh, currentAttList)
+            else:
+                neigh_tech.append(0)
                 
-#            #Assess Precinct Opportunities
-#            if len(techListSubbas) != 0:
-#                subbas_tech = self.assessSubbasinOpportunities(techListSubbas, currentAttList, city)
-#            else:
-#                subbas_tech.append(0)
+            #Assess Precinct Opportunities
+            if len(techListSubbas) != 0:
+                subbas_tech = self.assessSubbasinOpportunities(techListSubbas, currentAttList, city)
+            else:
+                subbas_tech.append(0)
             
-#            subbas_options["BlockID"+str(currentID)] = subbas_tech
-            
+            subbas_options["BlockID"+str(currentID)] = subbas_tech
 #            inblock_options["BlockID"+str(currentID)] = self.constructInBlockOptions(currentAttList, lot_techRES, lot_techHDR, lot_techLI, lot_techHI, lot_techCOM, street_tech, neigh_tech)
         
-#        self.sqlDB.commit()
+        self.sqlDB.commit()
+        t.close()
 #        ###-------------------------------------------------------------------###
 #        #  FOURTH LOOP - MONTE CARLO (ACROSS BASINS)                            #
 #        ###-------------------------------------------------------------------###
@@ -994,11 +1024,11 @@ class Techplacement(Module):
 #            print "Currently on Basin ID"+str(currentBasinID)
             
 #            basinBlockIDs, outletID = self.getBasinBlockIDs(currentBasinID, blocks_num, city)
-#            basinEIA = self.retrieveAttributeFromUpstreamIDs(city, basinBlockIDs, "Blk_EIA", "sum")
-#            basinPop = self.retrieveAttributeFromUpstreamIDs(city, basinBlockIDs, "Pop", "sum")
+#            basinEIA = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Blk_EIA", "sum")
+#            basinPop = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Pop", "sum")
 #            #basinPubspace = ...
             
-#            basinTreated = self.retrieveAttributeFromUpstreamIDs(city, basinBlockIDs, "ServedIA", "sum")
+#            basinTreated = self.retrieveAttributeFromIDs(city, basinBlockIDs, "ServedIA", "sum")
 #            basinremainEIA = max(basinEIA - basinTreated, 0)
 #            subbasPartakeIDs = self.findSubbasinPartakeIDs(basinBlockIDs, subbas_options) #Find locations of possible WSUD
             
@@ -2023,22 +2053,27 @@ class Techplacement(Module):
             incr_matrix.append(round(float(1/increment)*(i+1),3))
         return incr_matrix
     
-    def retrieveUpstreamBlockIDs(self, currentAttList):
+    def retrieveStreamBlockIDs(self, currentAttList, direction):
         """Returns a vector containing all upstream block IDs, allows quick collation of 
         details.
         """
-        upstreamstring = currentAttList.getAttribute("UpstrIDs").getString()
-        upstreamIDs = upstreamstring.split(',')
-        upstreamIDs.remove('')
+        if direction == "upstream":
+            attname = "UpstrIDs"
+        elif direction == "downstream":
+            attname = "DownstrIDs"
+            
+        streamstring = currentAttList.getAttribute(attname).getString()
+        streamIDs = streamstring.split(',')
+        streamIDs.remove('')
         
-        for i in range(len(upstreamIDs)):
-            upstreamIDs[i] = int(upstreamIDs[i])
-        if len(upstreamIDs) == 0:
+        for i in range(len(streamIDs)):
+            streamIDs[i] = int(streamIDs[i])
+        if len(streamIDs) == 0:
             return []
         else:
-            return upstreamIDs
+            return streamIDs
 
-    def retrieveAttributeFromUpstreamIDs(self, city, upstreamID, attribute, calc):
+    def retrieveAttributeFromIDs(self, city, listIDs, attribute, calc):
         """Retrieves all values from the list of upstreamIDs with the attribute name
         <attribute> and calculates whatever <calc> specifies
             Input:
@@ -2057,7 +2092,7 @@ class Techplacement(Module):
         output = 0
         datavector = []
         
-        for i in upstreamID:
+        for i in listIDs:
             blockFace = self.getBlockUUID(i, city)
             if blockFace.getAttribute("Status").getDouble() == 0:
                 continue
@@ -2081,7 +2116,7 @@ class Techplacement(Module):
         return output
 
 
-    def assessLotOpportunities(self, techList, currentAttList):
+    def assessLotOpportunities(self, techList, currentAttList, storeVols):
         """Assesses if the shortlist of lot-scale technologies can be put into the lot scale
         Does this for one block at a time, depending on the currentAttributesList and the techlist
         """
@@ -2130,6 +2165,9 @@ class Techplacement(Module):
         #print "Impervious Area on LI: ", AimpLI
         #print "Impervious Area on HI: ", AimpHI
         #print "Impervious Area on COM: ", AimpCOM
+        
+        #Size the required store to achieve the required potable supply substitution.
+        
         
         for j in techList:
             tech_applications = self.getTechnologyApplications(j)
@@ -2380,7 +2418,7 @@ class Techplacement(Module):
                                                  # 3) there must be impervious to treat
         soilK = currentAttList.getAttribute("Soil_k").getDouble()
         #CONDITION 1: Grab Block's Upstream Area
-        upstreamIDs = self.retrieveUpstreamBlockIDs(currentAttList)
+        upstreamIDs = self.retrieveStreamBlockIDs(currentAttList, "upstream")
         if len(upstreamIDs) == 0:
             #print "Current Block has no upstream areas, skipping"
             return technologydesigns
@@ -2394,9 +2432,9 @@ class Techplacement(Module):
             return technologydesigns
         
         #CONDITION 3: Get Block's upstream Impervious area
-        upstreamImp = self.retrieveAttributeFromUpstreamIDs(city, upstreamIDs, "Blk_EIA", "sum")
-        upstreamPop = self.retrieveAttributeFromUpstreamIDs(city, upstreamIDs, "Pop", "sum")
-#        upstreamPublicSpace = self.retrieveAttributeFromUpstreamIDs(city, upstreamIDs, "PubSpace", "sum")
+        upstreamImp = self.retrieveAttributeFromIDs(city, upstreamIDs, "Blk_EIA", "sum")
+        upstreamPop = self.retrieveAttributeFromIDs(city, upstreamIDs, "Pop", "sum")
+#        upstreamPublicSpace = self.retrieveAttributeFromIDs(city, upstreamIDs, "PubSpace", "sum")
         #print "Total Upstream Impervious Area: ", upstreamImp
         if upstreamImp < 0.0001 and upstreamPop < 1: #and upstreamPublicSpace < 0.0001:
             return technologydesigns
@@ -2713,7 +2751,7 @@ class Techplacement(Module):
         for i in range(len(partakeIDs)):
             currentBlockID = partakeIDs[i]
             #print "ID: ", currentBlockID
-            upstreamIDs = self.retrieveUpstreamBlockIDs(self.getBlockUUID(currentBlockID, city))
+            upstreamIDs = self.retrieveStreamBlockIDs(self.getBlockUUID(currentBlockID, city), "upstream")
             #print "Upstream: ", upstreamIDs
             remain_upIDs = []   #Make a copy of upstreamIDs to track Blocks
             for j in upstreamIDs:
@@ -2732,14 +2770,14 @@ class Techplacement(Module):
             #Refine the remainIDs list (only the blocks unique to that particular point in basin)
             for sbID in subbasinIDs:            #now loop across the found sub-basin locations
                 remain_upIDs.remove(sbID)       #remove these from the remaining IDs
-                upstrIDs = self.retrieveUpstreamBlockIDs(self.getBlockUUID(sbID, city)) 
+                upstrIDs = self.retrieveStreamBlockIDs(self.getBlockUUID(sbID, city), "upstream") 
                 for uID in upstrIDs:
                     remain_upIDs.remove(uID)    #also remove each of their upstream blocks from the list
             
             #Calculate total impervious area of the sub-basin = currentID's Imp + all upstream Imp
-            completeAimp = self.getBlockUUID(currentBlockID, city).getAttribute("Blk_EIA").getDouble() + self.retrieveAttributeFromUpstreamIDs(city, upstreamIDs, "Blk_EIA", "sum")
-            servicedAimpBlock = self.getBlockUUID(currentBlockID, city).getAttribute("ServedIA").getDouble() + self.retrieveAttributeFromUpstreamIDs(city, upstreamIDs, "ServedIA", "sum")
-            servicedAimpSubbas = self.getBlockUUID(currentBlockID, city).getAttribute("UpstrImpTreat").getDouble() + self.retrieveAttributeFromUpstreamIDs(city, upstreamIDs, "UpstrImpTreat", "sum")
+            completeAimp = self.getBlockUUID(currentBlockID, city).getAttribute("Blk_EIA").getDouble() + self.retrieveAttributeFromIDs(city, upstreamIDs, "Blk_EIA", "sum")
+            servicedAimpBlock = self.getBlockUUID(currentBlockID, city).getAttribute("ServedIA").getDouble() + self.retrieveAttributeFromIDs(city, upstreamIDs, "ServedIA", "sum")
+            servicedAimpSubbas = self.getBlockUUID(currentBlockID, city).getAttribute("UpstrImpTreat").getDouble() + self.retrieveAttributeFromIDs(city, upstreamIDs, "UpstrImpTreat", "sum")
             totalAimp_subbasin = max(completeAimp - servicedAimpBlock - servicedAimpSubbas, 0)
             #TotalAimp_Subbasin refers to the impervious area that needs to be managed RIGHT NOW! (so retrofit stuff alread in place and ignored)
             #print "Complete Aimp: ", completeAimp
@@ -3069,14 +3107,14 @@ class Techplacement(Module):
                                                  laundrydem*flowvary[3])
         return kitchendemF, showerdemF, toiletdemF, laundrydemF
     
-    def getNonResIndoorDemand(self, Afloor, demand, vary):
+    def getNonResIndoorDemand(self, unitvariable, demand, vary):
         """Calculates the total indoor demand based on a single value of [L/sqm/day] and
         adds variation to this value if specified
-            - Afloor = total floor space of the facility [sqm]
+            - unitvariable = total floor space of the facility [sqm] or total employed at facility [cap]
             - demand = total indoor demand rate [L/sqm/day]
             - vary = proportionate variation +/- value * demand
         """
-        demand = Afloor * demand
+        demand = unitvariable * demand  #either L/cap/day x capita or L/sqm/day x sqm
         demandF = -1
         while demandF < 0:
             demandF = demand + random.uniform(demand*vary*(-1), demand*vary)
@@ -3114,7 +3152,7 @@ class Techplacement(Module):
                 
             occup = currentAttList.getAttribute("HouseOccup").getDouble()
             kitchendem, showerdem, toiletdem, laundrydem = self.getResIndoorDemands(occup, resflows, flowratesVary)
-            totalHouseIndoor = (kitchendem + showerdem + toiletdem + laundrydem)/1000 #[kL/day]
+            totalHouseIndoor = (kitchendem + showerdem + toiletdem + laundrydem)/1000 #[kL/hh/day]
             totalIndoorAnn = totalHouseIndoor*365*currentAttList.getAttribute("ResHouses").getDouble()
             waterDemandDict["RESkitchen"] = round(kitchendem,2)
             waterDemandDict["RESshower"] = round(showerdem,2)
@@ -3192,10 +3230,14 @@ class Techplacement(Module):
         #Non-Res Water Demand
         lipublic, hipublic, compublic, orcpublic = 0,0,0,0  #initialize public space variables
         if int(currentAttList.getAttribute("Has_LI").getDouble()):    
-            Afloor = currentAttList.getAttribute("LIAeBldg").getDouble() * \
-                currentAttList.getAttribute("LIFloors").getDouble() * \
-                    currentAttList.getAttribute("LIestates").getDouble()
-            demand = self.getNonResIndoorDemand(Afloor, self.li_demand, self.li_demandvary/100)
+            if self.li_demandunits == 'sqm':
+                Afloor = currentAttList.getAttribute("LIAeBldg").getDouble() * \
+                    currentAttList.getAttribute("LIFloors").getDouble() * \
+                        currentAttList.getAttribute("LIestates").getDouble()
+                demand = self.getNonResIndoorDemand(Afloor, self.li_demand, self.li_demandvary/100)
+            elif self.li_demandunits == 'cap':
+                employed = currentAttList.getAttribute("LIjobs").getDouble()
+                demand = self.getNonResIndoorDemand(employed, self.li_demand, self.li_demandvary/100)
             lipublic = currentAttList.getAttribute("avLt_LI").getDouble()*currentAttList.getAttribute("LIestates").getDouble()
             waterDemandDict["LIDemand"] = demand/1000
             totalBlockNonResWD += demand/1000
@@ -3203,10 +3245,14 @@ class Techplacement(Module):
             waterDemandDict["LIDemand"] = 0
 
         if int(currentAttList.getAttribute("Has_HI").getDouble()):
-            Afloor = currentAttList.getAttribute("HIAeBldg").getDouble() * \
-                currentAttList.getAttribute("HIFloors").getDouble()* \
-                    currentAttList.getAttribute("HIestates").getDouble()
-            demand = self.getNonResIndoorDemand(Afloor, self.hi_demand, self.hi_demandvary/100)
+            if self.hi_demandunits == 'sqm':
+                Afloor = currentAttList.getAttribute("HIAeBldg").getDouble() * \
+                    currentAttList.getAttribute("HIFloors").getDouble()* \
+                        currentAttList.getAttribute("HIestates").getDouble()
+                demand = self.getNonResIndoorDemand(Afloor, self.hi_demand, self.hi_demandvary/100)
+            elif self.hi_demandunits == 'cap':
+                employed = currentAttList.getAttribute("HIjobs").getDouble()
+                demand = self.getNonResIndoorDemand(employed, self.hi_demand, self.hi_demandvary/100)
             hipublic = currentAttList.getAttribute("avLt_HI").getDouble()*currentAttList.getAttribute("HIestates").getDouble()
             waterDemandDict["HIDemand"] = demand/1000
             totalBlockNonResWD += demand/1000
@@ -3214,10 +3260,14 @@ class Techplacement(Module):
             waterDemandDict["HIDemand"] = 0
             
         if int(currentAttList.getAttribute("Has_Com").getDouble()):
-            Afloor = currentAttList.getAttribute("COMAeBldg").getDouble() * \
-                currentAttList.getAttribute("COMFloors").getDouble()* \
-                    currentAttList.getAttribute("COMestates").getDouble()
-            demand = self.getNonResIndoorDemand(Afloor, self.com_demand, self.com_demandvary/100)
+            if self.com_demandunits == 'sqm':
+                Afloor = currentAttList.getAttribute("COMAeBldg").getDouble() * \
+                    currentAttList.getAttribute("COMFloors").getDouble()* \
+                        currentAttList.getAttribute("COMestates").getDouble()
+                demand = self.getNonResIndoorDemand(Afloor, self.com_demand, self.com_demandvary/100)
+            elif self.com_demandunits == 'cap':
+                employed = currentAttList.getAttribute("COMjobs").getDouble()
+                demand = self.getNonResIndoorDemand(employed, self.com_demand, self.com_demandvary/100)
             compublic = currentAttList.getAttribute("avLt_COM").getDouble()*currentAttList.getAttribute("COMestates").getDouble()
             waterDemandDict["COMDemand"] = demand/1000
             totalBlockNonResWD += demand/1000
@@ -3225,18 +3275,22 @@ class Techplacement(Module):
             waterDemandDict["COMDemand"] = 0
             
         if int(currentAttList.getAttribute("Has_ORC").getDouble()):
-            Afloor = currentAttList.getAttribute("ORCAeBldg").getDouble() * \
-                currentAttList.getAttribute("ORCFloors").getDouble() * \
-                    currentAttList.getAttribute("ORCestates").getDouble()
-            demand = self.getNonResIndoorDemand(Afloor, self.com_demand, self.com_demandvary/100)
+            if self.com_demandunits == 'sqm':
+                Afloor = currentAttList.getAttribute("ORCAeBldg").getDouble() * \
+                    currentAttList.getAttribute("ORCFloors").getDouble() * \
+                        currentAttList.getAttribute("ORCestates").getDouble()
+                demand = self.getNonResIndoorDemand(Afloor, self.com_demand, self.com_demandvary/100)
+            elif self.com_demandunits == 'cap':
+                employed = currentAttList.getAttribute("ORCjobs").getDouble()
+                demand = self.getNonResIndoorDemand(employed, self.com_demand, self.com_demandvary/100)
             orcpublic = currentAttList.getAttribute("avLt_ORC").getDouble()*currentAttList.getAttribute("ORCestates").getDouble()
             waterDemandDict["ORCDemand"] = demand/1000
             totalBlockNonResWD += demand/1000
         else:
             waterDemandDict["ORCDemand"] = 0
             
-        waterDemandDict["TotalNonResDemand"] = totalBlockNonResWD*365       #[kL/yr]
-        block_TotalWD += totalBlockNonResWD*365
+        waterDemandDict["TotalNonResDemand"] = totalBlockNonResWD*(52*5)        #52 weeks a yr, 5 days a week working [kL/yr]
+        block_TotalWD += totalBlockNonResWD*(52*5)
 
         pa_nonres = (lipublic + hipublic + compublic + orcpublic)*self.irrigate_nonres     #pa = public area outdoor
         waterDemandDict["APublicNonRes"] = pa_nonres
@@ -3261,6 +3315,345 @@ class Techplacement(Module):
         waterDemandDict["TotalBlockWD"] = block_TotalWD
         return waterDemandDict
 
+    def determineStorageVolForLot(self, currentAttList, rain, evapscale, wqtype, lottype):
+        """Uses information of the Block's lot-scale to determine what the required
+        storage size of a water recycling system is to meet the required end uses
+        and achieve the user-defined potable water reduction
+            - currentAttList:  current Attribute list of the block in question
+            - rain: rainfall data for determining inflows if planning SW harvesting
+            - evapscale: scaling factors for outdoor irrigation demand scaling
+            - wqtype: the water quality being harvested (determines the type of end
+                                                        uses acceptable)
+        
+        Function returns a storage volume based on the module's predefined variables
+        of potable water supply reduction, reliability, etc."""
+        
+        if int(currentAttList.getAttribute("HasRes").getDouble()) == 0:
+            return np.inf       #Return infinity if there is no res land use
+            #First exit
+        if lottype == "RES" and int(currentAttList.getAttribute("HasHouses").getDouble()) == 0:
+            return np.inf
+        if lottype == "HDR" and int(currentAttList.getAttribute("HasFlats").getDouble()) == 0:
+            return np.inf
+        
+        #WORKING IN [kL/yr] for single values and [kL/day] for timeseries
+        
+        #Use the FFP matrix to determine total demands and suitable end uses
+        wqlevel = self.ffplevels[wqtype]    #get the level and determine the suitable end uses
+        if lottype == "RES":    #Demands based on a single house
+            lotdemands = {"Kitchen":currentAttList.getAttribute("wd_RES_K").getDouble()*365/1000,
+                      "Shower":currentAttList.getAttribute("wd_RES_S").getDouble()*365/1000,
+                      "Toilet":currentAttList.getAttribute("wd_RES_T").getDouble()*365/1000,
+                      "Laundry":currentAttList.getAttribute("wd_RES_L").getDouble()*365/1000,
+                      "Irrigation":currentAttList.getAttribute("wd_RES_I").getDouble() }
+        elif lottype == "HDR": #Demands based on entire apartment sharing a single roof
+            lotdemands = {"Kitchen":currentAttList.getAttribute("wd_HDR_K").getDouble()*365/1000,
+                      "Shower":currentAttList.getAttribute("wd_HDR_S").getDouble()*365/1000,
+                      "Toilet":currentAttList.getAttribute("wd_HDR_T").getDouble()*365/1000,
+                      "Laundry":currentAttList.getAttribute("wd_HDR_L").getDouble()*365/1000,
+                      "Irrigation":currentAttList.getAttribute("wd_HDR_I").getDouble() }
+        totalhhdemand = sum(lotdemands.values())    #Total House demand, [kL/yr]
+        
+        enduses = {}        #Tracks all the different types of end uses
+        objenduses = []
+        if self.ffplevels[self.ffp_kitchen] >= wqlevel:
+            enduses["Kitchen"] = lotdemands["Kitchen"]
+            objenduses.append('K')
+        if self.ffplevels[self.ffp_shower] >= wqlevel:
+            enduses["Shower"] = lotdemands["Shower"]
+            objenduses.append('S')
+        if self.ffplevels[self.ffp_toilet] >= wqlevel:
+            enduses["Toilet"] = lotdemands["Toilet"]
+            objenduses.append('T')
+        if self.ffplevels[self.ffp_laundry] >= wqlevel:
+            enduses["Laundry"] = lotdemands["Laundry"]
+            objenduses.append('L')
+        if self.ffplevels[self.ffp_garden] >= wqlevel:
+            enduses["Irrigation"] = lotdemands["Irrigation"]
+            objenduses.append('I')
+        totalsubdemand = sum(enduses.values())
+        
+        if totalsubdemand == 0:
+            return np.inf
+        
+        #Determine what the maximum substitution can be
+        recdemand = min(totalsubdemand, self.targets_harvest/100*totalhhdemand)     #the lower of the two
+        
+        #Determine inflow/demand time series
+        if lottype == "RES":
+            Aroof = currentAttList.getAttribute("ResRoof").getDouble()
+        elif lottype == "HDR":
+            Aroof = currentAttList.getAttribute("HDRRoofA").getDouble()
+        
+        #Determine demand time series
+        if "Irrigation" in enduses.keys():
+            #Scale to evap pattern
+            demandseries = ubseries.createScaledDataSeries(recdemand, evapscale, False)
+        else:
+            #Scale to constant pattern
+            demandseries = ubseries.createConstantDataSeries(recdemand/365, len(rain))
+        
+        if maxinflow < recdemand:       #If Vsupp < Vdem
+            return np.inf       #cannot size a store that is supplying more than it is getting
+        
+        #Generate the inflow series based on the kind of water being harvested
+        if wqtype in ["RW", "SW"]:      #Use rainwater to generate inflow
+            inflow = ubseries.convertDataToInflowSeries(rain, Aroof, False)     #Convert rainfall to inflow
+            maxinflow = sum(rain)/1000 * Aroof / self.rain_length         #average annual inflow using whole roof
+            tank_templates = self.lot_raintanksizes     #Use the possible raintank sizes
+        elif wqtype in ["GW"]:  #Use greywater to generate inflow
+            inflow = 0
+            maxinflow = 0
+            tank_templates = [] #use the possible greywater tank sizes
+        
+        #Depending on Method, size the store
+        if self.sb_method == "Sim":
+            mintank_found = 0
+            storageVol = np.inf      #Assume infinite storage for now
+            for i in tank_templates:        #Run through loop
+                if mintank_found == 1:
+                    continue
+                rel = dsim.calculateTankReliability(inflow, demandseries, i)
+                if rel > self.targets_reliability:
+                    mintank_found = 1
+                    storageVol = i
+        
+        elif self.sb_method == "Eqn":
+            vdemvsupp = recdemand / maxinflow
+            storagePerc = deq.loglogSWHEquation(self.regioncity, self.targets_reliability, inflow, demandseries)
+            reqVol = storagePerc/100*maxinflow  #storagePerc is the percentage of the avg. annual inflow
+            
+            #Determine where this volume ranks in reliability
+            storageVol = np.inf     #Assume infinite storage for now, readjust later
+            tank_templates.reverse()        #Reverse the series for the loop
+            for i in range(len(tank_templates)):
+                if reqVol < tank_templates[i]: #Begins with largest tank
+                    storageVol = tank_templates[i] #Begins with largest tank    #if the volume is below the current tank size, use the 'next largest'
+            tank_templates.reverse()        #Reverse the series back in case it needs to be used again
+        storeObj = tt.RecycledStorage(wqtype, storageVol,  objenduses, Aroof, self.targets_reliability, recdemand, "L")
+        #End of function: returns storageVol as either [1kL, 2kL, 5kL, 10kL, 15kL, 20kL] or np.inf
+        return storeObj
+    
+    def determineStorageVolNeigh(self, currentAttList, rain, evapscale, wqtype):
+        """Uses information of the Block to determine the required storage size of
+        a water recycling system to meet required end uses and achieve the user-defined
+        potable water reduction and reliability targets
+            - currentAttList:  current Attribute list of the block in question
+            - rain: rainfall data for determining inflows if planning SW harvesting
+            - evapscale: scaling factors for outdoor irrigation demand scaling
+            - wqtype: water quality being harvested (determines the type of end
+                                                        uses acceptable)
+        
+        Function returns an array of storage volumes in dictionary format identified
+        by the planning increment."""
+        
+        #WORKING IN [kL/yr] for single values and [kL/day] for time series
+        if currentAttList.getAttribute("Blk_EIA").getDouble() == 0:
+            return np.inf
+        
+        wqlevel = self.ffplevels[wqtype]
+        houses = currentAttList.getAttribute("ResHouses").getDouble()
+        enduses = []
+        if self.ffplevels[self.ffp_kitchen] >= wqlevel: enduses.append("K")
+        if self.ffplevels[self.ffp_shower] >= wqlevel: enduses.append("S")
+        if self.ffplevels[self.ffp_toilet] >= wqlevel: enduses.append("T")
+        if self.ffplevels[self.ffp_laundry] >= wqlevel: enduses.append("L")
+        if self.ffplevels[self.ffp_garden] >= wqlevel: enduses.append("I")
+        if self.ffplevels[self.public_irr_wq] >= wqlevel: enduses.append("PI")
+        #Total water demand (excluding non-residential areas)
+        storageVol = {}
+        
+        for i in range(len(self.lot_incr)):
+            blk_demands = self.getTotalWaterDemandEndUse(currentAttList, ["K","S","T", "L", "I", "PI"], self.lot_incr[i])
+            print "Block demands: ", blk_demands
+            
+            totalsubdemand = self.getTotalWaterDemandEndUse(currentAttList, enduses, self.lot_incr[i])
+            print "Total Demand Substitutable: ", totalsubdemand
+            if totalsubdemand == 0:
+                storageVol[(1-self.lot_incr[i])] = np.inf
+                continue
+            #recyclable demand = smaller of all substitutable demand or targeted demand
+            #targeted demand = whatever demand remains to be 'dealt with'
+            recdemand = min(totalsubdemand, self.targets_harvest/100*blk_demands)
+            print "Recycled Demand: ", recdemand
+            
+            if recdemand == 0: #or recdemand < self.targets_harvest/100*blk_demands:  
+                #If there is not demand to substitute, then storageVol is np.inf
+                #If the substitutable demand does not meet the design target, storageVol is np.inf
+                storageVol[(1-self.lot_incr[i])] = np.inf
+                
+            #Harvestable area
+            Aharvest = currentAttList.getAttribute("Blk_EIA").getDouble()   #Start with this
+            Aharvest -= (self.lot_incr[i] * currentAttList.getAttribute("ResRoof").getDouble() * houses)
+                #Subtract total houses serviced already (their roofs are being harvested)
+            if self.lot_incr[i] == 1:
+                #All HDR serviced as well, therefore remove the roof area because it is being harvested from
+                Aharvest -= currentAttList.getAttribute("HDRRoofA").getDouble()
+            print "Harvestable Area :", Aharvest
+            if "I" in enduses:      #If irrigation is part of end uses
+                #Scale to evap pattern
+                demandseries = ubseries.createScaledDataSeries(recdemand, evapscale, False)
+            else:
+                #Scale to constant pattern
+                demandseries = ubseries.createScaledDataSeries(recdemand/365, len(rain))
+            
+            #Generate the inflow series based on kind of water being harvested
+            if wqtype in ["RW", "SW"]:
+                inflow = ubseries.convertDataToInflowSeries(rain, Aharvest, False)
+                maxinflow = sum(rain)/1000*Aharvest / self.rain_length
+                print "Average annual inflow: ", maxinflow
+            elif wqtype in ["GW"]:
+                inflow = 0
+                maxinflow = 0
+            
+            if maxinflow < recdemand:
+                storageVol[(1-self.lot_incr[i])] = np.inf       #Cannot size a store to supply more than it is getting
+            
+            #Size the store depending on method
+            if self.sb_method == "Sim":
+                reqVol = dsim.estimateStoreVolume(inflow, demandseries, self.targets_reliability, 1, 100)
+                print "reqVol: ", reqVol
+            elif self.sb_method == "Eqn":
+                vdemvsupp = recdemand / maxinflow
+                storagePerc = deq.loglogSWHEquation(self.regioncity, self.targets_reliability, inflow, demandseries)
+                reqVol = storagePerc/100*maxinflow  #storagePerc is the percentage of the avg. annual inflow
+            storeObj = tt.RecycledStorage(wqtype, reqVol, enduses, Aharvest, self.targets_reliability, recdemand, "N")
+            storageVol[(1-self.lot_incr[i])] = storeObj       #at each lot incr: [ x options ]
+        return storageVol
+
+    def getTotalWaterDemandEndUse(self, currentAttList, enduse, lot_incr):
+        """Retrieves all end uses for the current Block based on the end use matrix
+        and the lot-increment. For HDR, only lot increments of 1.0 will affect the end
+        uses significantly, i.e. 
+        
+        A pre-existing lot-scale system in HDR will deal with 100% or else it won't exist
+        since the complexity of harvesting partial impervious areas and supply partial demands
+        will be too difficult to capture.
+        
+        Therefore, if lot-increment is < 1.0, for HDR, all demands will be added onto
+        the demand requirements for Neighbourhood Scale. 
+        """
+        demand = 0
+        #End use in houses and apartments - indoors + garden irrigation
+        for i in enduse:    #Get Indoor demands first
+            if i == "PI" or i == "I":
+                continue    #Skip the public irrigation
+            demand += currentAttList.getAttribute("wd_RES_"+str(i)).getDouble()*365/1000 * \
+                currentAttList.getAttribute("ResHouses").getDouble()*(1-lot_incr)
+            if lot_incr < 1:        #Then add HDR demands, 
+                demand += currentAttList.getAttribute("wd_HDR_"+str(i)).getDouble()*365/1000 * \
+                    currentAttList.getAttribute("HDRFlats").getDouble()
+        #Add irrigation of public open space
+        if "I" in enduse:
+            demand += currentAttList.getAttribute("wd_RES_I").getDouble()
+            if lot_incr < 1:        #Then add HDR demands
+                demand += currentAttList.getAttribute("wd_HDR_I").getDouble() #Add all HDR irrigation
+        if "PI" in enduse:
+            demand += currentAttList.getAttribute("wd_PubOUT").getDouble()
+        return demand
+    
+    def determineStorageVolSubbasin(self, currentAttList, city, rain, evapscale, wqtype):
+        """Uses information of the current Block and the broader sub-basin to determine
+        the required storage size of a water recycling system to meet required end uses
+        and achieve user-defined potable water reduction and reliability targets. It does
+        this for a number of combinations, but finds the worst case first e.g.
+        
+            4 increments: [0.25, 0.5, 0.75, 1.00] of the catchment harvested to treat
+                          [0.25, 0.5, 0.75, 1.00] portion of population and public space
+                          worst case scenario: 0.25 harvest to supply 1.00 of area
+        
+        Input parameters:
+            - currentAttList: current Attribute list of the block in question
+            - city: the city View so that the model can get all necessary basin blocks
+            - rain: rainfall data for determining inflows if planning SW harvesting
+            - evapscale: scaling factors for outdoor irrigation demand scaling
+            - wqtype: water quality being harvested (determines the type of end uses
+                                                     accepable)
+        
+        Model also considers the self.hs_strategy at this scale, i.e. harvest upstream
+        to supply downstream? harvest upstream to supply upstream? harvest upstream to
+        supply basin?
+        
+        Function returns an array of storage volumes in dictionary format identified by
+        planning increment."""
+        
+        #WORKING IN [kL/yr] for single values and [kL/day] for time series
+        #(1) Get all Blocks based on the strategy
+        harvestblockIDs = self.retrieveStreamBlocksIDs(currentAttList, "upstream")
+        harvestblockIDs.append(currentAttList.getAttribute("BlockID").getDouble())
+        if self.hs_strategy == "ud":
+            supplytoblockIDs = self.retrieveStreamBlockIDs(currentAttList, "downstream")
+            supplytoblockIDs.append(currentAttList.getAttribute("BlockID").getDouble())
+        elif self.hs_strategy == "uu":
+            supplytoblockIDs = harvestblockIDs        #Try ref copy first
+    #        supplyblockIDs = []
+    #        for i in range(len(harvestblockIDs)):
+    #            supplyblockIDs.append(harvestblockIDs[i])   #make a direct copy
+        elif self.hs_strategy == "ua":
+            supplytoblockIDs = self.retrieveStreamBlockIDs(currentAttList, "downstream")
+            for i in range(len(harvestblockIDs)):   #To get all basin IDs, simply concatenate the strings
+                supplytoblockIDs.append(harvestblockIDs[i])   
+        
+        #(2) Prepare end uses and obtain full demands
+        wqlevel = self.ffplevels[wqtype]
+        enduses = []
+        if self.ffplevels[self.ffp_kitchen] >= wqlevel: enduses.append("K")
+        if self.ffplevels[self.ffp_shower] >= wqlevel: enduses.append("S")
+        if self.ffplevels[self.ffp_toilet] >= wqlevel: enduses.append("T")
+        if self.ffplevels[self.ffp_laundry] >= wqlevel: enduses.append("L")
+        if self.ffplevels[self.ffp_garden] >= wqlevel: enduses.append("I")
+        if self.ffplevels[self.public_irr_wq] >= wqlevel: enduses.append("PI")
+        
+        bas_totdemand = 0
+        bas_subdemand = 0
+        for i in supplyblockIDs:
+            block_attr = self.getBlockUUID(i, city)
+            bas_totdemand += self.getTotalWaterDemandEndUse(block_attr, ["K","S","T", "L", "I", "PI"], 0)
+            bas_subdemand += self.getTotalWaterDemandEndUse(block_attr, enduses, 0)
+        
+        #(3) Grab total harvestable area
+        AharvestTot = self.retrieveAttribueFromIDs(city, harvestblockIDs, "Blk_EIA", "sum")
+            #Future - add something to deal with retrofit
+        storageVol = {}
+        #(4) Generate Demand Time Series
+        for i in range(len(self.subbas_incr)):
+            harvestincr = self.subbas_incr[i]
+            storageVol[self.subbas_incr[i]] = []    #initialize container
+            for i in range(len(self.subbas_incr)):
+                supplyincr = self.subbas_incr[i]
+                print "Current Combo: ", [harvestincr, supplyincr]
+                recdemand = min(bas_subdemand, bas_totdemand*supplyincr)
+                Aharvest = AharvestTot * harvestincr
+                
+                if "I" in enduses:
+                    demandseries = ubseries.createScaledDataSeries(recdemand, evapscale, False)
+                else:
+                    demandseries = ubseries.createScaledDataSeries(recdemand/365, len(rain))
+                
+                if wqtype in ["RW", "SW"]:
+                    inflow = ubseries.convertDataToInflowSeries(rain, Aharvest, False)
+                    maxinflow = sum(rain)/1000*Aharvest / self.rain_length
+                    print "Average annual inflow: ", maxinflow
+                elif wqtype in ["GW"]:
+                    inflow = 0
+                    maxinflow = 0
+                
+                if maxinflow < recdemand:
+                    continue
+                
+                #(5) Size the store for the current combo
+                if self.sb_method == "Sim":
+                    reqVol = dsim.estimateStoreVolume(inflow, demandseries, self.targets_reliability, 1, 100)
+                    print "reqVol: ", reqVol
+                elif self.sb_method == "Eqn":
+                    vdemvsupp = recdemand / maxinflow
+                    storagePerc = deq.loglogSWHEquation(self.regioncity, self.targets_reliability, inflow, demandseries)
+                    reqVol = storagePerc/100*maxinflow  #storagePerc is the percentage of the avg. annual inflow
+                
+                storeObj = tt.RecycledStorage(wqtype, reqVol, enduses, Aharvest, self.targets_reliability, recdemand, "B")
+                storageVol[self.subbas_incr[i]].append(storeObj)
+        return storageVol
+    
     ########################################################
     #DYNAMIND FUNCTIONS                                    #
     ########################################################

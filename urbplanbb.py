@@ -442,6 +442,7 @@ class Urbplanbb(Module):
 	
         self.blocks = View("Block", FACE, WRITE)
         self.blocks.getAttribute("BlockID")
+        self.blocks.modifyAttribute("Employ")
         self.blocks.addAttribute("MiscAtot")
         self.blocks.addAttribute("MiscAimp")
         self.blocks.addAttribute("UndType")
@@ -797,12 +798,14 @@ class Urbplanbb(Module):
             frontage = [Wfp, Wns, Wrd]
             
             #print "Total Non-res Area to be constructed with Planning Rules: ", A_li + A_hi + A_com + A_orc
+            totalblockemployed = 0
             
             if A_li != 0:
                 indLI_dict = self.buildNonResArea(currentAttList, map_attr, A_li, "LI", frontage)
                 if indLI_dict["Has_LI"] == 1:
                     currentAttList.addAttribute("Has_LI", 1)
                     #Transfer attributes from indLI dictionary
+                    currentAttList.addAttribute("LIjobs", indLI_dict["TotalBlockEmployed"])
                     currentAttList.addAttribute("LIestates", indLI_dict["Estates"])
                     currentAttList.addAttribute("avSt_LI", indLI_dict["av_St"])
                     currentAttList.addAttribute("LIAfront", indLI_dict["Afrontage"])
@@ -818,6 +821,7 @@ class Urbplanbb(Module):
                     currentAttList.addAttribute("LIAeTIA", indLI_dict["EstateImperviousArea"])
                     
                     #Add to cumulative area variables
+                    totalblockemployed += indLI_dict["TotalBlockEmployed"]
                     blk_tia += indLI_dict["Estates"] *(indLI_dict["EstateImperviousArea"] + indLI_dict["FrontageEIA"])
                     blk_eia += indLI_dict["Estates"] *(indLI_dict["EstateEffectiveImpervious"] + 0.9*indLI_dict["FrontageEIA"])
                     blk_roof += indLI_dict["Estates"] * indLI_dict["EstateBuildingArea"]
@@ -828,6 +832,7 @@ class Urbplanbb(Module):
                 if indHI_dict["Has_HI"] == 1:
                     currentAttList.addAttribute("Has_HI", 1)
                     #Transfer attributes from indHI dictionary
+                    currentAttList.addAttribute("HIjobs", indHI_dict["TotalBlockEmployed"])
                     currentAttList.addAttribute("HIestates", indHI_dict["Estates"])
                     currentAttList.addAttribute("avSt_HI", indLI_dict["av_St"])
                     currentAttList.addAttribute("HIAfront", indLI_dict["Afrontage"])
@@ -843,6 +848,7 @@ class Urbplanbb(Module):
                     currentAttList.addAttribute("HIAeTIA", indHI_dict["EstateImperviousArea"])
             
                     #Add to cumulative area variables
+                    totalblockemployed += indHI_dict["TotalBlockEmployed"]
                     blk_tia += indHI_dict["Estates"] *(indHI_dict["EstateImperviousArea"] + indHI_dict["FrontageEIA"])
                     blk_eia += indHI_dict["Estates"] *(indHI_dict["EstateEffectiveImpervious"] + 0.9*indHI_dict["FrontageEIA"])
                     blk_roof += indHI_dict["Estates"] * indHI_dict["EstateBuildingArea"]
@@ -853,6 +859,7 @@ class Urbplanbb(Module):
                 if com_dict["Has_COM"] == 1:
                     currentAttList.addAttribute("Has_Com", 1)
                     #Transfer attributes from COM dictionary
+                    currentAttList.addAttribute("COMjobs", com_dict["TotalBlockEmployed"])
                     currentAttList.addAttribute("COMestates", com_dict["Estates"])
                     currentAttList.addAttribute("avSt_COM", com_dict["av_St"])
                     currentAttList.addAttribute("COMAfront", com_dict["Afrontage"])
@@ -868,6 +875,7 @@ class Urbplanbb(Module):
                     currentAttList.addAttribute("COMAeTIA", com_dict["EstateImperviousArea"])
                     
                     #Add to cumulative area variables
+                    totalblockemployed += com_dict["TotalBlockEmployed"]
                     blk_tia += com_dict["Estates"] *(com_dict["EstateImperviousArea"] + com_dict["FrontageEIA"])
                     blk_eia += com_dict["Estates"] *(com_dict["EstateEffectiveImpervious"] + 0.9*com_dict["FrontageEIA"])
                     blk_roof += com_dict["Estates"] * com_dict["EstateBuildingArea"]
@@ -878,6 +886,7 @@ class Urbplanbb(Module):
                 if orc_dict["Has_ORC"] == 1:
                     currentAttList.addAttribute("Has_ORC", 1)
                     #Transfer attributes from Offices dictionary
+                    currentAttList.addAttribute("ORCjobs", orc_dict["TotalBlockEmployed"])
                     currentAttList.addAttribute("ORCestates", orc_dict["Estates"])
                     currentAttList.addAttribute("avSt_ORC", orc_dict["av_St"])
                     currentAttList.addAttribute("ORCAfront", orc_dict["Afrontage"])
@@ -893,12 +902,14 @@ class Urbplanbb(Module):
                     currentAttList.addAttribute("ORCAeTIA", orc_dict["EstateImperviousArea"])
                     
                     #Add to cumulative area variables
+                    totalblockemployed += orc_dict["TotalBlockEmployed"]
                     blk_tia += orc_dict["Estates"] *(orc_dict["EstateImperviousArea"] + orc_dict["FrontageEIA"])
                     blk_eia += orc_dict["Estates"] *(orc_dict["EstateEffectiveImpervious"] + 0.9*orc_dict["FrontageEIA"])
                     blk_roof += orc_dict["Estates"] * orc_dict["EstateBuildingArea"]
                     blk_avspace += orc_dict["Estates"] * (orc_dict["EstateGreenArea"] + orc_dict["av_St"])
                     
             #TALLY UP TOTAL BLOCK DETAILS
+            currentAttList.changeAttribute("Employ", totalblockemployed)
             currentAttList.addAttribute("Blk_TIA", blk_tia)
             currentAttList.addAttribute("Blk_EIA", blk_eia)
             

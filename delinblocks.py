@@ -355,6 +355,7 @@ class Delinblocks(Module):      #DYNAMIND
         self.block.addAttribute("CBDdir")         #Which direction to travel from CBD to get to Block? Specified as an angle in degrees
         
         self.block.addAttribute("UpstrIDs")
+        self.block.addAttribute("DownstrIDs")
         
         #Patch Data View
         self.patch = View("Patch", FACE, WRITE)
@@ -2029,10 +2030,25 @@ class Delinblocks(Module):      #DYNAMIND
             upstreamIDs.remove(currentID)
             print "BlockID", currentID, "Upstream: ", upstreamIDs
             
+            downstreamIDs = [currentID]
+            for id in downstreamIDs:
+                for j in range(len(hash_table[0])):
+                    if id == hash_table[0][j]:
+                        if hash_table[1][j] not in downstreamIDs:
+                            downstreamIDs.append(hash_table[1][j])
+            downstreamIDs.remove(currentID)
+            downstreamIDs.remove(0)
+            print "BlockID", currentID, "Downstream: ", downstreamIDs
+            
             outputstring = ""
             for j in upstreamIDs:
                 outputstring += str(j)+","
             currentAttList.addAttribute("UpstrIDs", outputstring)
+            
+            outputstring = ""
+            for j in downstreamIDs:
+                outputstring += str(j)+","
+            currentAttList.addAttribue("DownstrIDs", outputstring)
             
             #Set Basin IDs
             if hash_table[1][hash_table[0].index(currentID)] == 0:
