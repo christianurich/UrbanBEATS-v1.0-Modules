@@ -43,7 +43,7 @@ def CalculateMCATechScores(strategyobject, totalvalues, priorities, techarray, t
     mca_ecn = 0
     mca_soc = 0
     
-    service_abbr = ["Qty", "WQ", "RPriv", "RPub"]       #these are the four main services for the objectives
+    service_abbr = ["Qty", "WQ", "Rec"]       #these are the four main services for the objectives
     for j in range(len(totalvalues)):
         abbr = service_abbr[j]  #current service abbr to find value from object
         mca_techsub, mca_envsub, mca_ecnsub, mca_socsub = 0,0,0,0       #Initialize sub-trackers
@@ -134,7 +134,7 @@ def updateBasinService(basinstrategyobject):
     print inblocks
     
     #Loop across four different objectives
-    abbr_matrix = ["Qty", "WQ", "RPriv", "RPub"]
+    abbr_matrix = ["Qty", "WQ", "Rec"]
     for j in range(len(abbr_matrix)):
         total_service = 0       #initialize tracker
         abbr = abbr_matrix[j]
@@ -161,7 +161,7 @@ def calculateBasinStrategyMCAScores(basinstrategyobject, priorities, techarray, 
     soccumu = 0
     mcatotal = 0
     
-    totalvalues = basinstrategyobject.getBasinTotalValues()     #returns [x, x, x, x] containing totals
+    totalvalues = basinstrategyobject.getBasinTotalValues()     #returns [x, x, x] containing totals
     subbasin = basinstrategyobject.getSubbasinArray()
     inblocks = basinstrategyobject.getInBlocksArray()
     
@@ -173,7 +173,7 @@ def calculateBasinStrategyMCAScores(basinstrategyobject, priorities, techarray, 
         ecncumu += inblocks[i].getMCAscore("ecn")
         soccumu += inblocks[i].getMCAscore("soc")
     
-    service_abbr = ["Qty", "WQ", "RPriv", "RPub"]       #these are the four main services for the objectives
+    service_abbr = ["Qty", "WQ", "Rec"]       #these are the four main services for the objectives
     for j in range(len(totalvalues)):   #loop across four service objectives
         abbr = service_abbr[j]          #Current abbreviation used to retrieve service values
         mca_techsub, mca_envsub, mca_ecnsub, mca_socsub = 0,0,0,0       #initialize sub-trackers
@@ -257,8 +257,7 @@ class WaterTech(object):
         self.__service = {}
         self.__service["Qty"] = float(service[0])       #impervious area treated for runoff reduction
         self.__service["WQ"] = float(service[1])        #impervious area treated for pollution control
-        self.__service["RPriv"] = float(service[2])     #total population serviced by recycling
-        self.__service["RPub"] = float(service[3])      #total public open space area irrigation recycled
+        self.__service["Rec"] = float(service[2])     #total population serviced by recycling
         self.__areafactor = areafactor
         self.__landuse = landuse
         self.__designincrement = 1.0    #If design increment = 1.0, then service matrix will be either all imp area or zero
@@ -300,7 +299,7 @@ class WaterTech(object):
     
     def getService(self, category):
         if category == "all":
-            return [self.__service["Qty"], self.__service["WQ"], self.__service["RPriv"], self.__service["RPub"]]
+            return [self.__service["Qty"], self.__service["WQ"], self.__service["Rec"]]
         else:
             return self.__service[category]
         
@@ -332,8 +331,7 @@ class BlockStrategy(object):
         self.__blockservice = {} #e.g. total imp served, total pop served
         self.__blockservice["Qty"] = totalserviceabsolute[0]            #Impervious area [sqm]
         self.__blockservice["WQ"] = totalserviceabsolute[1]             #Impervious area [sqm]
-        self.__blockservice["RPriv"] = totalserviceabsolute[2]          #Population [people]
-        self.__blockservice["RPub"] = totalserviceabsolute[3]           #Public open space [sqm]
+        self.__blockservice["Rec"] = totalserviceabsolute[2]          #Population [people]
         self.__blockbin = bin   #Maximum of the blockservice matrix e.g. [0.5, 0.5, 0.5, 0.5] --> 0.5 service
                                                                         #[0.76, 0.2, 0.1, 0] --> 0.76 service
         self.__location = currentID
@@ -370,7 +368,7 @@ class BlockStrategy(object):
         
     def getService(self, category):
         if category == "all":
-            return [self.__blockservice["Qty"], self.__blockservice["WQ"], self.__blockservice["RPriv"], self.__blockservice["RPub"]]
+            return [self.__blockservice["Qty"], self.__blockservice["WQ"], self.__blockservice["Rec"]]
         else:
             return self.__blockservice[category]
     
@@ -398,16 +396,14 @@ class BasinManagementStrategy(object):
         self.__subbas_partake_IDs = partakeIDs
         
         self.__basinAimp = basin_info[0]    #Impervious Area
-        self.__basinPop = basin_info[1]
-        self.__basinPublic = basin_info[2]
+        self.__basinDem = basin_info[1]
         
         #Service Metrics
-        self.__basin_services = {"Qty":0, "WQ":0, "RPriv":0, "RPub":0}
+        self.__basin_services = {"Qty":0, "WQ":0, "Rec":0}
                                         #Qty: effective impervious area served
                                         #WQ: effective impervious area served
-                                        #RPriv: total population served for recycling
-                                        #RPub: total public open space served
-        self.__basin_serviceP = [0,0,0,0]
+                                        #Rec: total potable supply substituted
+        self.__basin_serviceP = [0,0,0]
         
         self.criteriamatrix = ["tec", "env", "ecn", "soc"]
         self.__MCA_scores = [0,0,0,0]
@@ -438,7 +434,7 @@ class BasinManagementStrategy(object):
     def getBasinTotalValues(self):
         """Used in the MCA function to get the scores and totals to loop across for different
         objectives"""
-        return [self.__basinAimp, self.__basinAimp, self.__basinPop, self.__basinPublic]
+        return [self.__basinAimp, self.__basinAimp, self.__basinDem]
     
     def setService(self, category, value):
         self.__basin_services[category] = value
@@ -451,8 +447,7 @@ class BasinManagementStrategy(object):
         totalvalues = self.getBasinTotalValues()
         self.__basin_serviceP[0] = self.getService("Qty")/totalvalues[0]
         self.__basin_serviceP[1] = self.getService("WQ")/totalvalues[1]
-        self.__basin_serviceP[2] = self.getService("RPriv")/totalvalues[2]
-        self.__basin_serviceP[3] = self.getService("RPub")/totalvalues[3]
+        self.__basin_serviceP[2] = self.getService("Rec")/totalvalues[2]
         return True
     
     def getServicePvalues(self):

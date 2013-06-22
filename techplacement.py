@@ -105,13 +105,11 @@ class Techplacement(Module):
         self.createParameter("targets_TSS", DOUBLE,"")
         self.createParameter("targets_TP", DOUBLE,"")
         self.createParameter("targets_TN", DOUBLE,"")
-        self.createParameter("targets_harvest", DOUBLE,"")
         self.createParameter("targets_reliability", DOUBLE, "")
         self.targets_runoff = 80            #Runoff reduction target [%]
         self.targets_TSS = 70               #TSS Load reduction target [%]
         self.targets_TP = 30                #TP Load reduction target [%]
         self.targets_TN = 30                #TN Load reduction target [%]
-        self.targets_harvest = 50           #required supply substitution % by recycling
         self.targets_reliability = 80       #required reliability of harvesting systems    
         
         #CALCULATE SOME GLOBAL VARIABLES RELATING TO TARGETS
@@ -119,17 +117,14 @@ class Techplacement(Module):
         self.system_tarTSS = self.ration_pollute * self.targets_TSS
         self.system_tarTP = self.ration_pollute * self.targets_TP
         self.system_tarTN = self.ration_pollute * self.targets_TN
-        self.system_tarHARVEST = self.ration_harvest * self.targets_harvest
         self.system_tarREL = self.ration_harvest * self.targets_reliability
-        self.targetsvector = [self.system_tarQ, self.system_tarTSS, self.system_tarTP, self.system_tarTN, 
-                        self.system_tarHARVEST, self.system_tarREL]
+        self.targetsvector = [self.system_tarQ, self.system_tarTSS, self.system_tarTP, self.system_tarTN, self.system_tarREL]
         #---> targetsvector TO BE USED TO ASSESS OPPORTUNITIES
         
         #WATER MANAGEMENT SERVICE LEVELS
         self.createParameter("service_swmQty", DOUBLE, "")
         self.createParameter("service_swmWQ", DOUBLE, "")
-        self.createParameter("service_wr_private", DOUBLE, "")
-        self.createParameter("service_wr_public", DOUBLE, "")
+        self.createParameter("service_rec", DOUBLE, "")
         self.createParameter("service_res", BOOL, "")
         self.createParameter("service_hdr", BOOL, "")
         self.createParameter("service_com", BOOL, "")
@@ -138,8 +133,7 @@ class Techplacement(Module):
         self.createParameter("service_redundancy", DOUBLE, "")
         self.service_swmQty = 50                #required service level for stormwater management
         self.service_swmWQ = 90                 #required service level for stormwater management
-        self.service_wr_private = 50            #required service level for water recycling for private use
-        self.service_wr_public = 50             #required service level for water recycling for public use
+        self.service_rec = 50                   #required service level for substituting potable water demand through recycling
         self.service_res = True
         self.service_hdr = True
         self.service_com = True
@@ -687,7 +681,7 @@ class Techplacement(Module):
         self.street_incr = []
         self.neigh_incr = []
         self.subbas_incr = []
-        self.num_output_strats = 5      #P8 config file, number of output strategies
+        self.num_output_strats = 5      #number of output strategies
         
         self.startyear  #Retrofit Advanced Parameters - Set by Model Core
         self.currentyear
@@ -702,12 +696,22 @@ class Techplacement(Module):
         self.createParameter("evap_dt", DOUBLE, "")
         self.evap_dt = 1440     #[mins]
         self.lot_raintanksizes = [1,2,4,5,7.5,10,15,20]       #[kL]
+        self.raindata = []      #Globals to contain the data time series
+        self.evapdata = []
+        self.evapscale = []
+        
+        self.createParameter("relTolerance", DOUBLE, "")
+        self.createParameter("maxSBiterations", DOUBLE, "")
+        self.relTolerance = 1
+        self.maxSBiterations = 100
 
         ########################################################################
         
 	#Views
 	self.blocks = View("Block", FACE,WRITE)
 	self.blocks.getAttribute("Status")
+        self.blocks.getAttribute("UpstrIDs")
+        self.blocks.getAttribute("DownstrIDs")
         self.blocks.addAttribute("wd_Rating")
         self.blocks.addAttribute("wd_RES_K")
         self.blocks.addAttribute("wd_RES_S")
@@ -733,8 +737,9 @@ class Techplacement(Module):
         self.blocks.addAttribute("Blk_WD")
         self.blocks.addAttribute("Blk_WD_OUT")
 
-	self.mapattributes = View("GlobalMapAttributes", COMPONENT,READ)
+	self.mapattributes = View("GlobalMapAttributes", COMPONENT, WRITE)
 	self.mapattributes.getAttribute("NumBlocks")
+        self.mapattributes.addAttribute("OutputStrats")
 	
 	self.sysGlobal = View("SystemGlobal", COMPONENT, READ)
         self.sysGlobal.getAttribute("TotalSystems")
@@ -757,15 +762,16 @@ class Techplacement(Module):
 	self.sysAttr.getAttribute("WDepth")
 	self.sysAttr.getAttribute("FDepth")
         
-        self.wsudAttr = View("WsudAttr", NODE, WRITE)
+        self.wsudAttr = View("WsudAttr", COMPONENT, WRITE)
 	self.wsudAttr.addAttribute("StrategyID")
+        self.wsudAttr.addAttribute("posX")
+        self.wsudAttr.addAttribute("posY")
 	self.wsudAttr.addAttribute("BasinID")
 	self.wsudAttr.addAttribute("Location")
 	self.wsudAttr.addAttribute("Scale")
 	self.wsudAttr.addAttribute("Type")
         self.wsudAttr.addAttribute("Qty")
 	self.wsudAttr.addAttribute("GoalQty")
-	self.wsudAttr.addAttribute("Degree")
 	self.wsudAttr.addAttribute("SysArea")
 	self.wsudAttr.addAttribute("Status")
 	self.wsudAttr.addAttribute("Year")
@@ -782,6 +788,7 @@ class Techplacement(Module):
 	datastream.append(self.blocks)
         datastream.append(self.sysGlobal)
         datastream.append(self.sysAttr)
+        datastream.append(self.wsudAttr)
         
 	self.addData("City", datastream)
 	
@@ -809,10 +816,11 @@ class Techplacement(Module):
         map_h = map_attr.getAttribute("HeightBlocks").getDouble()       #num of blocks tall
         input_res = map_attr.getAttribute("InputReso").getDouble()      #resolution of input data
         basins = map_attr.getAttribute("TotalBasins").getDouble()
+        map_attr.addAttribute("OutputStrats", self.num_output_strats)
         
         #Create Technologies Shortlist - THIS IS THE USER'S CUSTOMISED SHORTLIST
         userTechList = self.compileUserTechList()               #holds the active technologies selected by user for simulation
-        print userTechList
+        #print userTechList
         
         #Create technology list for scales
         techListLot = self.fillScaleTechList("lot", userTechList)
@@ -820,10 +828,10 @@ class Techplacement(Module):
         techListNeigh = self.fillScaleTechList("neigh", userTechList)
         techListSubbas = self.fillScaleTechList("subbas", userTechList)
         
-        print techListLot
-        print techListStreet
-        print techListNeigh
-        print techListSubbas
+        #print techListLot
+        #print techListStreet
+        #print techListNeigh
+        #print techListSubbas
         
         #PROCESS MCA Parameters and Scoring Details
         self.mca_techlist, self.mca_tech, self.mca_env, self.mca_ecn, self.mca_soc = self.retrieveMCAscoringmatrix()
@@ -831,8 +839,7 @@ class Techplacement(Module):
         #Calculate MCA weightings for different PURPOSES - used to penalize MCA score if tech does not meet particular purpose
         self.priorities = [int(self.ration_runoff)*float(self.runoff_pri), 
                    int(self.ration_pollute)*float(self.pollute_pri),
-                   int(self.ration_harvest)*float(self.harvest_pri)/2.0,
-                   int(self.ration_harvest)*float(self.harvest_pri)/2.0]        #Harvest priority split between two services to achieve
+                   int(self.ration_harvest)*float(self.harvest_pri)]
         prioritiessum = sum(self.priorities)
         for i in range(len(self.priorities)):                        #e.g. ALL and priorities 3,2,1 --> [3/6, 2/6, 1/6]
             self.priorities[i] = self.priorities[i]/prioritiessum               #1, 2 and priorities 3,2,1 --> [3/5, 2/5, 0]
@@ -938,16 +945,15 @@ class Techplacement(Module):
         self.street_incr = self.setupIncrementVector(self.street_rigour)
         self.neigh_incr = self.setupIncrementVector(self.neigh_rigour)
         self.subbas_incr = self.setupIncrementVector(self.subbas_rigour)
-        t = open("D:/Comparative.csv", 'w')
-        t.write("BlockID, RESStore[kL], HDRStore[kL] \n")
+        
         if bool(self.ration_harvest):   #if harvest is a management objective
             #Initialize meteorological data vectors: Load rainfile and evaporation files, 
             #create the scaling factors for evap data
             print "Loading Climate Data... "
-            raindata = ubseries.loadClimateFile(self.rainfile, "csv", self.rain_dt, 1440, self.rain_length)
-            evapdata = ubseries.loadClimateFile(self.evapfile, "csv", self.evap_dt, 1440, self.rain_length)
-            evapscale = ubseries.convertVectorToScalingFactors(evapdata)
-            raindata = ubseries.removeDateStampFromSeries(raindata)             #Remove the date stamps
+            self.raindata = ubseries.loadClimateFile(self.rainfile, "csv", self.rain_dt, 1440, self.rain_length)
+            self.evapdata = ubseries.loadClimateFile(self.evapfile, "csv", self.evap_dt, 1440, self.rain_length)
+            self.evapscale = ubseries.convertVectorToScalingFactors(self.evapdata)
+            self.raindata = ubseries.removeDateStampFromSeries(self.raindata)             #Remove the date stamps
             
         for i in range(int(blocks_num)):
             currentID = i+1
@@ -969,13 +975,7 @@ class Techplacement(Module):
             
             #Assess Lot Opportunities
             if len(techListLot) != 0:
-                storeVols = []
-                if bool(int(self.ration_harvest)):
-                    store_volRES = self.determineStorageVolForLot(currentAttList, raindata, evapscale, "RW", "RES")
-                    store_volHDR = self.determineStorageVolForLot(currentAttList, raindata, evapscale, "RW", "HDR")
-                    storeVols = [store_volRES, store_volHDR] #IF 100% service is to occur
-                    t.write(str(currentID)+","+str(storeVols[0])+","+str(storeVols[1])+"\n")
-                lot_techRES, lot_techHDR, lot_techLI, lot_techHI, lot_techCOM = self.assessLotOpportunities(techListLot, currentAttList, storeVols)
+                lot_techRES, lot_techHDR, lot_techLI, lot_techHI, lot_techCOM = self.assessLotOpportunities(techListLot, currentAttList)
             else:
                 lot_techRES.append(0)      #append the "Do Nothing Option regardless"
                 lot_techHDR.append(0)
@@ -991,9 +991,6 @@ class Techplacement(Module):
                 
             #Assess Neigh Opportunities
             if len(techListNeigh) != 0:
-                if bool(int(self.ration_harvest)):
-                    neighSWstores = self.determineStorageVolNeigh(currentAttList, raindata, evapscale, "SW")
-                    print neighSWstores
                 neigh_tech = self.assessNeighbourhoodOpportunities(techListNeigh, currentAttList)
             else:
                 neigh_tech.append(0)
@@ -1005,132 +1002,135 @@ class Techplacement(Module):
                 subbas_tech.append(0)
             
             subbas_options["BlockID"+str(currentID)] = subbas_tech
-#            inblock_options["BlockID"+str(currentID)] = self.constructInBlockOptions(currentAttList, lot_techRES, lot_techHDR, lot_techLI, lot_techHI, lot_techCOM, street_tech, neigh_tech)
+            inblock_options["BlockID"+str(currentID)] = self.constructInBlockOptions(currentAttList, lot_techRES, lot_techHDR, lot_techLI, lot_techHI, lot_techCOM, street_tech, neigh_tech)
         
         self.sqlDB.commit()
-        t.close()
-#        ###-------------------------------------------------------------------###
-#        #  FOURTH LOOP - MONTE CARLO (ACROSS BASINS)                            #
-#        ###-------------------------------------------------------------------###
-#        gc.collect()
-#        #self.dbcurs.execute('''CREATE TABLE basinbrainstorm(BasinID, )''')
-##        output_log_file = open("UB_BasinStrategies.csv", 'w')
-##        output_log_file.write("UrbanBEATS Basin Strategies Evaluation File \n\n")
-##        output_log_file.write("Lost of all Basin Strategies \n\n")
-##        output_log_file.write("Basin ID, Strategy No., Service [%], TotalMCAScore, # Precinct, # Blocks Local\n")
         
-#        for i in range(int(basins)):
-#            currentBasinID = i+1
-#            print "Currently on Basin ID"+str(currentBasinID)
+        ###-------------------------------------------------------------------###
+        #  FOURTH LOOP - MONTE CARLO (ACROSS BASINS)                            #
+        ###-------------------------------------------------------------------###
+        gc.collect()
+        #self.dbcurs.execute('''CREATE TABLE basinbrainstorm(BasinID, )''')
+#        output_log_file = open("UB_BasinStrategies.csv", 'w')
+#        output_log_file.write("UrbanBEATS Basin Strategies Evaluation File \n\n")
+#        output_log_file.write("Lost of all Basin Strategies \n\n")
+#        output_log_file.write("Basin ID, Strategy No., Service [%], TotalMCAScore, # Precinct, # Blocks Local\n")
+        
+        for i in range(int(basins)):
+            currentBasinID = i+1
+            print "Currently on Basin ID"+str(currentBasinID)
             
-#            basinBlockIDs, outletID = self.getBasinBlockIDs(currentBasinID, blocks_num, city)
-#            basinEIA = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Blk_EIA", "sum")
-#            basinPop = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Pop", "sum")
-#            #basinPubspace = ...
+            basinBlockIDs, outletID = self.getBasinBlockIDs(currentBasinID, blocks_num, city)
+            basinEIA = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Blk_EIA", "sum")
+            basinPop = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Pop", "sum")
+            #basinPubspace = ...
             
-#            basinTreated = self.retrieveAttributeFromIDs(city, basinBlockIDs, "ServedIA", "sum")
-#            basinremainEIA = max(basinEIA - basinTreated, 0)
-#            subbasPartakeIDs = self.findSubbasinPartakeIDs(basinBlockIDs, subbas_options) #Find locations of possible WSUD
+            basinTreated = self.retrieveAttributeFromIDs(city, basinBlockIDs, "ServedIA", "sum")
+            basinremainEIA = max(basinEIA - basinTreated, 0)
+            subbasPartakeIDs = self.findSubbasinPartakeIDs(basinBlockIDs, subbas_options) #Find locations of possible WSUD
             
-#            if basinremainEIA == 0:   # and basinPop == 0 and basinPubspace == 0:     >>>FUTURE
-#                print "Basin ID: ", currentBasinID, " has no effective impervious area, skipping!"
-#                continue
-#            iterations = 1000
+            if basinremainEIA == 0:   # and basinPop == 0 and basinPubspace == 0:     >>>FUTURE
+                #print "Basin ID: ", currentBasinID, " has no effective impervious area, skipping!"
+                continue
+            iterations = 1000
             
-#            if len(basinBlockIDs) == 1: #if we are dealing with a single-block basin, reduce the number of iterations
-#                iterations = 1
-#            #Begin Monte Carlo
-#            basin_strategies = []
-#            for iteration in range(iterations):   #1000 monte carlo simulations
-#                print "Current Iteration No. ", iteration+1
+            if len(basinBlockIDs) == 1: #if we are dealing with a single-block basin, reduce the number of iterations
+                iterations = 1
+            #Begin Monte Carlo
+            basin_strategies = []
+            for iteration in range(iterations):   #1000 monte carlo simulations
+                print "Current Iteration No. ", iteration+1
 
-#                #Create template arrays for sampling and tracking
-#                partakeIDstracker = []
-#                partakeIDssampler = []
-#                basinblockIDssampler = []
-#                #subbasID_treatedAimp = []
-#                for id in subbasPartakeIDs:
-#                    partakeIDstracker.append(id)
-#                    partakeIDssampler.append(id)
-#                    #subbasID_treatedAimp.append(0)
-#                for id in basinBlockIDs:
-#                    basinblockIDssampler.append(id)
+                #Create template arrays for sampling and tracking
+                partakeIDstracker = []
+                partakeIDssampler = []
+                basinblockIDssampler = []
+                #subbasID_treatedAimp = []
+                for id in subbasPartakeIDs:
+                    partakeIDstracker.append(id)
+                    partakeIDssampler.append(id)
+                    #subbasID_treatedAimp.append(0)
+                for id in basinBlockIDs:
+                    basinblockIDssampler.append(id)
                 
-#                #Draw Samples
-#                subbas_chosenIDs, inblocks_chosenIDs = self.selectTechLocationsByRandom(partakeIDssampler, basinblockIDssampler)
-#                #print subbas_chosenIDs
-#                #Create the Basin Management Strategy Object
-#                current_bstrategy = tt.BasinManagementStrategy(iteration+1, currentBasinID, 
-#                                                               basinBlockIDs, subbasPartakeIDs, 
-#                                                               [basinremainEIA,basinPop,1])
+                #Draw Samples
+                subbas_chosenIDs, inblocks_chosenIDs = self.selectTechLocationsByRandom(partakeIDssampler, basinblockIDssampler)
+                #print subbas_chosenIDs
+                #Create the Basin Management Strategy Object
+                basinDem = np.inf
+                current_bstrategy = tt.BasinManagementStrategy(iteration+1, currentBasinID, 
+                                                               basinBlockIDs, subbasPartakeIDs, 
+                                                               [basinremainEIA,basinDem])
                 
-#                #Populate Basin Management Strategy Object based on the current sampled values
-#                self.populateBasinWithTech(current_bstrategy, subbas_chosenIDs, inblocks_chosenIDs, 
-#                                           partakeIDstracker, inblock_options, subbas_options, city)
-#                tt.updateBasinService(current_bstrategy)
-#                tt.calculateBasinStrategyMCAScores(current_bstrategy,self.priorities, self.mca_techlist, self.mca_tech, \
-#                                                  self.mca_env, self.mca_ecn, self.mca_soc, \
-#                                                      [self.bottomlines_tech_w, self.bottomlines_env_w, \
-#                                                               self.bottomlines_ecn_w, self.bottomlines_soc_w])
+                #Populate Basin Management Strategy Object based on the current sampled values
+                self.populateBasinWithTech(current_bstrategy, subbas_chosenIDs, inblocks_chosenIDs, 
+                                           partakeIDstracker, inblock_options, subbas_options, city)
+                tt.updateBasinService(current_bstrategy)
+                tt.calculateBasinStrategyMCAScores(current_bstrategy,self.priorities, self.mca_techlist, self.mca_tech, \
+                                                  self.mca_env, self.mca_ecn, self.mca_soc, \
+                                                      [self.bottomlines_tech_w, self.bottomlines_env_w, \
+                                                               self.bottomlines_ecn_w, self.bottomlines_soc_w])
                 
-#                #Add basin strategy to list of possibilities
-#                service_objfunc = self.evaluateServiceObjectiveFunction(current_bstrategy)        #Calculates how well it meets the total service
+                #Add basin strategy to list of possibilities
+                service_objfunc = self.evaluateServiceObjectiveFunction(current_bstrategy)        #Calculates how well it meets the total service
 
-#                basin_strategies.append([service_objfunc,current_bstrategy.getServicePvalues(), current_bstrategy.getTotalMCAscore(), current_bstrategy])
+                basin_strategies.append([service_objfunc,current_bstrategy.getServicePvalues(), current_bstrategy.getTotalMCAscore(), current_bstrategy])
             
-#            #print basin_strategies
-#            #print "Must Achieve: ", self.service_swm/100.0
-#            #Pick the final option by narrowing down the list and choosing (based on how many
-#            #need to be chosen), sort and grab the top ranking options
-#            basin_strategies.sort()
-#            self.debugPlanning(basin_strategies)
-#            acceptable_options = []
-#            for j in range(len(basin_strategies)):
-#                if basin_strategies[j][0] < 0:  #if the OF is <0 i.e. -1, skip
-#                    continue
-#                else:
-#                    acceptable_options.append(basin_strategies[j])
-#            print acceptable_options
-#            if self.ranktype == "RK":
-#                acceptable_options = acceptable_options[0:int(self.topranklimit)]
-#            elif self.ranktype == "CI":
-#                acceptableN = int(len(acceptable_options)*(1.0-float(self.conf_int)/100.0))
-#                acceptable_options = acceptable_options[0:acceptableN]
+            #print basin_strategies
+            #print "Must Achieve: ", self.service_swm/100.0
+            #Pick the final option by narrowing down the list and choosing (based on how many
+            #need to be chosen), sort and grab the top ranking options
+            basin_strategies.sort()
+            print basin_strategies
+            self.debugPlanning(basin_strategies)
+            acceptable_options = []
+            for j in range(len(basin_strategies)):
+                if basin_strategies[j][0] < 0:  #if the OF is <0 i.e. -1, skip
+                    continue
+                else:
+                    acceptable_options.append(basin_strategies[j])
+            print acceptable_options
+            if self.ranktype == "RK":
+                acceptable_options = acceptable_options[0:int(self.topranklimit)]
+            elif self.ranktype == "CI":
+                acceptableN = int(len(acceptable_options)*(1.0-float(self.conf_int)/100.0))
+                acceptable_options = acceptable_options[0:acceptableN]
             
-#            topcount = len(acceptable_options)
-#            acceptable_options.sort(key=lambda score: score[1])
-#            print acceptable_options
-#            #Choose final option
-#            numselect = min(topcount, self.num_output_strats)   #Determines how many options out of the matrix it should select
-#            final_selection = []
-#            for i in range(numselect):            
-#                score_matrix = []       #Create the score matrix
-#                for j in acceptable_options:
-#                    score_matrix.append(j[1])
-#                selection_cdf = self.createCDF(score_matrix)    #Creat the CDF
-#                choice = self.samplefromCDF(selection_cdf)
-#                final_selection.append(acceptable_options[choice][2])   #Add ONLY the strategy_object
-#                acceptable_options.pop(choice)  #Pop the option at the selected index from the matrix
-#                #Repeat for as many options as requested
+            topcount = len(acceptable_options)
+            acceptable_options.sort(key=lambda score: score[2])
+            print acceptable_options
+            #Choose final option
+            numselect = min(topcount, self.num_output_strats)   #Determines how many options out of the matrix it should select
+            final_selection = []
+            for i in range(numselect):            
+                score_matrix = []       #Create the score matrix
+                for j in acceptable_options:
+                    score_matrix.append(j[2])
+                selection_cdf = self.createCDF(score_matrix)    #Creat the CDF
+                choice = self.samplefromCDF(selection_cdf)
+                final_selection.append(acceptable_options[choice][3])   #Add ONLY the strategy_object
+                acceptable_options.pop(choice)  #Pop the option at the selected index from the matrix
+                #Repeat for as many options as requested
             
-#            #Write WSUD strategy attributes to output vector for that block
-#            for j in range(len(final_selection)):
-#                cur_strat = final_selection[i]
-#                stratID = j+1
-#                self.writeStrategyView(city, stratID, currentBasinID, basinBlockIDs, cur_strat)
+            #Write WSUD strategy attributes to output vector for that block
+            print final_selection
+            for j in range(len(final_selection)):
+                cur_strat = final_selection[j]
+                stratID = j+1
+                self.writeStrategyView(city, stratID, currentBasinID, basinBlockIDs, cur_strat)
             
-#            #Clear the array and garbage collect
-#            basin_strategies = []
-#            acceptable_options = []
-#            final_selection = []
-#            gc.collect()
-#            #END OF BASIN LOOP, continues to next basin
+            #Clear the array and garbage collect
+            basin_strategies = []
+            acceptable_options = []
+            final_selection = []
+            gc.collect()
+            #END OF BASIN LOOP, continues to next basin
         
-##        output_log_file.write("End of Basin Strategies Log \n\n")
-##        output_log_file.close()
+#        output_log_file.write("End of Basin Strategies Log \n\n")
+#        output_log_file.close()
         
-#        self.sqlDB.close()      #Close the database
-#        #END OF MODULE
+        self.sqlDB.close()      #Close the database
+        #END OF MODULE
     
     ########################################################
     #TECHPLACEMENT SUBFUNCTIONS                            #
@@ -1874,17 +1874,26 @@ class Techplacement(Module):
         """
         try:
             purposeQ = eval("self."+j+"flow")
+            if purposeQ == None:
+                purposeQ = 0
         except NameError:
             purposeQ = 0
         try:
             purposeWQ = eval("self."+j+"pollute")
+            if purposeWQ == None:
+                purposeWQ = 0
         except NameError:
             purposeWQ = 0
         try:
             purposeREC = eval("self."+j+"harvest")
+            if purposeREC == None:
+                purposeREC = 0
         except NameError:
             purposeREC = 0
         purposes = [purposeQ, purposeWQ, purposeREC]
+        purposebooleans = [int(self.ration_runoff), int(self.ration_pollute), int(self.ration_harvest)]
+        for i in range(len(purposes)):
+            purposes[i] *= purposebooleans[i]
         return purposes
     
     def retrieveMCAscoringmatrix(self):
@@ -2116,7 +2125,7 @@ class Techplacement(Module):
         return output
 
 
-    def assessLotOpportunities(self, techList, currentAttList, storeVols):
+    def assessLotOpportunities(self, techList, currentAttList):
         """Assesses if the shortlist of lot-scale technologies can be put into the lot scale
         Does this for one block at a time, depending on the currentAttributesList and the techlist
         """
@@ -2167,7 +2176,12 @@ class Techplacement(Module):
         #print "Impervious Area on COM: ", AimpCOM
         
         #Size the required store to achieve the required potable supply substitution.
-        
+        storeVols = []
+        if bool(int(self.ration_harvest)):
+            store_volRES = self.determineStorageVolForLot(currentAttList, self.raindata, self.evapscale, "RW", "RES")
+            store_volHDR = self.determineStorageVolForLot(currentAttList, self.raindata, self.evapscale, "RW", "HDR")
+            storeVols = [store_volRES, store_volHDR] #IF 100% service is to occur
+            print storeVols
         
         for j in techList:
             tech_applications = self.getTechnologyApplications(j)
@@ -2235,7 +2249,7 @@ class Techplacement(Module):
             #Can insert more land uses here in future e.g. municipal
         return tdRES, tdHDR, tdLI, tdHI, tdCOM
     
-    def designTechnology(self, incr, Aimp, Pop, techabbr, dcvpath, tech_applications, soilK, minsize, maxsize, avail_sp, landuse, currentID):
+    def designTechnology(self, incr, Aimp, dem, techabbr, dcvpath, tech_applications, soilK, minsize, maxsize, avail_sp, landuse, currentID):
         """Carries out the lot-scale design for a given system type on a given land use. This function is
         used for the different land uses that can accommodate lot-scale technologies in the model.
         """            
@@ -2245,7 +2259,7 @@ class Techplacement(Module):
         except KeyError:
             curscale = 'NA'
         Adesign_imp = Aimp * incr
-        design_Pop = Pop * incr
+        design_Dem = dem * incr
         #Adesign_pub = Apub * incr
         
         #print techabbr
@@ -2280,14 +2294,13 @@ class Techplacement(Module):
             
         if Asystem[0] < avail_sp and Asystem[0] != None:        #if it fits and is NOT a NoneType
             #print "Fits"
-            servicematrix = [0,0,0,0]
+            servicematrix = [0,0,0]
             if AsystemQty[0] != None:
                 servicematrix[0] = Adesign_imp
             if AsystemWQ[0] != None:
                 servicematrix[1] = Adesign_imp
 #            if AsystemRec[0] != None:
 #                servicematrix[2] = ...
-#                servicematrix[3] = ...
             servicematrixstring = tt.convertArrayToDBString(servicematrix)
             self.dbcurs.execute("INSERT INTO watertechs VALUES ("+str(currentID)+",'"+str(techabbr)+"',"+str(Asystem[0])+",'"+curscale+"','"+str(servicematrixstring)+"',"+str(Asystem[1])+",'"+str(landuse)+"',"+str(incr)+")")
             sys_object = tt.WaterTech(techabbr, Asystem[0], curscale, servicematrix, Asystem[1], landuse, currentID)
@@ -2380,6 +2393,11 @@ class Techplacement(Module):
         Aimphdr = currentAttList.getAttribute("HDR_EIA").getDouble()
         #Pop = currentAttList.getAttribute("Pop").getDouble()                   #>>>>>>>>>>>>>>> POP
         
+        #Size a combination of stormwater harvesting stores
+        if bool(int(self.ration_harvest)):
+            neighSWstores = self.determineStorageVolNeigh(currentAttList, self.raindata, self.evapscale, "SW")
+            print neighSWstores
+                
         for j in techList:
             tech_applications = self.getTechnologyApplications(j)
             minsize = eval("self."+j+"minsize")
@@ -2413,6 +2431,7 @@ class Techplacement(Module):
         and the techlist
         """
         currentID = int(currentAttList.getAttribute("BlockID").getDouble())
+        
         technologydesigns = {}  #Three Conditions: 1) there must be upstream blocks
                                                  # 2) there must be space available, 
                                                  # 3) there must be impervious to treat
@@ -2427,22 +2446,26 @@ class Techplacement(Module):
         av_PG = currentAttList.getAttribute("PG_av").getDouble()
         av_REF = currentAttList.getAttribute("REF_av").getDouble()
         totalavailable = av_PG + av_REF
-        #print "Total Available Space in BLock to do STUFF: ", totalavailable
         if totalavailable < 0.0001:
+            #print "Total Available Space in Block to do STUFF: ", totalavailable, "less than threshold"
             return technologydesigns
         
         #CONDITION 3: Get Block's upstream Impervious area
         upstreamImp = self.retrieveAttributeFromIDs(city, upstreamIDs, "Blk_EIA", "sum")
         upstreamPop = self.retrieveAttributeFromIDs(city, upstreamIDs, "Pop", "sum")
 #        upstreamPublicSpace = self.retrieveAttributeFromIDs(city, upstreamIDs, "PubSpace", "sum")
-        #print "Total Upstream Impervious Area: ", upstreamImp
         if upstreamImp < 0.0001 and upstreamPop < 1: #and upstreamPublicSpace < 0.0001:
+            #print "Total Upstream Impervious Area: ", upstreamImp, "less than threshold"
             return technologydesigns
         
         #Initialize techdesignvector's dictionary keys
         for j in self.subbas_incr:
             technologydesigns[j] = []
 
+        if bool(int(self.ration_harvest)):
+            subbasSWstores = self.determineStorageVolSubbasin(currentAttList, city, self.raindata, self.evapscale, "SW")
+            print "Subbasin: ", subbasSWstores
+        
         for j in techList:
             #print j
             tech_applications = self.getTechnologyApplications(j)
@@ -2500,8 +2523,7 @@ class Techplacement(Module):
         AimpCOM = AimpAeCOM * estatesCOM
         
         AblockEIA = currentAttList.getAttribute("Blk_EIA").getDouble()          #Total block imp area
-        Pop = currentAttList.getAttribute("Pop").getDouble()                    #Total block population
-        Pubspace = 1 #currentAttList.getAttribute("PubSpace").getDouble()
+        blockDem = np.inf
         
         lot_tech = []
         for a in range(len(self.lot_incr)):     #lot_incr = [0, ....., 1.0]
@@ -2556,19 +2578,16 @@ class Techplacement(Module):
                     if servicematrix[0] > AblockEIA or servicematrix[1] > AblockEIA:
                         #print "Overtreatment on Qty or WQ side"
                         continue
-                    elif servicematrix[2] > Pop:
-                        #Overtreatment of population
-                        continue
-                    elif servicematrix[3] > Pubspace:
-                        #Overtreatment of public space
+                    elif servicematrix[2] > AblockEIA: #CHANGE TO DEMAND!
+                        #Oversupply of demand
                         continue
                     else:
                         #print "Strategy is fine"
                         #Create Block Strategy and put it into one of the subbas bins of allInBlockOptions
-                        servicebin = self.identifyBin(servicematrix, AblockEIA, Pop, Pubspace)
+                        servicebin = self.identifyBin(servicematrix, AblockEIA, blockDem)
                         blockstrat = tt.BlockStrategy(combo, servicematrix, lotcounts, currentID, servicebin)
                         
-                        tt.CalculateMCATechScores(blockstrat,[AblockEIA, AblockEIA, Pop, Pubspace],self.priorities, \
+                        tt.CalculateMCATechScores(blockstrat,[AblockEIA, AblockEIA, blockDem],self.priorities, \
                                                     self.mca_techlist, self.mca_tech, self.mca_env, self.mca_ecn, \
                                                     self.mca_soc)
                         
@@ -2611,9 +2630,13 @@ class Techplacement(Module):
     def getTotalComboService(self, techarray, lotcounts):
         """Retrieves all the impervious area served by an array of systems and returns
         the value"""
-        service_abbr = ["Qty", "WQ", "RPriv", "RPub"]
-        servicematrix = [0,0,0,0]
+        service_abbr = ["Qty", "WQ", "Rec"]
+        service_booleans = [int(self.ration_runoff), int(self.ration_pollute), int(self.ration_harvest)]
+        servicematrix = [0,0,0]
         for j in range(len(servicematrix)):
+            if service_booleans[j] == 0:        #If not interested in that particular part
+                servicematrix[j] = 0    #Set that service matrix entry to zero and continue
+                continue
             abbr = service_abbr[j]
             for tech in techarray:
                 if tech == 0:
@@ -2630,10 +2653,10 @@ class Techplacement(Module):
                     servicematrix[j] += tech.getService(abbr)
         return servicematrix
 
-    def identifyBin(self, servicematrix, AblockEIA, Pop, Pubspace):
+    def identifyBin(self, servicematrix, AblockEIA, totdemand):
         """Determines what bin to sort a particular service into, used when determining
         which bin a BlockStrategy should go into"""
-        servicelevels = [servicematrix[0]/AblockEIA, servicematrix[1]/AblockEIA, servicematrix[2]/Pop, servicematrix[3]/Pubspace]
+        servicelevels = [servicematrix[0]/AblockEIA, servicematrix[1]/AblockEIA, servicematrix[2]/totdemand]
         
         #bracketwidth = 1.0/float(self.subbas_rigour)   #Used to bin the score within the bracket and penalise MCA score
         blockstratservice = max(servicelevels)
@@ -2783,32 +2806,31 @@ class Techplacement(Module):
             #print "Complete Aimp: ", completeAimp
             #print "TotalAimp_subbasin: ", totalAimp_subbasin
             
-            #Calculate the total population based on the recycling scheme
-            #call a function to determine pop and public space
-            #completePop = ..
-            #servicedPopBlock = ...
-            #servicedPopSubbas = ...
-            #totalPop_subbasin = ...
+            #Calculate the total waterdemand based on the recycling scheme
             
             subbas_treatedAimpQty = 0  #Sum of already treated imp area in upstream sub-basins and the now planned treatment
             subbas_treatedAimpWQ = 0
-#            subbas_treatedPop = 0
-#            subbas_treatedPubspace = 0
+#            subbas_treatedDem = 0
             for sbID in subbasinIDs:
                 subbas_treatedAimpQty += subbasID_treatedAimpQty[sbID]    #Check all upstream sub-basins for their treated Aimp            
                 subbas_treatedAimpWQ += subbasID_treatedAimpWQ[sbID]    #Check all upstream sub-basins for their treated Aimp            
 #                subbas_treatedPop += subbasID_treatedPop[sbID]          #The deficit if upstream-downstream or just normal
 #                subbas_treatedPubspace += subbasID_treatedPubspace[sbID]        #Depends on scheme
-            remainAimp_subbasinQty = totalAimp_subbasin - subbas_treatedAimpQty
-            remainAimp_subbasinWQ = totalAimp_subbasin - subbas_treatedAimpWQ
+            remainAimp_subbasinQty = max(totalAimp_subbasin - subbas_treatedAimpQty, 0)
+            remainAimp_subbasinWQ = max(totalAimp_subbasin - subbas_treatedAimpWQ, 0)
 #            remainPop_subbasin = totalPop_subbasin - subbas_treatedPop
 #            remainPubspace_subbasin = totalPubspace - subbas_treatedPubspace
             
-            max_degreeQty = remainAimp_subbasinQty/totalAimp_subbasin
-            max_degreeWQ = remainAimp_subbasinWQ/totalAimp_subbasin
-            max_degreePop = 1.0 #>>> FUTURE
-            max_degreePubspace = 1.0 #>>>FUTURE
-            max_degree = min(max_degreeQty, max_degreeWQ, max_degreePop, max_degreePubspace)+float(self.service_redundancy/100.0)  
+            if totalAimp_subbasin == 0:
+                max_degreeQty = 0
+                max_degreeWQ = 0
+            else:
+                max_degreeQty = remainAimp_subbasinQty/totalAimp_subbasin
+                max_degreeWQ = remainAimp_subbasinWQ/totalAimp_subbasin
+
+            max_degDem = 1      #>>> FUTURE
+            
+            max_degree = min(max_degreeQty, max_degreeWQ)+float(self.service_redundancy/100.0)  
             #choose the minimum, bring in allowance using redundancy parameter
             
             current_bstrategy.addSubBasinInfo(currentBlockID, upstreamIDs, subbasinIDs, [totalAimp_subbasin,0,0])       #>>>Add on population and public area in future
@@ -2864,15 +2886,18 @@ class Techplacement(Module):
         """
         serviceQty = float(int(self.ration_runoff))*float(self.service_swmQty/100.0)
         serviceWQ = float(int(self.ration_pollute))*float(self.service_swmWQ/100.0)
-        serviceRPriv = float(int(self.ration_harvest))*float(self.service_wr_private/100.0)
-        serviceRPub = float(int(self.ration_harvest))*float(self.service_wr_public/100.0)
-        serviceRequired = [serviceQty, serviceWQ, serviceRPriv, serviceRPub]
+        serviceRec = float(int(self.ration_harvest))*float(self.service_rec/100.0)
+        serviceRequired = [serviceQty, serviceWQ, serviceRec]
+        serviceBooleans = [int(self.ration_runoff), int(self.ration_pollute), int(self.ration_harvest)]
         
-        serviceProvided = basinstrategy.getServicePvalues() #[0,0,0,0] P values for service
-        
+        serviceProvided = basinstrategy.getServicePvalues() #[0,0,0] P values for service
+        for i in range(len(serviceProvided)):
+            serviceProvided[i] *= float(serviceBooleans[i])     #Rescale to ensure no service items are zero
+            
         #Objective Criterion: A strategy is most suitable to the user's input
         #requirements if the sum(service-provided - service-required) is a minimum
         #and >0
+        negative = False
         performance = 0
         for i in range(len(serviceProvided)):
             performance += (serviceProvided[i] - serviceRequired[i])
@@ -2942,9 +2967,9 @@ class Techplacement(Module):
             currentAttList = self.getBlockUUID(currentID, city)
             centreX = currentAttList.getAttribute("CentreX").getDouble()
             centreY = currentAttList.getAttribute("CentreY").getDouble()
-            
             #Grab the strategy objects
             inblock_strat = strategyobject.getIndividualTechStrat(currentID, "b")
+            
             if inblock_strat == None:
                 inblock_systems = [0,0,0,0,0,0,0]
                 inblock_degs = [0,0,0,0,0,0,0]
@@ -2954,6 +2979,7 @@ class Techplacement(Module):
                 for j in range(len(inblock_systems)):
                     if inblock_systems[j] != 0:
                         inblock_degs[j] = inblock_systems[j].getDesignIncrement()
+                        
             offsets_matrix = [[centreX+float(self.block_size)/16.0, centreY+float(self.block_size)/4.0],
                               [centreX+float(self.block_size)/12.0, centreY+float(self.block_size)/4.0],
                               [centreX+float(self.block_size)/8.0, centreY+float(self.block_size)/4.0],
@@ -2964,6 +2990,7 @@ class Techplacement(Module):
                               [centreX-float(self.block_size)/4.0, centreY-float(self.block_size)/8.0]]
                             #[Res, HDR, LI, HI, COM, Street, Neigh, Subbas]
             blockscale_names = ["L_RES", "L_HDR", "L_LI", "L_HI", "L_COM", "S", "N"]
+            
             for j in range(len(blockscale_names)):
                 if inblock_strat == None or inblock_systems[j] == 0:
                     continue
@@ -2971,60 +2998,65 @@ class Techplacement(Module):
                 scale = blockscale_names[j]
                 coordinates = offsets_matrix[j]
                 
-                loc = city.addNode(coordinates[0], coordinates[1], 0, self.wsudAttr)
+                #loc = city.addNode(coordinates[0], coordinates[1], 0, self.wsudAttr)
+                loc = Component()
                 loc.addAttribute("StrategyID", id)
+                loc.addAttribute("posX", coordinates[0])
+                loc.addAttribute("posY", coordinates[1])
                 loc.addAttribute("BasinID", basinID)
                 loc.addAttribute("Location", currentID)
-                loc.addAttribute("Scale", 0)
-                loc.addAttribute("Type", 0)
-                loc.addAttribute("Qty", 0)
-                loc.addAttribute("GoalQty", 0)
-                loc.addAttribute("Degree", 0)
-                loc.addAttribute("SysArea", 0)
-                loc.addAttribute("Status", 0)
-                loc.addAttribute("Year", 0)
-                loc.addAttribute("EAFact", 0)
-                loc.addAttribute("ImpT", 0)
-                loc.addAttribute("CurImpT", 0)
-                loc.addAttribute("Upgrades", 0)
-                
+                loc.addAttribute("Scale", scale)
+                loc.addAttribute("Type", current_wsud.getType())
+                loc.addAttribute("Qty", 0)      #Currently none available
+                loc.addAttribute("GoalQty", 0)  #lot scale mainly - number of lots to build
+                loc.addAttribute("SysArea", current_wsud.getSize())
+                loc.addAttribute("Status", 0)   #0 = not built, 1 = built
+                loc.addAttribute("Year", 9999)
+                loc.addAttribute("EAFact", current_wsud.getAreaFactor())
+                loc.addAttribute("ImpT", current_wsud.getService("WQ"))
+                loc.addAttribute("CurImpT", current_wsud.getService("WQ"))
+                loc.addAttribute("Upgrades", 0) #Done in the retrofit/implementation part
+                city.addComponent(loc, self.wsudAttr)
                 #Transfer the key system specs
                 if current_wsud.getType() in ["BF", "IS", "WSUR"]:
-                    loc.addAttribute("WDepth", 0)
+                    loc.addAttribute("WDepth", eval("self."+str(current_wsud.getType())+"spec_EDD"))
                 if current_wsud.getType() in ["PB"]:
-                    loc.addAttribute("WDepth", 0)
+                    loc.addAttribute("WDepth", float(eval("self."+str(current_wsud.getType())+"spec_MD")))
                 if current_wsud.getType() in ["BF", "IS"]:
-                    loc.addAttribute("FDepth", 0)
+                    loc.addAttribute("FDepth", eval("self."+str(current_wsud.getType())+"spec_FD"))
                 
             outblock_strat = strategyobject.getIndividualTechStrat(currentID, "s")
             if outblock_strat != None:
                 scale = "B"
                 coordinates = offsets_matrix[7]
                 
-                loc = city.addNode(coordinates[0], coordinates[1], 0, self.wsudAttr)
+                loc = Component()
+                #loc = city.addNode(coordinates[0], coordinates[1], 0, self.wsudAttr)
                 loc.addAttribute("StrategyID", id)
+                loc.addAttribute("posX", coordinates[0])
+                loc.addAttribute("posY", coordinates[1])
                 loc.addAttribute("BasinID", basinID)
                 loc.addAttribute("Location", currentID)
-                loc.addAttribute("Scale", 0)
-                loc.addAttribute("Type", 0)
-                loc.addAttribute("Qty", 0)
-                loc.addAttribute("GoalQty", 0)
-                loc.addAttribute("Degree", 0)
-                loc.addAttribute("SysArea", 0)
+                loc.addAttribute("Scale", scale)
+                loc.addAttribute("Type", outblock_strat.getType())
+                loc.addAttribute("Qty", 0)      #currently none available
+                loc.addAttribute("GoalQty", 0)  #lot scale mainly - number of lots to build
+                loc.addAttribute("SysArea", outblock_strat.getSize())
                 loc.addAttribute("Status", 0)
-                loc.addAttribute("Year", 0)
-                loc.addAttribute("EAFact", 0)
-                loc.addAttribute("ImpT", 0)
-                loc.addAttribute("CurImpT", 0)
+                loc.addAttribute("Year", 9999)
+                loc.addAttribute("EAFact", outblock_strat.getAreaFactor())
+                loc.addAttribute("ImpT", outblock_strat.getService("WQ"))
+                loc.addAttribute("CurImpT", outblock_strat.getService("WQ"))
                 loc.addAttribute("Upgrades", 0)
-                
+                city.addComponent(loc, self.wsudAttr)
+
                 #Transfer the key system specs
                 if outblock_strat.getType() in ["BF", "IS", "WSUR"]:
-                    loc.addAttribute("WDepth", 0)
+                    loc.addAttribute("WDepth", eval("self."+str(outblock_strat.getType())+"spec_EDD"))
                 if outblock_strat.getType() in ["PB"]:
-                    loc.addAttribute("WDepth", 0)
+                    loc.addAttribute("WDepth", float(eval("self."+str(outblock_strat.getType())+"spec_MD")))
                 if outblock_strat.getType() in ["BF", "IS"]:
-                    loc.addAttribute("FDepth", 0)
+                    loc.addAttribute("FDepth", eval("self."+str(outblock_strat.getType())+"spec_FD"))
             
             #ADD ALL EXISTING SYSTEMS TO THE VECTOR
             #-->Retrofit case
@@ -3376,8 +3408,9 @@ class Techplacement(Module):
         if totalsubdemand == 0:
             return np.inf
         
-        #Determine what the maximum substitution can be
-        recdemand = min(totalsubdemand, self.targets_harvest/100*totalhhdemand)     #the lower of the two
+        #Determine what the maximum substitution can be, supply the smaller of total substitutable demand
+        #or the desired target.
+        recdemand = min(totalsubdemand, self.service_rec/100*totalhhdemand)     #the lower of the two
         
         #Determine inflow/demand time series
         if lottype == "RES":
@@ -3393,9 +3426,6 @@ class Techplacement(Module):
             #Scale to constant pattern
             demandseries = ubseries.createConstantDataSeries(recdemand/365, len(rain))
         
-        if maxinflow < recdemand:       #If Vsupp < Vdem
-            return np.inf       #cannot size a store that is supplying more than it is getting
-        
         #Generate the inflow series based on the kind of water being harvested
         if wqtype in ["RW", "SW"]:      #Use rainwater to generate inflow
             inflow = ubseries.convertDataToInflowSeries(rain, Aroof, False)     #Convert rainfall to inflow
@@ -3405,6 +3435,9 @@ class Techplacement(Module):
             inflow = 0
             maxinflow = 0
             tank_templates = [] #use the possible greywater tank sizes
+        
+        if maxinflow < recdemand:       #If Vsupp < Vdem
+            return np.inf       #cannot size a store that is supplying more than it is getting
         
         #Depending on Method, size the store
         if self.sb_method == "Sim":
@@ -3432,7 +3465,22 @@ class Techplacement(Module):
             tank_templates.reverse()        #Reverse the series back in case it needs to be used again
         storeObj = tt.RecycledStorage(wqtype, storageVol,  objenduses, Aroof, self.targets_reliability, recdemand, "L")
         #End of function: returns storageVol as either [1kL, 2kL, 5kL, 10kL, 15kL, 20kL] or np.inf
-        return storeObj
+        return storeObj.getSize()
+    
+    def determineEndUses(self, wqtype):
+        """Returns an array of the allowable water end uses for the given water
+        quality type 'wqtype'. Array is dependent on user inputs and is subsequently
+        used to determine water demands substitutable by that water source. This 
+        function is only for neighbourhood and sub-basin scales"""
+        wqlevel = self.ffplevels[wqtype]
+        enduses = []
+        if self.ffplevels[self.ffp_kitchen] >= wqlevel: enduses.append("K")
+        if self.ffplevels[self.ffp_shower] >= wqlevel: enduses.append("S")
+        if self.ffplevels[self.ffp_toilet] >= wqlevel: enduses.append("T")
+        if self.ffplevels[self.ffp_laundry] >= wqlevel: enduses.append("L")
+        if self.ffplevels[self.ffp_garden] >= wqlevel: enduses.append("I")
+        if self.ffplevels[self.public_irr_wq] >= wqlevel: enduses.append("PI")
+        return enduses
     
     def determineStorageVolNeigh(self, currentAttList, rain, evapscale, wqtype):
         """Uses information of the Block to determine the required storage size of
@@ -3451,87 +3499,88 @@ class Techplacement(Module):
         if currentAttList.getAttribute("Blk_EIA").getDouble() == 0:
             return np.inf
         
-        wqlevel = self.ffplevels[wqtype]
+        enduses = self.determineEndUses(wqtype)
         houses = currentAttList.getAttribute("ResHouses").getDouble()
-        enduses = []
-        if self.ffplevels[self.ffp_kitchen] >= wqlevel: enduses.append("K")
-        if self.ffplevels[self.ffp_shower] >= wqlevel: enduses.append("S")
-        if self.ffplevels[self.ffp_toilet] >= wqlevel: enduses.append("T")
-        if self.ffplevels[self.ffp_laundry] >= wqlevel: enduses.append("L")
-        if self.ffplevels[self.ffp_garden] >= wqlevel: enduses.append("I")
-        if self.ffplevels[self.public_irr_wq] >= wqlevel: enduses.append("PI")
+        
         #Total water demand (excluding non-residential areas)
         storageVol = {}
         
-        for i in range(len(self.lot_incr)):
-            blk_demands = self.getTotalWaterDemandEndUse(currentAttList, ["K","S","T", "L", "I", "PI"], self.lot_incr[i])
-            print "Block demands: ", blk_demands
-            
-            totalsubdemand = self.getTotalWaterDemandEndUse(currentAttList, enduses, self.lot_incr[i])
-            print "Total Demand Substitutable: ", totalsubdemand
-            if totalsubdemand == 0:
-                storageVol[(1-self.lot_incr[i])] = np.inf
+        #Get the entire Block's Water Demand
+        blk_demands = self.getTotalWaterDemandEndUse(currentAttList, ["K","S","T", "L", "I", "PI"])
+        print "Block demands: ", blk_demands
+        
+        #Get the entire Block's substitutable water demand
+        totalsubdemand = self.getTotalWaterDemandEndUse(currentAttList, enduses)
+        print "Total Demand Substitutable: ", totalsubdemand
+        
+        if totalsubdemand == 0: #If nothing can be substituted, return infinity
+            return np.inf    
+        
+        #Loop across increments: Storage that harvests all area/WW to supply [0.25, 0.5, 0.75, 1.0] of demand
+        for i in range(len(self.neigh_incr)):   #Loop across harvestable area
+            if self.neigh_incr[i] == 0:
                 continue
-            #recyclable demand = smaller of all substitutable demand or targeted demand
-            #targeted demand = whatever demand remains to be 'dealt with'
-            recdemand = min(totalsubdemand, self.targets_harvest/100*blk_demands)
-            print "Recycled Demand: ", recdemand
+            harvestincr = self.neigh_incr[i]
+            storageVol[harvestincr] = {} #Initialize container dictionary
             
-            if recdemand == 0: #or recdemand < self.targets_harvest/100*blk_demands:  
-                #If there is not demand to substitute, then storageVol is np.inf
-                #If the substitutable demand does not meet the design target, storageVol is np.inf
-                storageVol[(1-self.lot_incr[i])] = np.inf
+            for j in range(len(self.neigh_incr)):   #Loop across substitutable demands
+                if self.neigh_incr[j] == 0:
+                    continue
                 
-            #Harvestable area
-            Aharvest = currentAttList.getAttribute("Blk_EIA").getDouble()   #Start with this
-            Aharvest -= (self.lot_incr[i] * currentAttList.getAttribute("ResRoof").getDouble() * houses)
-                #Subtract total houses serviced already (their roofs are being harvested)
-            if self.lot_incr[i] == 1:
-                #All HDR serviced as well, therefore remove the roof area because it is being harvested from
-                Aharvest -= currentAttList.getAttribute("HDRRoofA").getDouble()
-            print "Harvestable Area :", Aharvest
-            if "I" in enduses:      #If irrigation is part of end uses
-                #Scale to evap pattern
-                demandseries = ubseries.createScaledDataSeries(recdemand, evapscale, False)
-            else:
-                #Scale to constant pattern
-                demandseries = ubseries.createScaledDataSeries(recdemand/365, len(rain))
-            
-            #Generate the inflow series based on kind of water being harvested
-            if wqtype in ["RW", "SW"]:
-                inflow = ubseries.convertDataToInflowSeries(rain, Aharvest, False)
-                maxinflow = sum(rain)/1000*Aharvest / self.rain_length
-                print "Average annual inflow: ", maxinflow
-            elif wqtype in ["GW"]:
-                inflow = 0
-                maxinflow = 0
-            
-            if maxinflow < recdemand:
-                storageVol[(1-self.lot_incr[i])] = np.inf       #Cannot size a store to supply more than it is getting
-            
-            #Size the store depending on method
-            if self.sb_method == "Sim":
-                reqVol = dsim.estimateStoreVolume(inflow, demandseries, self.targets_reliability, 1, 100)
-                print "reqVol: ", reqVol
-            elif self.sb_method == "Eqn":
-                vdemvsupp = recdemand / maxinflow
-                storagePerc = deq.loglogSWHEquation(self.regioncity, self.targets_reliability, inflow, demandseries)
-                reqVol = storagePerc/100*maxinflow  #storagePerc is the percentage of the avg. annual inflow
-            storeObj = tt.RecycledStorage(wqtype, reqVol, enduses, Aharvest, self.targets_reliability, recdemand, "N")
-            storageVol[(1-self.lot_incr[i])] = storeObj       #at each lot incr: [ x options ]
+                supplyincr = self.neigh_incr[j]
+                recdemand = supplyincr*blk_demands  #x% of total block demand
+                if recdemand > totalsubdemand:      #if that demand is greater than what can be substituted, then
+                    storageVol[harvestincr][supplyincr] = np.inf         
+                    #make it impossible to size a system for that combo
+                    continue
+                print "Recycled Demand: ", recdemand
+                
+                if recdemand == 0:
+                    #If there is no demand to substitute, then storageVol is np.inf
+                    storageVol[harvestincr][supplyincr] = np.inf
+                    continue
+                    
+                #Harvestable area
+                Aharvest = currentAttList.getAttribute("Blk_EIA").getDouble()*harvestincr   #Start with this
+                print "Harvestable Area :", Aharvest
+                
+                if "I" in enduses:      #If irrigation is part of end uses
+                    #Scale to evap pattern
+                    demandseries = ubseries.createScaledDataSeries(recdemand, evapscale, False)
+                else:
+                    #Scale to constant pattern
+                    demandseries = ubseries.createScaledDataSeries(recdemand/365, len(rain))
+                
+                #Generate the inflow series based on kind of water being harvested
+                if wqtype in ["RW", "SW"]:
+                    inflow = ubseries.convertDataToInflowSeries(rain, Aharvest, False)
+                    maxinflow = sum(rain)/1000*Aharvest / self.rain_length
+                    print "Average annual inflow: ", maxinflow
+                elif wqtype in ["GW"]:
+                    inflow = 0
+                    maxinflow = 0
+                
+                if maxinflow < recdemand:
+                    storageVol[harvestincr][supplyincr] = np.inf 
+                    #Cannot size a store to supply more than it is getting
+                    continue
+                
+                #Size the store depending on method
+                if self.sb_method == "Sim":
+                    reqVol = dsim.estimateStoreVolume(inflow, demandseries, self.targets_reliability, self.relTolerance, self.maxSBiterations)
+                    print "reqVol: ", reqVol
+                elif self.sb_method == "Eqn":
+                    vdemvsupp = recdemand / maxinflow
+                    storagePerc = deq.loglogSWHEquation(self.regioncity, self.targets_reliability, inflow, demandseries)
+                    reqVol = storagePerc/100*maxinflow  #storagePerc is the percentage of the avg. annual inflow
+                storeObj = tt.RecycledStorage(wqtype, reqVol, enduses, Aharvest, self.targets_reliability, recdemand, "N")
+                storageVol[harvestincr][supplyincr] = storeObj.getSize()       #at each lot incr: [ x options ]
+            print storageVol[harvestincr]
         return storageVol
 
-    def getTotalWaterDemandEndUse(self, currentAttList, enduse, lot_incr):
+    def getTotalWaterDemandEndUse(self, currentAttList, enduse):
         """Retrieves all end uses for the current Block based on the end use matrix
-        and the lot-increment. For HDR, only lot increments of 1.0 will affect the end
-        uses significantly, i.e. 
-        
-        A pre-existing lot-scale system in HDR will deal with 100% or else it won't exist
-        since the complexity of harvesting partial impervious areas and supply partial demands
-        will be too difficult to capture.
-        
-        Therefore, if lot-increment is < 1.0, for HDR, all demands will be added onto
-        the demand requirements for Neighbourhood Scale. 
+        and the lot-increment. 
         """
         demand = 0
         #End use in houses and apartments - indoors + garden irrigation
@@ -3539,15 +3588,13 @@ class Techplacement(Module):
             if i == "PI" or i == "I":
                 continue    #Skip the public irrigation
             demand += currentAttList.getAttribute("wd_RES_"+str(i)).getDouble()*365/1000 * \
-                currentAttList.getAttribute("ResHouses").getDouble()*(1-lot_incr)
-            if lot_incr < 1:        #Then add HDR demands, 
-                demand += currentAttList.getAttribute("wd_HDR_"+str(i)).getDouble()*365/1000 * \
-                    currentAttList.getAttribute("HDRFlats").getDouble()
+                currentAttList.getAttribute("ResHouses").getDouble()
+            demand += currentAttList.getAttribute("wd_HDR_"+str(i)).getDouble()*365/1000 * \
+                currentAttList.getAttribute("HDRFlats").getDouble()
         #Add irrigation of public open space
         if "I" in enduse:
             demand += currentAttList.getAttribute("wd_RES_I").getDouble()
-            if lot_incr < 1:        #Then add HDR demands
-                demand += currentAttList.getAttribute("wd_HDR_I").getDouble() #Add all HDR irrigation
+            demand += currentAttList.getAttribute("wd_HDR_I").getDouble() #Add all HDR irrigation
         if "PI" in enduse:
             demand += currentAttList.getAttribute("wd_PubOUT").getDouble()
         return demand
@@ -3579,52 +3626,63 @@ class Techplacement(Module):
         
         #WORKING IN [kL/yr] for single values and [kL/day] for time series
         #(1) Get all Blocks based on the strategy
-        harvestblockIDs = self.retrieveStreamBlocksIDs(currentAttList, "upstream")
+        harvestblockIDs = self.retrieveStreamBlockIDs(currentAttList, "upstream")
         harvestblockIDs.append(currentAttList.getAttribute("BlockID").getDouble())
         if self.hs_strategy == "ud":
             supplytoblockIDs = self.retrieveStreamBlockIDs(currentAttList, "downstream")
             supplytoblockIDs.append(currentAttList.getAttribute("BlockID").getDouble())
         elif self.hs_strategy == "uu":
             supplytoblockIDs = harvestblockIDs        #Try ref copy first
-    #        supplyblockIDs = []
+    #        supplytoblockIDs = []
     #        for i in range(len(harvestblockIDs)):
-    #            supplyblockIDs.append(harvestblockIDs[i])   #make a direct copy
+    #            supplytoblockIDs.append(harvestblockIDs[i])   #make a direct copy
         elif self.hs_strategy == "ua":
             supplytoblockIDs = self.retrieveStreamBlockIDs(currentAttList, "downstream")
             for i in range(len(harvestblockIDs)):   #To get all basin IDs, simply concatenate the strings
                 supplytoblockIDs.append(harvestblockIDs[i])   
         
-        #(2) Prepare end uses and obtain full demands
-        wqlevel = self.ffplevels[wqtype]
-        enduses = []
-        if self.ffplevels[self.ffp_kitchen] >= wqlevel: enduses.append("K")
-        if self.ffplevels[self.ffp_shower] >= wqlevel: enduses.append("S")
-        if self.ffplevels[self.ffp_toilet] >= wqlevel: enduses.append("T")
-        if self.ffplevels[self.ffp_laundry] >= wqlevel: enduses.append("L")
-        if self.ffplevels[self.ffp_garden] >= wqlevel: enduses.append("I")
-        if self.ffplevels[self.public_irr_wq] >= wqlevel: enduses.append("PI")
+        print "HarvestBlocKIDs: ", harvestblockIDs
+        print "SupplyBlockIDs:" , supplytoblockIDs
         
+        #(2) Prepare end uses and obtain full demands
+        enduses = self.determineEndUses(wqtype)
         bas_totdemand = 0
         bas_subdemand = 0
-        for i in supplyblockIDs:
+        for i in supplytoblockIDs:
             block_attr = self.getBlockUUID(i, city)
-            bas_totdemand += self.getTotalWaterDemandEndUse(block_attr, ["K","S","T", "L", "I", "PI"], 0)
-            bas_subdemand += self.getTotalWaterDemandEndUse(block_attr, enduses, 0)
+            bas_totdemand += self.getTotalWaterDemandEndUse(block_attr, ["K","S","T", "L", "I", "PI"])
+            bas_subdemand += self.getTotalWaterDemandEndUse(block_attr, enduses)
+        
+        print "Total basin demands/substitutable ", bas_totdemand, bas_subdemand
         
         #(3) Grab total harvestable area
-        AharvestTot = self.retrieveAttribueFromIDs(city, harvestblockIDs, "Blk_EIA", "sum")
+        AharvestTot = self.retrieveAttributeFromIDs(city, harvestblockIDs, "Blk_EIA", "sum")
+        print "AharvestTotal: ", AharvestTot
+        if AharvestTot == 0:    #no area to harvest
+            return np.inf
             #Future - add something to deal with retrofit
+        
         storageVol = {}
         #(4) Generate Demand Time Series
-        for i in range(len(self.subbas_incr)):
+        for i in range(len(self.subbas_incr)):          #HARVEST x% LOOP
+            if self.subbas_incr[i] == 0:
+                continue        #Skip 0 increment
+
             harvestincr = self.subbas_incr[i]
-            storageVol[self.subbas_incr[i]] = []    #initialize container
-            for i in range(len(self.subbas_incr)):
-                supplyincr = self.subbas_incr[i]
-                print "Current Combo: ", [harvestincr, supplyincr]
-                recdemand = min(bas_subdemand, bas_totdemand*supplyincr)
-                Aharvest = AharvestTot * harvestincr
+            storageVol[harvestincr] = {}    #initialize container
+            for j in range(len(self.subbas_incr)):      #SUPPLY y% LOOP
+                if self.subbas_incr[j] == 0:
+                    continue    #Skip 0 increment
                 
+                supplyincr = self.subbas_incr[j]
+                recdemand = bas_totdemand * supplyincr
+                if recdemand > bas_subdemand:      #if that demand is greater than what can be substituted, then
+                    storageVol[harvestincr][supplyincr] = np.inf         
+                    #make it impossible to size a system for that combo
+                    continue
+                
+                Aharvest = AharvestTot * harvestincr
+                print "Required demand: ", recdemand
                 if "I" in enduses:
                     demandseries = ubseries.createScaledDataSeries(recdemand, evapscale, False)
                 else:
@@ -3639,11 +3697,13 @@ class Techplacement(Module):
                     maxinflow = 0
                 
                 if maxinflow < recdemand:
+                    #Cannot design a storage to supply more than it is getting
+                    storageVol[harvestincr][supplyincr] = np.inf
                     continue
                 
                 #(5) Size the store for the current combo
                 if self.sb_method == "Sim":
-                    reqVol = dsim.estimateStoreVolume(inflow, demandseries, self.targets_reliability, 1, 100)
+                    reqVol = dsim.estimateStoreVolume(inflow, demandseries, self.targets_reliability, self.relTolerance, self.maxSBiterations)
                     print "reqVol: ", reqVol
                 elif self.sb_method == "Eqn":
                     vdemvsupp = recdemand / maxinflow
@@ -3651,7 +3711,7 @@ class Techplacement(Module):
                     reqVol = storagePerc/100*maxinflow  #storagePerc is the percentage of the avg. annual inflow
                 
                 storeObj = tt.RecycledStorage(wqtype, reqVol, enduses, Aharvest, self.targets_reliability, recdemand, "B")
-                storageVol[self.subbas_incr[i]].append(storeObj)
+                storageVol[harvestincr][supplyincr] = storeObj.getSize()
         return storageVol
     
     ########################################################

@@ -22,6 +22,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """
+import numpy as np
 
 ### ------------------------------------------------------------------------ ###
 ###     SUBFUNCTIONS FOR STORAGE-BEHAVIOUR SIMULATION                        ###
@@ -72,7 +73,11 @@ def estimateStoreVolume(inflowseries, demandseries, targetrel, estTol, maxiter):
     #End of loop, we have bounding volumes and reliability, linearly interpolate
     storageVol = linearInterpolate(lowervol, uppervol, lowerrel, upperrel, targetrel)
     print "Final Volume: ", storageVol    
-    print "Final Reliability: ", calculateTankReliability(inflowseries, demandseries, storageVol), "%"
+    storageREL = calculateTankReliability(inflowseries, demandseries, storageVol)
+    print "Final Reliability: ", storageREL, "%"
+    
+    if abs(targetrel - storageREL) > 1: #within +/- 2% reliability accuracy
+        return np.inf   #Cannot find a store with that reliability, return infinity
     return storageVol
     
 def calculateTankReliability(inflowseries, demandseries, volume):

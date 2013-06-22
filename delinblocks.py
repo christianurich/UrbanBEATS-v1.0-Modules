@@ -667,7 +667,7 @@ class Delinblocks(Module):      #DYNAMIND
                 loc.addAttribute("Type", "CBD")     #-1 for CBD
             #---------------> DYNAMIND         
         
-#        self.activesim.addAsset("MapAttributes", map_attr)                 #UBCORE: save Mapattribuets as an asset of the current simulation
+#        self.activesim.addAsset("MapAttributes", map_attr)                 #UBCORE: save Mapattributes as an asset of the current simulation
         
         x_adj = 0               #these track the position of the 'draw cursor', these offset the cursor
         y_adj = 0               #can be used to offset the drawing completely from (0,0)
@@ -2030,6 +2030,11 @@ class Delinblocks(Module):      #DYNAMIND
             upstreamIDs.remove(currentID)
             print "BlockID", currentID, "Upstream: ", upstreamIDs
             
+            outputstring = ""
+            for j in upstreamIDs:
+                outputstring += str(j)+","
+            currentAttList.addAttribute("UpstrIDs", outputstring)
+            
             downstreamIDs = [currentID]
             for id in downstreamIDs:
                 for j in range(len(hash_table[0])):
@@ -2041,14 +2046,9 @@ class Delinblocks(Module):      #DYNAMIND
             print "BlockID", currentID, "Downstream: ", downstreamIDs
             
             outputstring = ""
-            for j in upstreamIDs:
-                outputstring += str(j)+","
-            currentAttList.addAttribute("UpstrIDs", outputstring)
-            
-            outputstring = ""
             for j in downstreamIDs:
                 outputstring += str(j)+","
-            currentAttList.addAttribue("DownstrIDs", outputstring)
+            currentAttList.addAttribute("DownstrIDs", outputstring)
             
             #Set Basin IDs
             if hash_table[1][hash_table[0].index(currentID)] == 0:

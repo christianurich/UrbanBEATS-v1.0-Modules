@@ -98,14 +98,16 @@ def bracketDCVFile(array, ksat):
     #Step 3: Retrieve brackets        
     lowerbracket = [[],[],[],[],[],[],[]]
     upperbracket = [[],[],[],[],[],[],[]]
-
     if klow == kup:     #one bracket
         index = array[1].index(klow)
         while array[1][index] == klow:
             for i in range(7):
                 lowerbracket[i].append(array[i][index])
                 upperbracket[i].append(array[i][index])                
-            index += 1
+            if index == len(array[1])-1:    #if kup is the last bracket in the file, need to terminate while loop in a different way
+                break
+            else:
+                index += 1
         #print lowerbracket
         #print upperbracket
     
@@ -114,6 +116,10 @@ def bracketDCVFile(array, ksat):
         while array[1][index] == klow:
             for i in range(7):
                 lowerbracket[i].append(array[i][index])
+            if index == len(array[1])-1:    #if kup is the last bracket in the file, need to terminate while loop in a different way
+                break
+            else:
+                index += 1
             index += 1
         index = array[1].index(kup)
         while array[1][index] == kup:
@@ -162,7 +168,7 @@ def findTargetSize(bracket, targetvalues):
 def getFinalSizeRequirement(klow, kup, minsizes, maxsizes, ksat):        
     #retrieves the final system size required based on two sets of sizes for the lower and upper kbracket
     if klow == kup:       #if there was only one bracket, no interpolation needed
-        print max(minsizes) #min and max sizes are identical        
+        #print max(minsizes) #min and max sizes are identical        
         return max(minsizes)    #the maximum size among the brackets
         
     Apercent = []   #initialize possible areas

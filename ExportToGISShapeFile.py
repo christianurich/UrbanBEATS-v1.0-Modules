@@ -67,13 +67,13 @@ class ExportToGISShapeFile(Module):
             self.BlockCentres = False
             
             #VIEWS
-            self.mapattributes = View("GlobalMapAttributes", COMPONENT, READ)
+            self.mapattributes = View("GlobalMapAttributes", COMPONENT, READ)            
             self.block = View("Block", FACE, READ)
             self.patch = View("Patch", FACE, READ)
             self.network = View("Network", EDGE, READ)
             self.blocklocality = View("BlockLocality", NODE, READ)
             self.blocknodes = View("BlockNodes", NODE, READ)
-            
+            self.wsudAttr = View("WsudAttr", COMPONENT, READ)
             
             datastream = []
             datastream.append(self.mapattributes)
@@ -82,6 +82,7 @@ class ExportToGISShapeFile(Module):
             datastream.append(self.network)
             datastream.append(self.blocklocality)
             datastream.append(self.blocknodes)
+            datastream.append(self.wsudAttr)
             
             self.addData("City", datastream)
             
@@ -728,8 +729,85 @@ class ExportToGISShapeFile(Module):
             return True
         
         def exportPlannedWSUD(self):
+            city = self.getData("City")
+            strvec = city.getUUIDsOfComponentsInView(self.mapattributes)
+            map_attr = city.getComponent(strvec[0])
+            
+            strategies = map_attr.getAttribute("OutputStrats").getDouble()
+            
+            uuids = city.getUUIDsOfComponentsInView(self.wsudAttr)
+
+            for i in range(int(strategies)):
+                stratID = i+1
+                spatialRef = osr.SpatialReference()
+                spatialRef.ImportFromProj4(self.Projection)
+                
+                driver = ogr.GetDriverByName('ESRI Shapefile')
+                
+                if os.path.exists(str(self.FileName+"_PlannedWSUD"+str(stratID)+".shp")): os.remove(self.FileName+"_PlannedWSUD"+str(stratID)+".shp")
+                shapefile = driver.CreateDataSource(self.FileName+"_PlannedWSUD"+str(stratID)+".shp")
+            
+                layer = shapefile.CreateLayer('layer1', spatialRef, ogr.wkbPoint)
+                layerDefinition = layer.GetLayerDefn()
+                
+                #DEFINE ATTRIBUTES
+                fielddefmatrix = []
+                fielddefmatrix.append(ogr.FieldDefn("StrategyID", ogr.OFTInteger))
+                fielddefmatrix.append(ogr.FieldDefn("BasinID", ogr.OFTInteger))
+                fielddefmatrix.append(ogr.FieldDefn("Location", ogr.OFTInteger))
+                fielddefmatrix.append(ogr.FieldDefn("Scale", ogr.OFTString))
+                fielddefmatrix.append(ogr.FieldDefn("Type", ogr.OFTString))
+                fielddefmatrix.append(ogr.FieldDefn("Qty", ogr.OFTReal))
+                fielddefmatrix.append(ogr.FieldDefn("GoalQty", ogr.OFTReal))
+                fielddefmatrix.append(ogr.FieldDefn("SysArea", ogr.OFTReal))
+                fielddefmatrix.append(ogr.FieldDefn("Status", ogr.OFTInteger))
+                fielddefmatrix.append(ogr.FieldDefn("Year", ogr.OFTInteger))
+                fielddefmatrix.append(ogr.FieldDefn("EAFact", ogr.OFTReal))
+                fielddefmatrix.append(ogr.FieldDefn("ImpT", ogr.OFTReal))
+                fielddefmatrix.append(ogr.FieldDefn("CurImpT", ogr.OFTReal))
+                fielddefmatrix.append(ogr.FieldDefn("Upgrades", ogr.OFTReal))
+                fielddefmatrix.append(ogr.FieldDefn("WDepth", ogr.OFTReal))
+                fielddefmatrix.append(ogr.FieldDefn("FDepth", ogr.OFTReal))
+                
+                for field in fielddefmatrix:
+                    layer.CreateField(field)
+                    layer.GetLayerDefn()
+                
+                for uuid in uuids:
+                    currentAttList = city.getComponent(uuid)
+                    if int(currentAttList.getAttribute("StrategyID").getDouble()) != int(stratID):
+                        continue
+                    #print currentAttList.getAttribute("StrategyID").getDouble()
+                    #print currentAttList.getAttribute("posX").getDouble(), currentAttList.getAttribute("posY").getDouble()
+                    #Draw Geometry
+                    point = ogr.Geometry(ogr.wkbPoint)
+                    point.SetPoint(0, currentAttList.getAttribute("posX").getDouble()+self.OffsetX, currentAttList.getAttribute("posY").getDouble()+self.OffsetY)
+                    
+                    feature = ogr.Feature(layerDefinition)
+                    feature.SetGeometry(point)
+                    feature.SetFID(0)
+                    
+                    #Add Attributes
+                    feature.SetField("StrategyID", int(currentAttList.getAttribute("StrategyID").getDouble()))
+                    feature.SetField("BasinID", int(currentAttList.getAttribute("BasinID").getDouble()))
+                    feature.SetField("Location", int(currentAttList.getAttribute("Location").getDouble()))
+                    feature.SetField("Scale", currentAttList.getAttribute("Scale").getString())
+                    feature.SetField("Type", currentAttList.getAttribute("Type").getString())
+                    feature.SetField("Qty", int(currentAttList.getAttribute("Qty").getDouble()))
+                    feature.SetField("GoalQty", int(currentAttList.getAttribute("GoalQty").getDouble()))
+                    feature.SetField("SysArea", currentAttList.getAttribute("SysArea").getDouble())
+                    feature.SetField("Status", int(currentAttList.getAttribute("Status").getDouble()))
+                    feature.SetField("Year", int(currentAttList.getAttribute("Year").getDouble()))
+                    feature.SetField("EAFact", currentAttList.getAttribute("EAFact").getDouble())
+                    feature.SetField("ImpT", currentAttList.getAttribute("ImpT").getDouble())
+                    feature.SetField("CurImpT", currentAttList.getAttribute("CurImpT").getDouble())
+                    feature.SetField("Upgrades", currentAttList.getAttribute("Upgrades").getDouble())
+                    feature.SetField("WDepth", currentAttList.getAttribute("WDepth").getDouble())
+                    feature.SetField("FDepth", currentAttList.getAttribute("FDepth").getDouble())
+                    layer.CreateFeature(feature)
+                
+                shapefile.Destroy()
             return True
-        
         
         def exportImplementWSUD(self):
             return True

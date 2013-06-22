@@ -56,14 +56,12 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.ui.targets_TSS_spin.setValue(float(self.module.getParameterAsString("targets_TSS")))
         self.ui.targets_TN_spin.setValue(float(self.module.getParameterAsString("targets_TN")))
         self.ui.targets_TP_spin.setValue(float(self.module.getParameterAsString("targets_TP")))
-        self.ui.targets_reuse_spin.setValue(float(self.module.getParameterAsString("targets_harvest")))
         self.ui.targets_reliability_spin.setValue(float(self.module.getParameterAsString("targets_reliability")))
         
         #-------- SERVICE LEVELS ----------------------------------------------#
         self.ui.service_swmQty.setValue(float(self.module.getParameterAsString("service_swmQty")))
         self.ui.service_swmWQ.setValue(float(self.module.getParameterAsString("service_swmWQ")))
-        self.ui.service_wr_private.setValue(float(self.module.getParameterAsString("service_wr_private")))
-        self.ui.service_wr_public.setValue(float(self.module.getParameterAsString("service_wr_public")))
+        self.ui.service_rec.setValue(float(self.module.getParameterAsString("service_rec")))
         
         self.ui.service_res.setChecked(bool(int(self.module.getParameterAsString("service_res"))))
         self.ui.service_hdr.setChecked(bool(int(self.module.getParameterAsString("service_hdr"))))
@@ -1327,13 +1325,11 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.module.setParameterValue("targets_TN", str(self.ui.targets_TN_spin.value()))
         self.module.setParameterValue("targets_TP", str(self.ui.targets_TP_spin.value()))
         self.module.setParameterValue("targets_reliability", str(self.ui.targets_reliability_spin.value()))
-        self.module.setParameterValue("targets_harvest", str(self.ui.targets_reuse_spin.value()))
         
         #-------- SERVICE LEVELS ----------------------------------------------#
         self.module.setParameterValue("service_swmQty", str(self.ui.service_swmQty.value()))
         self.module.setParameterValue("service_swmWQ", str(self.ui.service_swmWQ.value()))
-        self.module.setParameterValue("service_wr_private", str(self.ui.service_wr_private.value()))
-        self.module.setParameterValue("service_wr_public", str(self.ui.service_wr_public.value()))
+        self.module.setParameterValue("service_rec", str(self.ui.service_rec.value()))
         
         self.module.setParameterValue("service_res", str(int(self.ui.service_res.isChecked())))
         self.module.setParameterValue("service_hdr", str(int(self.ui.service_hdr.isChecked())))

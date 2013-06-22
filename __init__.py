@@ -40,7 +40,7 @@ from techplacement import *				#organises the data and inputs (GUI)
     #+techplacementgui.py and techplacementguic.py
     #+tech_assess.py, tech_templates.py, tech_design.py, tech_designbydcv.py
 # from techimplement import *             #implements technology configurations into existing urban environments depending on chosen design
-# from writeresults2music import * 
+from WriteMUSICSim import * 
 
 
 ### --- Additional Modules
