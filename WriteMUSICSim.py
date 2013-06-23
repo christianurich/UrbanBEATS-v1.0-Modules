@@ -29,19 +29,18 @@ import sys, random, numpy, math
 
 class WriteResults2MUSIC(Module):
     """Creates a fully functional MUSIC model file *.msf for the input map of blocks and systems
-        
-    Inputs: 
-    
     Log of Updates made at each version:
     
     v1.0 (June 2013):
-        - Version 1 release
+        - Version 1 release MUSIC interface now updated to work with other modules and v1.0 attribute
+            names
+        - Writes multiple MUSIC file outputs based on the number of strategies to retain
+        - Incorporates new nodes for lot scale land uses
     
     v0.80 (August 2012):
         - First created
         - Future work: To make sure the projection is adjusted if the file was not created by UrbanBEATS
         
-    
 	@ingroup UrbanBEATS
 	@author Peter M Bach
 	"""
@@ -54,523 +53,355 @@ class WriteResults2MUSIC(Module):
         self.createParameter("masterplanmodel", BOOL, "")
         self.pathname = "D:\\"
         self.filename = "ubeatsMUSIC"
-        self.currentyear = 1960
+        self.currentyear = 9999
 	self.masterplanmodel = True
         #self.include_secondary_links = 0
 
-	self.mapattributes = View("Mapattributes", COMPONENT,READ)
-	self.mapattributes.getAttribute("NumBlocks")
-	self.mapattributes.getAttribute("WidthBlocks")
-	self.mapattributes.getAttribute("HeightBlocks")
-	self.mapattributes.getAttribute("InputReso")
-	self.mapattributes.getAttribute("TotalBasins")
-        self.mapattributes.getAttribute("OutputStrats")
-	
-	self.blocks = View("Block",FACE,WRITE)
-	self.blocks.getAttribute("Status")
-	self.blocks.getAttribute("Centre_x")
-	self.blocks.getAttribute("Centre_y")
-	self.blocks.getAttribute("ResTIArea")
-	self.blocks.getAttribute("ResAllots")
-	self.blocks.getAttribute("ResLotImpA")
-	self.blocks.getAttribute("Soil_k")
-	self.blocks.getAttribute("downstrID")
-	self.blocks.getAttribute("drainto_ID")
+        ########################################################################
+	#Views
 
-
-	self.wsudAttr = View("WsudAttr",COMPONENT,READ)
-	self.wsudAttr.getAttribute("ScaleN")
-	self.wsudAttr.getAttribute("Scale")
-	self.wsudAttr.getAttribute("Location")
-	self.wsudAttr.getAttribute("Type")
-	self.wsudAttr.getAttribute("TypeN")
-	self.wsudAttr.getAttribute("Qty")
-	self.wsudAttr.getAttribute("GoalQty")
-	self.wsudAttr.getAttribute("Degree")
-	self.wsudAttr.getAttribute("SysArea")
-	self.wsudAttr.getAttribute("Status")
-	self.wsudAttr.getAttribute("Year")
-	self.wsudAttr.getAttribute("EAFact")
-	self.wsudAttr.getAttribute("ImpT")
-	self.wsudAttr.getAttribute("CurImpT")
-	self.wsudAttr.getAttribute("Upgrades")
-	self.wsudAttr.getAttribute("WDepth")
-	self.wsudAttr.getAttribute("FDepth")
-
-	self.basin = View("Basin", COMPONENT, READ)
-	self.basin.getAttribute("BasinID")
-	self.basin.getAttribute("Blocks")
-	self.basin.getAttribute("DownBlockID")
-	self.basin.getAttribute("UpStr")
+	self.mapattributes = View("GlobalMapAttributes", COMPONENT, READ)
+	self.blocks = View("Block", FACE, READ)
+	self.wsudAttr = View("WsudAttr", COMPONENT, READ)
 
 	datastream = []
         datastream.append(self.mapattributes)
-	datastream.append(self.basin)
 	datastream.append(self.wsudAttr)
 	datastream.append(self.blocks)
         self.addData("City", datastream)
 	
 	self.BLOCKIDtoUUID = {}
-	self.BASINIDtoUUID = {}
-	self.WSUDS = {}
 	
     def run(self):
 	city = self.getData("City")
-	self.initBASINIDtoUUID(city)
-        self.initBLOCKIDtoUUID(city)
-	self.initWsudUUIDs(city)
-
-        
-        strvec = city.getUUIDsOfComponentsInView(self.simulation)
-	simulationData = city.getComponent(strvec[0])
-	runs = int(simulationData.getAttribute("Runs").getDouble())
-	#strvec = city.getUUIDsOfComponentsInView(self.desAttr)
-        #des_attr = city.getComponent(strvec[0])
+	self.initBLOCKIDtoUUID(city)
+	
 	strvec = city.getUUIDsOfComponentsInView(self.mapattributes)
         map_attr = city.getComponent(strvec[0])
         
-
-
         #get data needed to being for loop analysis
         blocks_num = map_attr.getAttribute("NumBlocks").getDouble()     #number of blocks to loop through
         blocks_size = map_attr.getAttribute("BlockSize").getDouble()    #size of block
         map_w = map_attr.getAttribute("WidthBlocks").getDouble()        #num of blocks wide
         map_h = map_attr.getAttribute("HeightBlocks").getDouble()       #num of blocks tall
         input_res = map_attr.getAttribute("InputReso").getDouble()      #resolution of input data
-        totalbasins = map_attr.getAttribute("TotalBasins").getDouble()       #total number of basins in map
-        print totalbasins
-        receivingblocks = []
-        for i in range(int(totalbasins)):
-            print "Basin ID: "+str(self.getBasinUUID(i+1,city).getAttribute("BasinID").getDouble())
-            print self.getBasinUUID(1+i,city).getAttribute("DownBlockID").getDouble()
-            
-            receivingblocks.append(self.getBasinUUID(i+1,city).getAttribute("DownBlockID").getDouble())
+        totalbasins = map_attr.getAttribute("TotalBasins").getDouble()  #total number of basins in map
+        strats = map_attr.getAttribute("OutputStrats").getDouble()      #Number of MUSIC files to write
         
-        print "Receiving Blocks: "
-        print receivingblocks
-        for k in range(runs): 
-		k = k+1   
-		system_list = []
-		for i in range(int(blocks_num)):
-		    lot_count = 0
-		    street_count = 0
-		    neigh_count = 0
-		    prec_count = 0
-		    print self.WSUDS
-		    print str(i+1)+"L"+str(k)
-		    print self.getWsud(i+1,"L",k)
-		    if self.getWsud(i+1,"L",k) != None:
-		    	if self.getWsud(i+1,"L",k).getAttribute("Location").getDouble() != 0: #if systems HAS a location, then
-		            lot_count = 1 #system exists!
-		    if self.getWsud(i+1,"S",k) != None:
-			if self.getWsud(i+1,"S",k).getAttribute("Location").getDouble() != 0:
-			    street_count = 1
-		    if self.getWsud(i+1,"N",k) != None:
-		        if self.getWsud(i+1,"N",k).getAttribute("Location").getDouble() != 0:
-		            neigh_count = 1
-		    if self.getWsud(i+1,"P",k) != None:
-			if self.getWsud(i+1,"P",k).getAttribute("Location").getDouble() != 0:
-			    prec_count = 1
-		    total_systems = lot_count + street_count + neigh_count + prec_count
-		    system_list.append([lot_count, street_count, neigh_count, prec_count])
-		print system_list
-		
-		if self.masterplanmodel == 1:
-		    filesuffix = "PC"
-		else:
-		    filesuffix = "IC"
+        print totalbasins
+        print "Total Strategies :", strats
+        
+        if self.masterplanmodel == 1:   #differentiate between planning and implementation models
+            filesuffix = "PC"
+        else:
+            filesuffix = "IC"
+        
+        #Begin writing music files
+        for s in range(int(strats)):
+            currentStratID = s+1
+            systemlist = self.getWSUDSystemsForStratID(currentStratID, city) #Returns components of particular stratID
+            
+            ufile = ubmusic.createMUSICmsf(self.pathname, self.filename+"-ID"+str(currentStratID)+"-"+str(self.currentyear)+filesuffix)
+            ubmusic.writeMUSICheader(ufile, "melbourne")
+            scalar = 10
+            ncount = 1
+            musicnodedb = {}       #contains the database of nodes for each Block
+            
+            for i in range(int(blocks_num)):
+                currentID = i+1
+                currentAttList = self.getBlockUUID(currentID, city)
+                if currentAttList.getAttribute("Status").getDouble() == 0:
+                    continue    #Skip block since it has no info
+                musicnodedb["BlockID"+str(currentID)] = {}
+                current_soilK = currentAttList.getAttribute("Soil_k").getDouble()
+                blocksystems = self.getBlockSystems(currentID, systemlist, city)      #Get all systems for the current block
+                #print blocksystems
+                
+                blockX = currentAttList.getAttribute("CentreX").getDouble()
+                blockY = currentAttList.getAttribute("CentreY").getDouble()
+                
+                #(1) WRITE CATCHMENT NODES - maximum possibility of 7 Nodes (Lot x 6, non-lot x 1)
+                #       Lot: RES, HDR, COM, LI, HI, ORC
+                #       Street/Neigh: x 1
+                catchment_parameter_list = [1,120,30,80,200,1,10,25,5,0]
+                total_catch_imparea = currentAttList.getAttribute("Blk_EIA").getDouble()/10000      #[ha]
+                catchnodecount = self.determineBlockCatchmentNodeCount(blocksystems) 
+                lotcount = catchnodecount - 1   #one less
+                lotareas = self.determineCatchmentLotAreas(currentAttList, blocksystems)
+                nonlotarea = total_catch_imparea - sum(lotareas.values())
+                if nonlotarea == 0:
+                    print "ISSUE: NONLOT AREA ZERO ON BLOCK: ", currentID
+                ncount_list = []
+                
+                lotoffset = 0
+                if catchnodecount > 1:
+                    for j in lotareas.keys():       #Loop over lot catchments
+                        if lotareas[j] == 0:
+                            continue
+                        ncount_list.append(ncount)
+                        ubmusic.writeMUSICcatchmentnode(ufile, currentID, j, ncount, (blockX-blocks_size/4+(lotoffset*blocks_size/12))*scalar, (blockY+blocks_size/4+(lotoffset*blocks_size/12))*scalar, lotareas[j], 1, catchment_parameter_list)
+                        lotoffset += 1
+                        musicnodedb["BlockID"+str(currentID)]["C_"+j] = ncount
+                        ncount += 1
+                        
+                    #Write Street/Neigh Catchment Node
+                    ncount_list.append(ncount)
+                    ubmusic.writeMUSICcatchmentnode(ufile, currentID, "", ncount, (blockX-blocks_size/4)*scalar, (blockY)*scalar, nonlotarea,1, catchment_parameter_list)
+                    musicnodedb["BlockID"+str(currentID)]["C_R"] = ncount
+                    ncount += 1
+                else:
+                    ncount_list.append(0)
+                    ncount_list.append(ncount)
+                    ubmusic.writeMUSICcatchmentnode(ufile, currentID, "", ncount, (blockX-blocks_size/4)*scalar, (blockY)*scalar, total_catch_imparea,1, catchment_parameter_list)
+                    musicnodedb["BlockID"+str(currentID)]["C_R"] = ncount
+                    ncount += 1
+        
+                #(2) WRITE TREATMENT NODES
+                lotoffset = -1
+                for sys in blocksystems.keys():
+                    if len(blocksystems[sys]) == 0:
+                        continue
+                    curSys = blocksystems[sys][0]
+                    
+                    systype = curSys.getAttribute("Type").getString()
+                    ncount_list.append(ncount)
+                    scale = curSys.getAttribute("Scale").getString()
+                    if "L" in scale:
+                        lotoffset += 1
+                        addOffset = lotoffset
+                    else:
+                        addOffset = 0
+                    offsets = self.getSystemOffsetXY(curSys, blocks_size)
+                    parameter_list = eval("self.prepareParameters"+str(curSys.getAttribute("Type").getString())+"(curSys, current_soilK)")
+                    eval("ubmusic.writeMUSICnode"+str(systype)+"(ufile, currentID, scale, ncount, (blockX+offsets[0]+(addOffset*blocks_size/12))*scalar, (blockY+offsets[1]+(addOffset*blocks_size/12))*scalar, parameter_list)")
+                    musicnodedb["BlockID"+str(currentID)]["S_"+scale] = ncount
+                    ncount += 1
+                
+                #(3) WRITE BLOCK JUNCTION
+                ncount_list.append(ncount)
+                offsets = self.getSystemOffsetXY("J", blocks_size)
+                if int(currentAttList.getAttribute("Outlet").getDouble()) == 1:
+                    print "GOT AN OUTLET at BlockID", currentID
+                    basinID = int(currentAttList.getAttribute("BasinID").getDouble())
+                    jname = "OUT_Bas"+str(basinID)+"-BlkID"+str(currentID)
+                    print jname
+                else:
+                    jname = "Block"+str(currentID)+"J"
+                ubmusic.writeMUSICjunction(ufile, jname, ncount, (blockX+offsets[0])*scalar, (blockY+offsets[1])*scalar)
+                musicnodedb["BlockID"+str(currentID)]["J"] = ncount
+                ncount += 1
+            
+                #(4) WRITE ALL LINKS WITHIN BLOCK
+                nodelinks = self.getInBlockNodeLinks(musicnodedb["BlockID"+str(currentID)])
+                
+                for link in range(len(nodelinks)):
+                    ubmusic.writeMUSIClink(ufile, nodelinks[link][0], nodelinks[link][1])
+            
+            #(5) WRITE ALL LINKS BETWEEN BLOCKS
+            for i in range(int(blocks_num)):
+                currentID = i+1
+                currentAttList = self.getBlockUUID(currentID, city)
+                if currentAttList.getAttribute("Status").getDouble() == 0:
+                    continue    #Skip block since it has no info
+                downID = int(currentAttList.getAttribute("downID").getDouble())
+                if downID == -1:
+                    downID = int(currentAttList.getAttribute("drainID").getDouble())
+                if downID == -1:
+                    continue
+                else:
+                    nodelink = self.getDownstreamNodeLink(musicnodedb["BlockID"+str(currentID)], musicnodedb["BlockID"+str(downID)])
+                    ubmusic.writeMUSIClink(ufile, nodelink[0], nodelink[1])
 
-		ufile = umusic.createMUSICmsf(self.pathname,self.filename+"-"+str(self.currentyear)+filesuffix+str(k))
-		umusic.writeMUSICheader(ufile, "melbourne")      #write the header line
-		scalar = 10
-		ncount = 1
+            ubmusic.writeMUSICfooter(ufile)
+    
+    ########################################################
+    #WriteMUSICSim SUBFUNCTIONS                            #
+    ########################################################
+    def getWSUDSystemsForStratID(self, stratID, city):
+        """Scans the WSUD View and Returns an array of all components within the specified
+        strategy ID"""
+        wsudIDs = city.getUUIDsOfComponentsInView(self.wsudAttr)        #Holds all strategies
+        systemlist = []
+        for uuid in wsudIDs:
+            systemattr = city.getComponent(uuid)
+            if int(systemattr.getAttribute("StrategyID").getDouble()) != int(stratID):
+                continue
+            systemlist.append(uuid) #RETURNS THE UUIDs NOT THE ATTRIBUTE LISTS
+            
+        return systemlist
 
-		musicnodedb = [[],[]]       #contains the database of nodes [[ID], [details]]
-		for i in range(int(blocks_num)):
-		    currentID = i+1
-		    currentAttList = self.getBlockUUID(currentID,city)        #attribute list of current block structure
-		    current_soilK = currentAttList.getAttribute("Soil_k").getDouble()
+    def getBlockSystems(self, currentID, systemlist, city):
+        """Scans the systemlist passed to the function and returns all WSUD components
+        present in the currentID block in dictionary form based on scale
+            - currentID: current Block ID that we want the systems for
+            - systemlist: the system list created by scanning the self.wsudAttr View
+            - city: city datastream
+        """
+        sysDict = {"L_RES":[], "L_LI":[], "L_COM":[], "L_HI":[], "L_HDR":[], "L_ORC":[], "S":[], "N":[], "B":[]}
+        for uuid in systemlist:
+            sysAttr = city.getComponent(uuid)
+            if int(sysAttr.getAttribute("Location").getDouble()) != int(currentID):
+                continue
+            else:
+                sysDict[sysAttr.getAttribute("Scale").getString()].append(sysAttr)
+        return sysDict
+    
+    def determineBlockCatchmentNodeCount(self, blocksystems):
+        """Determines the number of catchment nodes to construct in the current block
+        based on the system count."""
+        catchcount = 1      #Regardless for street/neighbourhood
+        for i in blocksystems.keys():
+            #One catchment for each lot scale, one combined catchment for street/neigh
+            if i in ["S", "N", "B"]:
+                continue
+            if len(blocksystems[i]) == 0:       #Additional only apply to lot systems
+                continue
+            catchcount += 1
+        return catchcount
 
-		    if currentAttList.getAttribute("Status").getDouble() == 0:
-		        #skips the for loop iteration to the next block, not more needs to be done
-		        continue
-		    
-		    musicnodedb[0].append(currentID)        #add the nodeID list for current block to a central matrix
-		    
-		    blockX = currentAttList.getAttribute("Centre_x").getDouble()
-		    blockY = currentAttList.getAttribute("Centre_y").getDouble()
+    def determineCatchmentLotAreas(self, currentAttList, blocksystems):
+        """Determines the areas for each of the lots, which have a system present."""
+        lotareas = {"L_RES":0, "L_HDR":0, "L_LI":0, "L_HI":0, "L_COM":0, "L_ORC":0}
+        
+        #Residential Areas
+        if len(blocksystems["L_RES"]) != 0:
+            lotareas["L_RES"] = currentAttList.getAttribute("ResAllots").getDouble() * \
+                currentAttList.getAttribute("ResLotEIA").getDouble() / 10000        #[ha]
+                
+        #High-Density Residential Areas
+        if len(blocksystems["L_HDR"]) != 0:
+            lotareas["L_HDR"] = currentAttList.getAttribute("HDR_EIA").getDouble() / 10000
 
-		    #lot scale node = x - size/2, y + size/2
-		    #lot scale untreated = x - size/2, y
-		    #street scale = x - size/2, y - size/2
-		    #lot system = x, y + size/2
-		    #street system = x, y
-		    #neigh system = x, y-size/2
-		    #prec system = x + size/2, y    
-		    
-		    #write catchment nodes - maximum possibility of two nodes
-		    catchment_paramter_list = [1,120,30,20,200,1,10,25,5,0]
-		    total_catch_imparea = currentAttList.getAttribute("ResTIArea").getDouble()/10000
-		    total_lot_impA = (currentAttList.getAttribute("ResAllots").getDouble()*currentAttList.getAttribute("ResLotImpA").getDouble())/10000
-		    street_imp_area = total_catch_imparea - total_lot_impA
-		    ncount_list = []
+        #Light Industrial Areas
+        if len(blocksystems["L_LI"]) != 0:
+            lotareas["L_LI"] = currentAttList.getAttribute("LIAeEIA").getDouble() * \
+                currentAttList.getAttribute("LIestates").getDouble() / 10000
+                
+        #Heavy Industrial Areas
+        if len(blocksystems["L_HI"]) != 0:
+            lotareas["L_HI"] = currentAttList.getAttribute("HIAeEIA").getDouble() * \
+                currentAttList.getAttribute("HIestates").getDouble() / 10000
+            
+        #Commercial Areas
+        if len(blocksystems["L_COM"]) != 0:
+            lotareas["L_COM"] = currentAttList.getAttribute("COMAeEIA").getDouble() * \
+                currentAttList.getAttribute("COMestates").getDouble() / 10000
+            
+        #Office/ResCom Mixed Areas
+        if len(blocksystems["L_ORC"]) != 0:
+            lotareas["L_ORC"] = currentAttList.getAttribute("ORCAeEIA").getDouble() * \
+                currentAttList.getAttribute("ORCestates").getDouble() / 10000
+        return lotareas
 
+    def getInBlockNodeLinks(self, nodedb):
+        """Returns an array of nodeIDs that are connected by a link for all within-block aspects for
+        following rules:        - lot catchment to lot system           - lot RES system to street/neigh system
+                                - remain catch to stree/neigh system    - lot nonRES sys to neigh system
+                                - street sys to neigh sys               - neigh sys to junction
+                                - junction to basin sys                 - remain catchment to junction if no sys"""
+        nodelinks = []
+        linkmap = {"C_L_RES": ["S_L_RES"], "C_L_HDR":["S_L_HDR"], "C_L_LI": ["S_L_LI"], 
+                   "C_L_HI": ["S_L_HI"], "C_L_COM": ["S_L_COM"], "C_L_ORC": ["S_L_ORC"],
+                   "C_R": ["S_S", "S_N", "J"], "J": ["S_B", 0],
+                   "S_L_RES": ["S_S", "S_N", "J"], "S_L_HDR": ["S_N", "J"], "S_L_LI": ["S_N", "J"],
+                   "S_L_HI": ["S_N", "J"], "S_L_COM": ["S_N", "J"], "S_L_ORC": ["S_N", "J"],
+                   "S_S": ["S_N", "J"], "S_N": ["J"], "S_B" : [0]}      #gives the order in which links can be arranged
+        for key in nodedb.keys():
+            map = linkmap[key]
+            print map
+            for pos in range(len(map)):
+                if map[pos] in nodedb.keys():
+                    nodelinks.append([nodedb[key], nodedb[map[pos]]])   #[ID1, ID2] in an array
+                    break
+        print nodelinks
+        return nodelinks
+    
+    def getDownstreamNodeLink(self, upNodes, downNodes):
+        """Returns the nodeIDs to connect with a link between two blocks"""
+        nodelink = []
+        #Case 1: Junction to Junction
+        if "S_B" not in upNodes.keys():
+            nodelink = [upNodes["J"], downNodes["J"]]
+        #Case 2: Basin to Junction
+        else:
+            nodelink = [upNodes["S_B"], downNodes["J"]]
+        return nodelink
+    
+    def getSystemOffsetXY(self, curSys, blocks_size):
+        """Returns the coordinate offsets for the MUSIC node depending on the system scale.
+        Offsets are defined in the offsetdictionary and are based on the pre-defined positioning
+        for various treatment nodes and various scales. Node that the Lot nodes have an additional
+        offset defined when they are placed"""
+        offsetdictionary = {"L":[0, 0.25*blocks_size], "S":[0,0], 
+                            "N":[0, 0.25*blocks_size*(-1)], 
+                            "B":[0.25*blocks_size,0.25*blocks_size*(-1)] , 
+                            "J":[0.25*blocks_size, 0]}  #Used to position treatment nodes depending on their scale
+        if curSys == "J":
+            return offsetdictionary["J"]
+        scale = curSys.getAttribute("Scale").getString()
+        if scale in ["L_RES", "L_COM", "L_LI", "L_HDR", "L_HI", "L_ORC"]:
+            return offsetdictionary["L"]
+        else:
+            return offsetdictionary[scale]
+        
+    def prepareParametersBF(self, curSys, current_soilK):
+        """Function to setup the parameter list vector for biofilters """
+        #parameter_list = [EDD, surface area, filter area, unlined perimeter, satk, filterdepth, exfiltration]
+        sysedd = curSys.getAttribute("WDepth").getDouble()
+        sysarea = self.getEffectiveSystemArea(curSys)
+        sysfd = curSys.getAttribute("FDepth").getDouble()
+        parameter_list = [sysedd,sysarea,sysarea, (2*numpy.sqrt(sysarea/0.4)+2*sysarea/(numpy.sqrt(sysarea/0.4))), 180, sysfd, current_soilK]
+        return parameter_list
+    
+    def prepareParametersIS(self, curSys, current_soilK):
+        """Function to setup the parameter list vector for infiltration systems"""
+        #parameter_list = [surface area, EDD, filter area, unlined perimeter, filterdepth, exfiltration]
+        sysedd = curSys.getAttribute("WDepth").getDouble()
+        sysarea = self.getEffectiveSystemArea(curSys)
+        sysfd = curSys.getAttribute("FDepth").getDouble()
+        parameter_list = [sysarea,sysedd,sysarea, (2*numpy.sqrt(sysarea/0.4)+2*sysarea/(numpy.sqrt(sysarea/0.4))), sysfd, current_soilK]
+        return parameter_list
+    
+    def prepareParametersWSUR(self, curSys, current_soilK):
+        """Function to setup the parameter list vector for Surface Wetlands """
+        #parameter_list = [surface area, EDD, permanent pool, exfil, eq pipe diam, det time]
+        sysarea = self.getEffectiveSystemArea(curSys)
+        sysedd = curSys.getAttribute("WDepth").getDouble()
+        parameter_list = [sysarea, sysedd, sysarea*0.2, current_soilK, 1000*numpy.sqrt(((0.895*sysarea*sysedd)/(72*3600*0.6*0.25*numpy.pi*numpy.sqrt(2*9.81*sysedd)))), 72.0]
+        return parameter_list
+    
+    def prepareParametersPB(self, curSys, current_soilK):
+        """Function to setup the parameter list vector for Ponds & Basins"""
+        #parameter_list = [surface area, mean depth, permanent pool, exfil, eq pipe diam, det time]
+        sysarea = self.getEffectiveSystemArea(curSys)
+        sysedd = curSys.getAttribute("WDepth").getDouble()      #The mean depth
+        parameter_list = [sysarea, sysedd, sysarea*0.2, current_soilK, 1000*numpy.sqrt(((0.895*sysarea*sysedd)/(72*3600*0.6*0.25*numpy.pi*numpy.sqrt(2*9.81*sysedd)))), 72.0]
+        return parameter_list
+        
+    def prepareParametersSW(self, curSys, current_soilK):
+        """Function to setup the parameter list vector for swales"""
+        #parameter_list = [length, bedslope, Wbase, Wtop, depth, veg.height, exfilrate]
+        sysarea = self.getEffectiveSystemArea(curSys)
+        parameter_list = [sysarea/4, 5, 2, 6, float(1.0/3.0),0.05, current_soilK]   
+        return parameter_list
+        
+    def prepareParametersRT(self, curSys, current_soilK):
+        """Function to setup the parameter list vectr for raintanks"""
+        #>>>FUTURE
+        parameter_list = []
+        return parameter_list
+        
+    def getEffectiveSystemArea(self, curSys):
+        """Returns the effective system area of a given curSys input WSUD system
+        equal to the total area divided by the effective area factor, both saved as attributes
+        in the Attribue Object"""
+        sysarea = curSys.getAttribute("SysArea").getDouble()/curSys.getAttribute("EAFact").getDouble()
+        return sysarea
+        
 
-		    if system_list[i][0] == 0:
-		        #No strategies - GET AREAS AND PARAMETERS FOR A SINGLE CATCHMENT NODE
-		        ncount_list.append(0)
-		        umusic.writeMUSICcatchmentnode(ufile, currentID, "", ncount, (blockX-blocks_size/4)*scalar, (blockY)*scalar, total_catch_imparea,1, catchment_paramter_list)
-		        ncount_list.append(ncount)
-		        ncount += 1
-		        
-		    elif system_list[i][0] != 0:
-		        #There are lot systems so get the lot sub-catchment node and merge the other untreated lots into the other node
-		        #get lot areas
-		        ncount_list.append(ncount)
-		        umusic.writeMUSICcatchmentnode(ufile, currentID, "LT", ncount, (blockX-blocks_size/4)*scalar, (blockY+blocks_size/4)*scalar, total_lot_impA ,1, catchment_paramter_list)
-		        ncount += 1
-		        #get other areas
-		        ncount_list.append(ncount)
-		        umusic.writeMUSICcatchmentnode(ufile, currentID, "R", ncount, (blockX-blocks_size/4)*scalar, (blockY)*scalar, street_imp_area,1, catchment_paramter_list)
-		        ncount += 1
-		        
-		    #write treatment nodes
-		    
-		    #Find lot-scale system, write the node
-		    if system_list[i][0] != 0:
-			wsud_attr = self.getWsud(i+1,"L",k)
-		        lottype = wsud_attr.getAttribute("Type").getString()
-
-		        parameter_list = [1,1]
-		        ncount_list.append(ncount)
-		        if lottype == "BF":
-		            #setup parameter list:
-		            #parameter_list = [EDD, surface area, filter area, unlined perimeter, satk, filterdepth, exfiltration]
-		            
-		            #sysedd = float(des_attr.getStringAttribute("BFspec_EDD"))
-		            sysedd = wsud_attr.getAttribute("WDepth").getDouble()
-		            sysarea = wsud_attr.getAttribute("SysArea").getDouble()/wsud_attr.getAttribute("EAFact").getDouble()
-		            
-
-
-		            #sysfd = float(des_attr.getStringAttribute("BFspec_FD"))
-		            sysfd = wsud_attr.getAttribute("FDepth").getDouble()
-		           
-
-		            parameter_list = [sysedd, sysarea, sysarea, (2*numpy.sqrt(sysarea/0.4)+2*sysarea/(numpy.sqrt(sysarea/0.4))), 180, sysfd, current_soilK] #EDD, Asystem, FilterArea, UnlinedPerimeter, ksat, depth, exfil rate]
-			    umusic.writeMUSICnodeBF(ufile, currentID, "L", ncount, blockX*scalar, (blockY+blocks_size/4)*scalar, parameter_list)
-		        elif lottype == "IS":
-		            #setup parameter list
-		            #parameter_list = [surface area, EDD, filter area, unlined perimeter, filterdepth, exfiltration]
-		            
-		            #sysedd = float(des_attr.getStringAttribute("ISspec_EDD"))
-		            sysedd = wsud_attr.getAttribute("WDepth").getDouble()
-		            sysarea = wsud_attr.getAttribute("SysArea").getDouble()/wsud_attr.getAttribute("EAFact").getDouble()
-
-		            #sysfd = float(des_attr.getStringAttribute("ISspec_FD"))
-		            sysfd = wsud_attr.getAttribute("FDepth").getDouble()
-		            
-
-		            parameter_list = [sysarea, sysedd, sysarea, (2*numpy.sqrt(sysarea/0.4)+2*sysarea/(numpy.sqrt(sysarea/0.4))), sysfd, current_soilK] #EDD, Asystem, FilterArea, UnlinedPerimeter, ksat, depth, exfil rate]
-
-		            umusic.writeMUSICnodeIS(ufile, currentID, "L", ncount, blockX*scalar, (blockY+blocks_size/4)*scalar, parameter_list)
-		        #writedetail = eval('umusic.writeMUSICnode'+str(lottype)+'('+str(ufile)+','+str(currentID)+',L,'+str(ncount)+','+str(blockX*scalar)+","+str((blockY+blocks_size/4)*scalar)+','+str(parameter_list)+')')
-		        ncount += 1
-		    else:
-		        ncount_list.append(0)
-		        
-		        #Find the street-scale system, write the node
-		    if system_list[i][1] != 0:
-			wsud_attr = self.getWsud(i+1,"S",k)
-		        streettype = wsud_attr.getAttribute("Type").getString()
-		        parameter_list = [1,1]
-
-		        ncount_list.append(ncount)
-		        if streettype == "BF":
-		            #setup parameter list:
-		            #parameter_list = [EDD, surface area, filter area, unlined perimeter, satk, filterdepth, exfiltration]
-		            
-		            #sysedd = float(des_attr.getStringAttribute("BFspec_EDD"))
-		            sysedd = wsud_attr.getAttribute("WDepth").getDouble()
-		            sysarea = wsud_attr.getAttribute("SysArea").getDouble()/wsud_attr.getAttribute("EAFact").getDouble()
-
-		            
-		            #sysfd = float(des_attr.getStringAttribute("BFspec_FD"))
-		            sysfd = wsud_attr.getAttribute("FDepth").getDouble()
-
-
-		            parameter_list = [sysedd, sysarea, sysarea, (2*numpy.sqrt(sysarea/0.4)+2*sysarea/(numpy.sqrt(sysarea/0.4))), 180, sysfd, current_soilK]
-		            umusic.writeMUSICnodeBF(ufile, currentID, "S", ncount, blockX*scalar, blockY*scalar, parameter_list)
-		            pass
-		        elif streettype == "IS":
-		            #setup parameter list:
-		            #parameter_list = [surface area, EDD, filter area, unlined perimeter, filterdepth, exfiltration]
-		            
-		            #sysedd = float(des_attr.getStringAttribute("ISspec_EDD"))
-		            sysedd = wsud_attr.getAttribute("WDepth").getDouble()
-		            sysarea = wsud_attr.getAttribute("SysArea").getDouble()/wsud_attr.getAttribute("EAFact").getDouble()
-
-		            
-		            #sysfd = float(des_attr.getStringAttribute("ISspec_FD"))
-		            sysfd = wsud_attr.getAttribute("FDepth").getDouble()
-
-
-		            parameter_list = [sysarea, sysedd, sysarea, (2*numpy.sqrt(sysarea/0.4)+2*sysarea/(numpy.sqrt(sysarea/0.4))), sysfd, current_soilK]
-		            umusic.writeMUSICnodeIS(ufile, currentID, "S", ncount, blockX*scalar, blockY*scalar, parameter_list)
-
-		            pass
-		        elif streettype == "SW":
-		            #setup parameter list
-		            #parameter_list = [length, bedslope, Wbase, Wtop, depth, veg.height, exfilrate]
-		            sysarea = wsud_attr.getAttribute("SysArea").getDouble()/wsud_attr.getAttribute("EAFact").getDouble()
-
-		            parameter_list = [sysarea/4, 5, 2, 6, float(1.0/3.0),0.05, current_soilK] #[length, bedslope, Wbase, Wtop, depth, veg.height, exfilrate]
-		            umusic.writeMUSICnodeSW(ufile, currentID, "S", ncount, blockX*scalar, blockY*scalar, parameter_list)
-
-
-
-		            pass
-		        #writedetail = eval('umusic.writeMUSICnode'+str(streettype)+'('+str(ufile)+','+str(currentID)+',S,'+str(ncount)+','+str(blockX*scalar)+","+str(blockY*scalar)+','+str(parameter_list)+')')
-		        ncount += 1
-		    else:
-		        ncount_list.append(0)
-		        
-		    #Find the neigh-scale system, write the node
-		    if system_list[i][2] != 0:
-			wsud_attr = self.getWsud(i+1,"N",k)
-		        neightype = wsud_attr.getAttribute("Type").getString()
-
-		        parameter_list = [1,1]
-		        ncount_list.append(ncount)
-		        if neightype == "BF":
-		            #setup parameter list:
-		            #parameter_list = [EDD, surface area, filter area, unlined perimeter, satk, filterdepth, exfiltration]
-		            
-		            #sysedd = float(des_attr.getStringAttribute("BFspec_EDD"))
-		            sysedd = wsud_attr.getAttribute("WDepth").getDouble()
-		            sysarea = wsud_attr.getAttribute("SysArea").getDouble()/wsud_attr.getAttribute("EAFact").getDouble()
-
-		            #sysfd = float(des_attr.getStringAttribute("BFspec_FD"))
-		            sysfd = wsud_attr.getAttribute("FDepth").getDouble()
-
-		            parameter_list = [sysedd, sysarea, sysarea, (2*numpy.sqrt(sysarea/0.4)+2*sysarea/(numpy.sqrt(sysarea/0.4))), 180, sysfd, current_soilK]
-		            umusic.writeMUSICnodeBF(ufile, currentID, "N", ncount, blockX*scalar, (blockY-blocks_size/4)*scalar, parameter_list)
-		            pass
-		        elif neightype == "IS":
-		            #setup parameter list:
-		            #parameter_list = [surface area, EDD, filter area, unlined perimeter, filterdepth, exfiltration]
-		            
-		            #sysedd = float(des_attr.getStringAttribute("ISspec_EDD"))
-		            sysedd = wsud_attr.getAttribute("WDepth").getDouble()
-		            sysarea = wsud_attr.getAttribute("SysArea").getDouble()/wsud_attr.getAttribute("EAFact").getDouble()
-
-		            
-		            #sysfd = float(des_attr.getStringAttribute("ISspec_FD"))
-		            sysfd = wsud_attr.getAttribute("FDepth").getDouble()
-		            
-
-		            parameter_list = [sysarea, sysedd, sysarea, (2*numpy.sqrt(sysarea/0.4)+2*sysarea/(numpy.sqrt(sysarea/0.4))), sysfd, current_soilK]
-
-		            parameter_list = [10, 0.2, 10, 14, 1, 100] #[pond_area, EDD, filter area, unlined filter perimeter, depth, exfil rate]
-		            umusic.writeMUSICnodeIS(ufile, currentID, "N", ncount, blockX*scalar, (blockY-blocks_size/4)*scalar, parameter_list)
-		            pass
-		        elif neightype == "WSUR":
-		            #setup parameter list:
-		            #parameter_list = [surface area, EDD, permanent pool, exfil, eq pipe diam, det time]
-		            sysarea = wsud_attr.getAttribute("SysArea").getDouble()/wsud_attr.getAttribute("EAFact").getDouble()
-
-		            
-		            #sysedd = float(des_attr.getStringAttribute("WSURspec_EDD"))
-		            sysedd = wsud_attr.getAttribute("WDepth").getDouble()
-		            
-		            parameter_list = [sysarea, sysedd, sysarea*0.2, current_soilK, 1000*numpy.sqrt(((0.895*sysarea*sysedd)/(72*3600*0.6*0.25*numpy.pi*numpy.sqrt(2*9.81*sysedd)))), 72.0]
-		            umusic.writeMUSICnodeWSUR(ufile, currentID, "N", ncount, blockX*scalar, (blockY-blocks_size/4)*scalar, parameter_list)
-
-		            pass
-		        elif neightype == "PB":
-		            #setup parameter list:
-		            #parameter_list = [surface area, mean depth, permanent pool, exfil, eq pipe diam, det time]
-		            sysarea = wsud_attr.getAttribute("SysArea").getDouble()/wsud_attr.getAttribute("EAFact").getDouble()
-
-		            
-		            #sysedd = float(des_attr.getStringAttribute("PBspec_MD"))
-		            sysedd = wsud_attr.getAttribute("WDepth").getDouble()
-
-
-
-
-		            parameter_list = [sysarea, sysedd, sysarea*0.2, current_soilK, 1000*numpy.sqrt(((0.895*sysarea*sysedd)/(72*3600*0.6*0.25*numpy.pi*numpy.sqrt(2*9.81*sysedd)))), 72.0]
-		            
-		            umusic.writeMUSICnodePB(ufile, currentID, "N", ncount, blockX*scalar, (blockY-blocks_size/4)*scalar, parameter_list)
-
-		            pass
-		        #writedetail = eval('umusic.writeMUSICnode'+str(neightype)+'('+str(ufile)+','+str(currentID)+',N,'+str(ncount)+','+str(blockX*scalar)+","+str((blockY-blocks_size/4)*scalar)+','+str(parameter_list)+')')
-		        ncount += 1
-		    else:
-		        ncount_list.append(0)
-		        
-		    #write the Block's Junction
-		    ncount_list.append(ncount)
-		    umusic.writeMUSICjunction(ufile, currentID, ncount, (blockX+blocks_size/4)*scalar, (blockY)*scalar)
-		    ncount += 1
-		    
-		    #write links
-		    #Link 1: Lot catch to Lot System
-		    if ncount_list[0] == 0:
-		        pass
-		    else:
-		        umusic.writeMUSIClink(ufile, ncount_list[0], ncount_list[2])
-		    
-		    #Link 2: Other Catch to smallest scale treat system
-		    blocksystemIDs = ncount_list[3:]
-		    while 0 in blocksystemIDs:
-		        blocksystemIDs.remove(0)
-		    umusic.writeMUSIClink(ufile, ncount_list[1],min(blocksystemIDs))
-		    
-		    #Link 3: Lot scale system
-		    if ncount_list[2] == 0:
-		        pass
-		    else:
-		        umusic.writeMUSIClink(ufile,ncount_list[2], min(blocksystemIDs))
-		    
-		    #Link 4: Street system
-		    if ncount_list[3] == 0:
-		        pass
-		    else:
-		        blocksystemIDs = ncount_list[4:]
-		        while 0 in blocksystemIDs:
-		            blocksystemIDs.remove(0)
-		        umusic.writeMUSIClink(ufile, ncount_list[3], min(blocksystemIDs))
-		    
-		    #Link 5: Neigh system
-		    if ncount_list[4] == 0:
-		        pass
-		    else:
-		        umusic.writeMUSIClink(ufile, ncount_list[4], ncount_list[5])
-		    
-		    #write the Precinct-scale system
-		    if system_list[i][3] == 0:
-		        ncount_list.append(0)
-		    else:
-			wsud_attr = self.getWsud(i+1,"P",k)
-		        prectype = wsud_attr.getAttribute("Type").getString()
-		        parameter_list = [1,1]
-		        ncount_list.append(ncount)
-		        if prectype == "BF":
-		            #setup parameter list:
-		            #parameter_list = [EDD, surface area, filter area, unlined perimeter, satk, filterdepth, exfiltration]
-		            
-		            #sysedd = float(des_attr.getStringAttribute("BFspec_EDD"))
-		            sysedd = wsud_attr.getAttribute("WDepth").getDouble()
-		            
-		            sysarea = wsud_attr.getAttribute("SysArea").getDouble()/wsud_attr.getAttribute("EAFact").getDouble()
-
-		            
-		            #sysfd = float(des_attr.getStringAttribute("BFspec_FD"))
-		            sysfd = wsud_attr.getAttribute("FDepth").getDouble()
-		            
-		            parameter_list = [sysedd, sysarea, sysarea, (2*numpy.sqrt(sysarea/0.4)+2*sysarea/(numpy.sqrt(sysarea/0.4))), 180, sysfd, current_soilK]
-		            umusic.writeMUSICnodeBF(ufile, currentID, "P", ncount, (blockX+blocks_size/4)*scalar, (blockY-blocks_size/4)*scalar, parameter_list)
-
-		            pass
-		        elif prectype == "IS":
-		            #setup parameter list:
-		            #parameter_list = [surface area, EDD, filter area, unlined perimeter, filterdepth, exfiltration]
-		            
-		            #sysedd = float(des_attr.getStringAttribute("ISspec_EDD"))
-		            sysedd = wsud_attr.getAttribute("WDepth").getDouble()
-		            
-		            sysarea = wsud_attr.getAttribute("SysArea").getDouble()/wsud_attr.getAttribute("EAFact").getDouble()
-
-		            
-		            #sysfd = float(des_attr.getStringAttribute("ISspec_FD"))
-		            sysfd = wsud_attr.getAttribute("FDepth").getDouble()
-		            
-		            parameter_list = [sysarea, sysedd, sysarea, (2*numpy.sqrt(sysarea/0.4)+2*sysarea/(numpy.sqrt(sysarea/0.4))), sysfd, current_soilK]
-		            umusic.writeMUSICnodeIS(ufile, currentID, "P", ncount, (blockX+blocks_size/4)*scalar, (blockY-blocks_size/4)*scalar, parameter_list)
-
-		            pass
-		        elif prectype == "WSUR":
-		            #setup parameter list
-		            #parameter_list = [surface area, EDD, permanent pool, exfil, eq pipe diam, det time]
-		            sysarea = wsud_attr.getAttribute("SysArea").getDouble()/wsud_attr.getAttribute("EAFact").getDouble()
-
-		            
-		            #sysedd = float(des_attr.getStringAttribute("WSURspec_EDD"))
-		            sysedd = wsud_attr.getAttribute("WDepth").getDouble()
-
-		            parameter_list = [sysarea, sysedd, sysarea*0.2, current_soilK, 1000*numpy.sqrt(((0.895*sysarea*sysedd)/(72*3600*0.6*0.25*numpy.pi*numpy.sqrt(2*9.81*sysedd)))), 72.0]
-		            umusic.writeMUSICnodeWSUR(ufile, currentID, "P", ncount, (blockX+blocks_size/4)*scalar, (blockY-blocks_size/4)*scalar, parameter_list)
-		            pass
-		        elif prectype == "PB":
-		            #setup parameter list:
-		            #parameter_list = [surface area, mean depth, permanent pool, exfil, eq pipe diam, det time]
-		            sysarea = wsud_attr.getAttribute("SysArea").getDouble()/wsud_attr.getAttribute("EAFact").getDouble()
-
-		            
-		            #sysedd = float(des_attr.getStringAttribute("PBspec_MD"))
-		            sysedd = wsud_attr.getAttribute("WDepth").getDouble()
-
-		            parameter_list = [sysarea, sysedd, sysarea*0.2, current_soilK, 1000*numpy.sqrt(((0.895*sysarea*sysedd)/(72*3600*0.6*0.25*numpy.pi*numpy.sqrt(2*9.81*sysedd)))), 72.0]
-
-		            umusic.writeMUSICnodePB(ufile, currentID, "P", ncount, (blockX+blocks_size/4)*scalar, (blockY-blocks_size/4)*scalar, parameter_list)
-		            pass
-		        #writedetail = eval('umusic.writeMUSICnode'+str(neightype)+'('+str(ufile)+','+str(currentID)+',N,'+str(ncount)+','+str(blockX*scalar)+","+str((blockY-blocks_size/4)*scalar)+','+str(parameter_list)+')')
-		        ncount += 1
-		    #Link 6: Junction to prec tech
-		    if system_list[i][3] != 0:
-		        umusic.writeMUSIClink(ufile, ncount_list[5], ncount_list[6])
-		        
-		    #write receiving node for the basin
-		    #Check if that Block is the downstream-most in the basin
-		    if currentID in receivingblocks:
-		        print currentID
-		        ncount_list.append(ncount)
-		        umusic.writeMUSICreceiving(ufile, currentID, ncount, (blockX)*scalar, (blockY-blocks_size/2)*scalar)
-			receivingNode = ncount                
-			ncount += 1
-		        #Link 7: Junction/Prec-Tech to receiving Node
-		        if system_list[i][3] != 0: #if there is a precinct technology...
-		            umusic.writeMUSIClink(ufile, ncount_list[6], ncount_list[7])
-		        else:
-		            umusic.writeMUSIClink(ufile, ncount_list[5], ncount_list[7])
-		        
-		    musicnodedb[1].append(ncount_list)
-		        
-		    print "NCOUNT-LIST"
-		    print ncount_list
-		        
-		    print musicnodedb
-		    
-		#CONNECT ALL BLOCK JUNCTIONS/TOGETHER TO STRING THE CATCHMENT TOGETHER
-		for i in range(int(blocks_num)):
-		    currentID = i+1
-		    currentAttList = self.getBlockUUID(currentID,city)        #attribute list of current block structure
-		    
-		    block_status = currentAttList.getAttribute("Status").getDouble()
-		    if block_status == 0:
-		        #skips the for loop iteration to the next block, not more needs to be done
-		        continue
-		    
-
-		    upindex = musicnodedb[0].index(currentID)
-		    ncount_list_up = musicnodedb[1][upindex]
-
-		    downID = int(round(currentAttList.getAttribute("downstrID").getDouble()))
-		    print downID
-		    if downID == -1:
-		        downID = int(round(currentAttList.getAttribute("drainto_ID").getDouble()))
-		    else:
-		        downID == 0
-
-		    if downID == 0:
-		        pass
-		    else:
-		        downindex = musicnodedb[0].index(downID)
-		        ncount_list_down = musicnodedb[1][downindex]
-		        umusic.writeMUSIClink(ufile, max(ncount_list_up[5:]), ncount_list_down[5])
-
-
+    ########################################################
+    #DYNAMIND FUNCTIONS                                    #
+    ########################################################
     def getBlockUUID(self, blockid,city):
 	try:
 		key = self.BLOCKIDtoUUID[blockid]
@@ -578,67 +409,12 @@ class WriteResults2MUSIC(Module):
 		key = ""
 	return city.getFace(key)
 
-    def getBasinUUID(self, basinid,city):
-	try:
-		key = self.BASINIDtoUUID[basinid]
-	except KeyError:
-		key = ""
-	return city.getComponent(key)
-
-    def getWsud(self,ID,scale,stratnr):
-	try:
-	   return self.WSUDS.get(str(int(ID))+scale+str(int(stratnr)))
-	   '''if scale == 'L':
-		return self.LotUUIDs[ID]
-	   elif scale == 'S':
-		return self.StreetUUIDs[ID]
-	   elif scale == 'N':
-		return self.NeighUUIDs[ID]
-	   elif scale == 'P':
-		return self.PrecUUIDs[ID]
-	   else:
-		print "Error in initWsudUUIDs Function, scale does not match :" + str(scale)''' 	
-	except KeyError:
-		key = ""
-	return key
-
-    def initWsudUUIDs(self, city):				#fills the 4 vectors for each scale and places them on their id slot in the vector (in location is the blockID)
-	uuids = city.getUUIDsOfComponentsInView(self.wsudAttr)	#in scale is either "L" for Lot, "S" for Street, "N" for Neigh or "P" for Precinct 
-        for uuid in uuids:
-            wsud = city.getComponent(uuid)
-            scale = wsud.getAttribute("Scale").getString()
-	    ID = wsud.getAttribute("Location").getDouble()
-	    stratNr = wsud.getAttribute("StrategyNr").getDouble()
-	    self.WSUDS.update({str(int(ID))+scale+str(int(stratNr)):wsud})
-	    '''if scale == 'L':
-		ID = wsud.getAttribute("Location").getDouble()
-		self.LotUUIDs[ID] = wsud
-	    elif scale == 'S':
-		ID = wsud.getAttribute("Location").getDouble()
-		self.StreetUUIDs[ID] = wsud
-	    elif scale == 'N':
-		ID = wsud.getAttribute("Location").getDouble()
-		self.NeighUUIDs[ID] = wsud
-	    elif scale == 'P':
-		ID = wsud.getAttribute("Location").getDouble()
-		self.PrecUUIDs[ID] = wsud
-	    else:
-		print "Error in initWsudUUIDs Function, scales does not match :" + str(scale)'''
-
     def initBLOCKIDtoUUID(self, city):
 	blockuuids = city.getUUIDsOfComponentsInView(self.blocks)
         for blockuuid in blockuuids:
             block = city.getFace(blockuuid)
             ID = int(round(block.getAttribute("BlockID").getDouble()))
 	    self.BLOCKIDtoUUID[ID] = blockuuid
-
-    def initBASINIDtoUUID(self, city):
-	basinuuids = city.getUUIDsOfComponentsInView(self.basin)
-        for basinuuid in basinuuids:
-            basin = city.getComponent(basinuuid)
-            ID = int(round(basin.getAttribute("BasinID").getDouble()))
-	    self.BASINIDtoUUID[ID] = basinuuid
-
 
 
 
