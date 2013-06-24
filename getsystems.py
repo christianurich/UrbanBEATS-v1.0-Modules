@@ -55,30 +55,32 @@ v0.80 (March 2012):
         self.ongoing_sim = 0 #Is this module part of an ongoing simulation?
 	#homeDir = os.environ['HOME']
 	#self.path_name = homeDir + '/Documents/UrbanBEATS/UrbanBeatsModules/data/0_screek-500msys-1970impl_points.shp'
-        self.path_name = "C:/UrbanBEATSv1Dev/ub_modules/resources/emptysystemsmap.shp" #specify C-drive as default value
+        self.path_name = "D:\\Screek500m_PlannedWSUD1.shp" #specify C-drive as default value
 
 	#Views
 	self.sysGlobal = View("SystemGlobal",COMPONENT,WRITE)
 	self.sysGlobal.addAttribute("TotalSystems")
 
 	self.sysAttr = View("SystemAttribute",COMPONENT,WRITE)
-	self.sysAttr.addAttribute("SystemID")
+	self.sysAttr.addAttribute("StrategyID")
+        self.sysAttr.addAttribute("posX")
+        self.sysAttr.addAttribute("posY")
+	self.sysAttr.addAttribute("BasinID")
 	self.sysAttr.addAttribute("Location")
 	self.sysAttr.addAttribute("Scale")
 	self.sysAttr.addAttribute("Type")
+        self.sysAttr.addAttribute("Qty")
+	self.sysAttr.addAttribute("GoalQty")
 	self.sysAttr.addAttribute("SysArea")
-	self.sysAttr.addAttribute("Degree")
 	self.sysAttr.addAttribute("Status")
 	self.sysAttr.addAttribute("Year")
-	self.sysAttr.addAttribute("Qty")
-	self.sysAttr.addAttribute("GoalQty")
 	self.sysAttr.addAttribute("EAFact")
 	self.sysAttr.addAttribute("ImpT")
 	self.sysAttr.addAttribute("CurImpT")
 	self.sysAttr.addAttribute("Upgrades")
 	self.sysAttr.addAttribute("WDepth")
 	self.sysAttr.addAttribute("FDepth")
-
+	
 	datastream = []
         datastream.append(self.sysGlobal)
 	datastream.append(self.sysAttr)
@@ -118,77 +120,25 @@ v0.80 (March 2012):
         
         #add global attributes
         sys_global.addAttribute("TotalSystems", total_systems)
-        
-        system_type_matrix = ['BF', 'SW', 'WSUR', 'PB', 'IS']
-        system_type_numeric = [2463, 7925, 9787, 7663, 4635] #Think Telephone Buttons :) ('Biof', 'Swal', 'WSUR', 'Pond', 'Infl')
-        scale_matrix = ['L', 'S', 'N', 'P']
+        print "Total Systems in Map: ", total_systems
         
         #Loop through each feature and grab all the relevant information
         for i in range(int(total_systems)):
             feature = layer.GetFeature(i)
             sys_attr = Component()
             city.addComponent(sys_attr,self.sysAttr)
-            #System Location and scale (BlockID)
-	    sys_attr.addAttribute("SystemID", i)
-            sys_attr.addAttribute("Location", feature.GetFieldAsInteger("Location"))
-            scale_code = feature.GetFieldAsInteger("ScaleN")
-            scale = scale_matrix[scale_code]
-            sys_attr.addAttribute("ScaleN", scale_code)
-            sys_attr.addAttribute("Scale", str(scale))
             
-            #Loop through all systems and grab the attributes
-            #System TypeN (Type Numeric, translates the code into string)
-            type_code = feature.GetFieldAsInteger("TypeN")
-            sys_attr.addAttribute("TypeN", type_code)
-            print type_code
+            total_attrs = feature.GetFieldCount()  #gets total number of attributes
+            for j in range(int(total_attrs)):           
+                name = str(feature.GetFieldDefnRef(j).GetName())        #Obtain attribute name from FieldDefn object
+                value = feature.GetField(j)                        #get the value from the field using the same index
+                if value == None:
+                    pass
+                else:
+                    sys_attr.addAttribute(str(name), value)                    #assign to block_attr vector
+
+            feature.Destroy()      #destroy to save memory
             
-            type = system_type_matrix[system_type_numeric.index(type_code)]
-            sys_attr.addAttribute("Type", type)
-            
-            #Design Details
-            Asystem = feature.GetField("SysArea")
-            sys_attr.addAttribute("SysArea", Asystem)
-            
-            deg = feature.GetField("Degree")
-            sys_attr.addAttribute("Degree", deg)
-            
-            sysstatus = feature.GetField("Status")
-            sys_attr.addAttribute("Status", sysstatus)
-            
-            yearbuilt = feature.GetField("Year")
-            sys_attr.addAttribute("Year", yearbuilt)
-            
-            sys_qty = feature.GetField("Qty")
-            sys_attr.addAttribute("Qty", sys_qty)
-            
-            sys_goalqty = feature.GetField("GoalQty")
-            sys_attr.addAttribute("GoalQty", sys_goalqty)
-            
-            sys_eafact = feature.GetField("EAFact")
-            sys_attr.addAttribute("EAFact", sys_eafact)
-            
-            sys_imptreated = feature.GetField("ImpT")
-            sys_attr.addAttribute("ImpT", sys_imptreated)
-            
-            sys_impcurrent = feature.GetField("CurImpT")
-            sys_attr.addAttribute("CurImpT", sys_impcurrent)
-            
-            sys_upgrades = feature.GetField("Upgrades")
-            sys_attr.addAttribute("Upgrades", sys_upgrades)
-            
-            sys_wdepth = feature.GetField("WDepth")
-            if sys_wdepth == None:
-                sys_wdepth = 0
-            sys_attr.addAttribute("WDepth", sys_wdepth)
-            
-            sys_fdepth = feature.GetField("FDepth")
-            if sys_fdepth == None:
-                sys_fdepth = 0
-            sys_attr.addAttribute("FDepth", sys_fdepth)
-            
-            feature.Destroy()
-        
         #Destroy the shapefile to free up memory
         dataSource.Destroy()
-        
         #END OF MODULE

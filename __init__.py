@@ -24,7 +24,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """
 ### --- Import & Prep Modules of Systems and Blocks
 from getsystems import *
-# from getpreviousblocks import *
+from getpreviousblocks import *
 
 
 ### --- Spatial Representation Modules
@@ -39,9 +39,8 @@ from urbplanbb import *			        #organises the data and inputs (GUI)
 from techplacement import *				#organises the data and inputs (GUI)
     #+techplacementgui.py and techplacementguic.py
     #+tech_assess.py, tech_templates.py, tech_design.py, tech_designbydcv.py
-# from techimplement import *             #implements technology configurations into existing urban environments depending on chosen design
+from techimplement import *             #implements technology configurations into existing urban environments depending on chosen design
 from WriteMUSICSim import * 
-
 
 ### --- Additional Modules
 from ExportToGISShapeFile import *		#Shapefile Exporter that exports blocks in UTM projection

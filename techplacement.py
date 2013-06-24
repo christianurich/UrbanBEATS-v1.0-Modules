@@ -745,16 +745,18 @@ class Techplacement(Module):
         self.sysGlobal.getAttribute("TotalSystems")
         
         self.sysAttr = View("SystemAttribute", COMPONENT, READ)
-        self.sysAttr.getAttribute("SystemID")
+        self.sysAttr.getAttribute("StrategyID")
+        self.sysAttr.getAttribute("posX")
+        self.sysAttr.getAttribute("posY")
+	self.sysAttr.getAttribute("BasinID")
 	self.sysAttr.getAttribute("Location")
 	self.sysAttr.getAttribute("Scale")
 	self.sysAttr.getAttribute("Type")
+        self.sysAttr.getAttribute("Qty")
+	self.sysAttr.getAttribute("GoalQty")
 	self.sysAttr.getAttribute("SysArea")
-	self.sysAttr.getAttribute("Degree")
 	self.sysAttr.getAttribute("Status")
 	self.sysAttr.getAttribute("Year")
-	self.sysAttr.getAttribute("Qty")
-	self.sysAttr.getAttribute("GoalQty")
 	self.sysAttr.getAttribute("EAFact")
 	self.sysAttr.getAttribute("ImpT")
 	self.sysAttr.getAttribute("CurImpT")
@@ -2087,7 +2089,7 @@ class Techplacement(Module):
         <attribute> and calculates whatever <calc> specifies
             Input:
                 - city: the city datastream with the block Views
-                - upstreamID: the vector list of upstream IDs e.g. [3, 5, 7, 8, 10, 15, 22]
+                - listIDs: the vector list of upstream IDs e.g. [3, 5, 7, 8, 10, 15, 22]
                 - attribute: an exact string that matches the attribute as saved by other
                             modules
                 - calc: the means of calculation, options include
@@ -2143,6 +2145,7 @@ class Techplacement(Module):
         hasHI = int(currentAttList.getAttribute("Has_HI").getDouble()) * int(self.service_hi)
         hasCOM = int(currentAttList.getAttribute("Has_Com").getDouble()) * int(self.service_com)
         if hasHouses + hasApts + hasLI + hasHI + hasCOM == 0:
+            #print "No lot units to build on"
             return tdRES, tdHDR, tdLI, tdHI, tdCOM
         
         lot_avail_sp = currentAttList.getAttribute("avLt_RES").getDouble() * int(self.service_res)
@@ -2151,6 +2154,7 @@ class Techplacement(Module):
         HI_avail_sp = currentAttList.getAttribute("avLt_HI").getDouble() * int(self.service_hi)
         com_avail_sp = currentAttList.getAttribute("avLt_COM").getDouble() * int(self.service_com)
         if lot_avail_sp + hdr_avail_sp + LI_avail_sp + HI_avail_sp + com_avail_sp < 0.0001:    #if there is absolutely no space, then continue
+            #print "No lot space to build on"
             return tdRES, tdHDR, tdLI, tdHI, tdCOM
         
         #Reinitialize Technology vectors, this time as empty
@@ -2973,9 +2977,12 @@ class Techplacement(Module):
             if inblock_strat == None:
                 inblock_systems = [0,0,0,0,0,0,0]
                 inblock_degs = [0,0,0,0,0,0,0]
+                inblock_lotcount = [0,0,0,0,0,0,0]
             else:
                 inblock_systems = inblock_strat.getTechnologies()
                 inblock_degs = [0,0,0,0,0,0,0]
+                inblock_lotcount = inblock_strat.getQuantity("all")
+                
                 for j in range(len(inblock_systems)):
                     if inblock_systems[j] != 0:
                         inblock_degs[j] = inblock_systems[j].getDesignIncrement()
@@ -2988,7 +2995,7 @@ class Techplacement(Module):
                               [centreX+float(self.block_size)/4.0, centreY-float(self.block_size)/8.0],
                               [centreX-float(self.block_size)/8.0, centreY-float(self.block_size)/4.0],
                               [centreX-float(self.block_size)/4.0, centreY-float(self.block_size)/8.0]]
-                            #[Res, HDR, LI, HI, COM, Street, Neigh, Subbas]
+                                #[Res, HDR, LI, HI, COM, ORC, Street, Neigh, Subbas]
             blockscale_names = ["L_RES", "L_HDR", "L_LI", "L_HI", "L_COM", "S", "N"]
             
             for j in range(len(blockscale_names)):
@@ -2997,9 +3004,10 @@ class Techplacement(Module):
                 current_wsud = inblock_systems[j]
                 scale = blockscale_names[j]
                 coordinates = offsets_matrix[j]
+                goalqty = inblock_lotcount[j]
                 
-                #loc = city.addNode(coordinates[0], coordinates[1], 0, self.wsudAttr)
                 loc = Component()
+                #loc = city.addNode(coordinates[0], coordinates[1], 0, self.wsudAttr)
                 loc.addAttribute("StrategyID", id)
                 loc.addAttribute("posX", coordinates[0])
                 loc.addAttribute("posY", coordinates[1])
@@ -3008,13 +3016,13 @@ class Techplacement(Module):
                 loc.addAttribute("Scale", scale)
                 loc.addAttribute("Type", current_wsud.getType())
                 loc.addAttribute("Qty", 0)      #Currently none available
-                loc.addAttribute("GoalQty", 0)  #lot scale mainly - number of lots to build
+                loc.addAttribute("GoalQty", goalqty)  #lot scale mainly - number of lots to build
                 loc.addAttribute("SysArea", current_wsud.getSize())
                 loc.addAttribute("Status", 0)   #0 = not built, 1 = built
                 loc.addAttribute("Year", 9999)
                 loc.addAttribute("EAFact", current_wsud.getAreaFactor())
                 loc.addAttribute("ImpT", current_wsud.getService("WQ"))
-                loc.addAttribute("CurImpT", current_wsud.getService("WQ"))
+                loc.addAttribute("CurImpT", 0)  #New systems don't treat anything yet, not implemented
                 loc.addAttribute("Upgrades", 0) #Done in the retrofit/implementation part
                 city.addComponent(loc, self.wsudAttr)
                 #Transfer the key system specs
@@ -3040,13 +3048,13 @@ class Techplacement(Module):
                 loc.addAttribute("Scale", scale)
                 loc.addAttribute("Type", outblock_strat.getType())
                 loc.addAttribute("Qty", 0)      #currently none available
-                loc.addAttribute("GoalQty", 0)  #lot scale mainly - number of lots to build
+                loc.addAttribute("GoalQty", 1)  #lot scale mainly - number of lots to build
                 loc.addAttribute("SysArea", outblock_strat.getSize())
                 loc.addAttribute("Status", 0)
                 loc.addAttribute("Year", 9999)
                 loc.addAttribute("EAFact", outblock_strat.getAreaFactor())
                 loc.addAttribute("ImpT", outblock_strat.getService("WQ"))
-                loc.addAttribute("CurImpT", outblock_strat.getService("WQ"))
+                loc.addAttribute("CurImpT", 0)  #New systems don't treat anything yet before implemented
                 loc.addAttribute("Upgrades", 0)
                 city.addComponent(loc, self.wsudAttr)
 

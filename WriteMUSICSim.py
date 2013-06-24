@@ -181,10 +181,10 @@ class WriteResults2MUSIC(Module):
                 ncount_list.append(ncount)
                 offsets = self.getSystemOffsetXY("J", blocks_size)
                 if int(currentAttList.getAttribute("Outlet").getDouble()) == 1:
-                    print "GOT AN OUTLET at BlockID", currentID
+                    #print "GOT AN OUTLET at BlockID", currentID
                     basinID = int(currentAttList.getAttribute("BasinID").getDouble())
                     jname = "OUT_Bas"+str(basinID)+"-BlkID"+str(currentID)
-                    print jname
+                    #print jname
                 else:
                     jname = "Block"+str(currentID)+"J"
                 ubmusic.writeMUSICjunction(ufile, jname, ncount, (blockX+offsets[0])*scalar, (blockY+offsets[1])*scalar)
@@ -308,12 +308,12 @@ class WriteResults2MUSIC(Module):
                    "S_S": ["S_N", "J"], "S_N": ["J"], "S_B" : [0]}      #gives the order in which links can be arranged
         for key in nodedb.keys():
             map = linkmap[key]
-            print map
+            #print map
             for pos in range(len(map)):
                 if map[pos] in nodedb.keys():
                     nodelinks.append([nodedb[key], nodedb[map[pos]]])   #[ID1, ID2] in an array
                     break
-        print nodelinks
+        #print nodelinks
         return nodelinks
     
     def getDownstreamNodeLink(self, upNodes, downNodes):

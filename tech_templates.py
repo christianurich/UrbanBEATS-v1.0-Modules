@@ -346,7 +346,9 @@ class BlockStrategy(object):
         return self.__blockbin
     
     def getQuantity(self, luc):
-        if luc not in self.lucmatrix:
+        if luc == "all":
+            return self.__allotments
+        elif luc not in self.lucmatrix:
             return 1
         else:
             return self.__allotments[self.lucmatrix.index(luc)]

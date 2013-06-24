@@ -697,7 +697,6 @@ class ExportToGISShapeFile(Module):
         fielddefmatrix.append(ogr.FieldDefn("ARoof", ogr.OFTReal))
         fielddefmatrix.append(ogr.FieldDefn("AvgWD", ogr.OFTReal))
         
-        
         #Create the fields
         for field in fielddefmatrix:
             layer.CreateField(field)

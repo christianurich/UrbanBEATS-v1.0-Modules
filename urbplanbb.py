@@ -6,7 +6,7 @@
 @section LICENSE
 
 This file is part of UrbanBEATS (www.urbanbeatsmodel.com), DynaMind
-Copyright (C) 2011, 2012  Peter M Bach
+Copyright (C) 2011, 2012, 2013  Peter M Bach
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -45,6 +45,9 @@ class Urbplanbb(Module):
             separate functions and external scripts
         - Urbplanbb can now do all land uses as illustrated in the GUI
         - Uses patch information in its planning as well
+        - Introduced Building Block Dynamics by working with the previously planned blocks
+            and thresholds to determine if block properties can be transferred across or 
+            whether the block needs to be redeveloped.
     
     v0.8 update (March, 2012):
         - Split the planning into four separate modules with prefix ubp_
@@ -463,13 +466,20 @@ class Urbplanbb(Module):
         self.blocks.addAttribute("RDMedW")
         self.blocks.addAttribute("DemPublicI")
         
+        #BlockDYNAMICS Views
+        self.prevBlocks = View("PreviousBlocks", COMPONENT, READ)
+        self.prevMapAttr = View("MasterMapAttributes", COMPONENT, READ)
+        
         #DEFINE DATA STREAM:
         datastream = []
         datastream.append(self.blocks)
         datastream.append(self.mapattributes)
+        datastream.append(self.prevBlocks)
+        datastream.append(self.prevMapAttr)
         self.addData("City", datastream)
         self.BLOCKIDtoUUID = {}         #DYNAMIND
-
+        self.prevBLOCKIDtoUUID = {}     #DYNAMIND
+        
     def run(self):
 	#random.seed()   #Random seed has already been placed in delinblocks
 	city = self.getData("City")             #DYNAMIND - obtain the City's datastream
@@ -477,6 +487,8 @@ class Urbplanbb(Module):
         
         strvec = city.getUUIDsOfComponentsInView(self.mapattributes)    #DYNAMIND - get map attributes
         map_attr = city.getComponent(strvec[0]) #Get Map Attributes     #DYNAMIND - save attributes to a variable
+        strvec = city.getUUIDsOfComponentsInView(self.prevMapAttr)
+        prev_map_attr = city.getComponent(strvec[0])
         
         #DYNAMIND ------------------------------------>
         #Get all the relevant information
@@ -498,6 +510,9 @@ class Urbplanbb(Module):
         nres_fpw = self.adjustSampleRange(self.nres_fpwmin, self.nres_fpwmax, self.nres_fpmed)
         nres_nsw = self.adjustSampleRange(self.nres_nswmin, self.nres_nswmax, self.nres_nsmed)
         lane_w = self.adjustSampleRange(self.lane_wmin, self.lane_wmax, self.lane_wmed)
+        
+        if int(prev_map_attr.getAttribute("Impl_cycle").getDouble()) == 0:    #Is this implementation cycle?
+            self.initPrevBLOCKIDtoUUID(city)        #DYNAMIND - initialize the dictionary that tracks Previous Block IDs and UUID
         
         #LOOP ACROSS BLOCKS
         for i in range(int(blocks_num)):
@@ -521,6 +536,14 @@ class Urbplanbb(Module):
                 currentAttList.addAttribute("Blk_RoofsA", -9999)
                 continue
             
+            #Determine whether to Update Block at all using Dynamics Parameters
+            if int(prev_map_attr.getAttribute("Impl_cycle").getDouble()) == 0:    #Is this implementation cycle?
+                prevAttList = self.getPrevBlockUUID(currentID, city)
+                if self.keepBlockDataCheck(currentAttList, prevAttList):        #NO = check block for update
+                    print "Changes in Block are below threshold levels, transferring data"
+                    self.transferBlockAttributes(currentAttList, prevAttList)
+                    continue        #If Block does not need to be developed, skip it
+                
             #Get Active Area
             activity = currentAttList.getAttribute("Active").getDouble()
             Aactive = activity*Atblock
@@ -934,6 +957,41 @@ class Urbplanbb(Module):
     ########################################################################
     ### URBPLANBB SUB-FUNCTIONS                                          ###
     ########################################################################
+    def keepBlockDataCheck(self, currentAttList, prevAttList):
+        """Performs the dynamic checks on the current Block to see if its previous
+        planning data can be transferred."""
+        if self.noredev == 1:
+            return True
+        
+        decisionmatrix = [] #Multiple decisions, in order to redevelop, only one needs to be True
+        
+        if self.lucredev == 1:
+            lucsum = 0
+            for i in ["pLU_CIV", "pLU_COM", "pLU_HI", "pLU_LI", "pLU_NA", "pLU_ORC",
+                      "pLU_PG", "pLU_RD", "pLU_REF", "pLU_RES", "pLU_SVU", "pLU_TR",
+                      "pLU_UND"]:
+                lucsum += abs(currentAttList.getAttribute(i).getDouble() - \
+                              prevAttList.getAttribute(i).getDouble())
+            if lucsum > self.lucredev_thresh/100:
+                decisionmatrix.append(1)
+            else:
+                decisionmatrix.append(0)
+            
+        if self.popredev == 1:
+            popnow = currentAttList.getAttribute("Pop").getDouble()
+            popprev = prevAttList.getAttribute("Pop").getDouble()
+            popdiff = abs(popnow - popprev)/(popprev)
+            if popdiff > self.popredev_thresh/100:
+                decisionmatrix.append(1)
+            else:
+                decisionmatrix.append(0)
+        
+        if sum(decisionmatrix) > 0:
+            return False #If even one factor says 'redev'! return False
+        else:
+            return True #otherwise return True = you can keep the existing data
+        
+        return False    #Otherwise just redevelop block by default if no option is ticked
     
     def adjustSampleRange(self, min, max, usemedian):
         """Returns a min/max sample range for the input variables. Returns the same
@@ -1019,6 +1077,8 @@ class Urbplanbb(Module):
         return undtype
     
     def buildResidential(self, currentAttList, map_attr, A_res):
+        """Builds residential urban form - either houses or apartments depending on the
+        density of the population on the land available"""
         #Step 1 - Determine Typology
         popBlock = currentAttList.getAttribute("Pop").getDouble()
         Afloor = self.person_space * popBlock
@@ -1043,6 +1103,7 @@ class Urbplanbb(Module):
         return resdict
         
     def designResidentialHouses(self, currentAttList, map_attr, A_res, pop, ratios, Afloor):
+        """All necessary urban planning calculations for residential dwellings urban form """
         resdict = {}
         resdict["TypeHouse"] = 1
         
@@ -1479,6 +1540,10 @@ class Urbplanbb(Module):
         return hotspotsdict, remainA
     
     def buildNonResArea(self, currentAttList, map_attr, Aluc, type, frontage):
+        """Function to build non-residential urban form (LI, HI, COM, ORC) based on the
+        typology of estates and plot ratios and the provision of sufficient space for 
+        building, carparks, service/loading bay and landscaping."""
+        
         nresdict = {}
         #Note: Auto-setback
         #The formula to calculate auto-setback = H/2 + 1.5m based on Monash Council's Documents
@@ -1669,6 +1734,8 @@ class Urbplanbb(Module):
         return nresdict
         
     def determineEmployment(self, method, currentAttList, map_attr, Aluc, type):
+        """Determines the employment of the block based on the selected method. Calls
+        some alternative functions for scaling or other aspects"""
         if method == "I" and map_attr.getAttribute("include_employment").getDouble() == 1:
             #Condition required to do this: there has to be data on employment input
             employed = currentAttList.getAttribute("Employ").getDouble() #total employment for Block
@@ -1694,23 +1761,187 @@ class Urbplanbb(Module):
         #Scales the employed value down based on Aluc, used for "S" and "D" methods
         return employed
     
+    def transferBlockAttributes(self, currentAttList, prevAttList):
+        """Manually transfers all urbplanbb attributes from the previous block list into
+        the new block list."""
+        currentAttList.addAttribute("MiscAtot", prevAttList.getAttribute("MiscAtot").getDouble())
+        currentAttList.addAttribute("MiscAimp", prevAttList.getAttribute("MiscAimp").getDouble())
+        currentAttList.addAttribute("UndType", prevAttList.getAttribute("UndType").getString())
+        currentAttList.addAttribute("UND_av", prevAttList.getAttribute("UND_av").getDouble())
+        currentAttList.addAttribute("OpenSpace", prevAttList.getAttribute("OpenSpace").getDouble())
+        currentAttList.addAttribute("AGardens", prevAttList.getAttribute("AGardens").getDouble())
+        currentAttList.addAttribute("ASquare", prevAttList.getAttribute("ASquare").getDouble())
+        currentAttList.addAttribute("PG_av", prevAttList.getAttribute("PG_av").getDouble())
+        currentAttList.addAttribute("REF_av", prevAttList.getAttribute("REF_av").getDouble())
+        currentAttList.addAttribute("ANonW_Utils", prevAttList.getAttribute("ANonW_Utils").getDouble())
+        currentAttList.addAttribute("SVU_avWS", prevAttList.getAttribute("SVU_avWS").getDouble())
+        currentAttList.addAttribute("SVU_avWW", prevAttList.getAttribute("SVU_avWW").getDouble())
+        currentAttList.addAttribute("SVU_avSW", prevAttList.getAttribute("SVU_avSW").getDouble())
+        currentAttList.addAttribute("SVU_avOTH", prevAttList.getAttribute("SVU_avOTH").getDouble())
+        currentAttList.addAttribute("RoadTIA", prevAttList.getAttribute("RoadTIA").getDouble())
+        currentAttList.addAttribute("ParkBuffer", prevAttList.getAttribute("ParkBuffer").getDouble())
+        currentAttList.addAttribute("RD_av", prevAttList.getAttribute("RD_av").getDouble())
+        currentAttList.addAttribute("RDMedW", prevAttList.getAttribute("RDMedW").getDouble())
+        
+        if currentAttList.getAttribute("pLU_RES").getDouble() != 0:
+            currentAttList.addAttribute("HasRes", 1)
+        else:
+            currentAttList.addAttribute("HasRes", 0)
+        if prevAttList.getAttribute("ResAllots").getDouble() != 0:
+            currentAttList.addAttribute("HasHouses", 1)
+        else:
+            currentAttList.addAttribute("HasHouses", 0)
+            
+        currentAttList.addAttribute("HouseOccup", prevAttList.getAttribute("HouseOccup").getDouble())
+        currentAttList.addAttribute("ResParcels", prevAttList.getAttribute("ResParcels").getDouble())
+        currentAttList.addAttribute("ResFrontT", prevAttList.getAttribute("ResFrontT").getDouble())
+        currentAttList.addAttribute("avSt_RES", prevAttList.getAttribute("avSt_RES").getDouble())
+        currentAttList.addAttribute("WResNstrip", prevAttList.getAttribute("WResNstrip").getDouble())
+        currentAttList.addAttribute("ResAllots", prevAttList.getAttribute("ResAllots").getDouble())
+        currentAttList.addAttribute("ResDWpLot", prevAttList.getAttribute("ResDWpLot").getDouble())
+        currentAttList.addAttribute("ResHouses", prevAttList.getAttribute("ResHouses").getDouble())
+        currentAttList.addAttribute("ResLotArea", prevAttList.getAttribute("ResLotArea").getDouble())
+        currentAttList.addAttribute("ResRoof", prevAttList.getAttribute("ResRoof").getDouble())
+        currentAttList.addAttribute("avLt_RES", prevAttList.getAttribute("avLt_RES").getDouble())
+        currentAttList.addAttribute("ResHFloors", prevAttList.getAttribute("ResHFloors").getDouble())
+        currentAttList.addAttribute("ResLotTIA", prevAttList.getAttribute("ResLotTIA").getDouble())
+        currentAttList.addAttribute("ResLotEIA", prevAttList.getAttribute("ResLotEIA").getDouble())
+        currentAttList.addAttribute("ResGarden", prevAttList.getAttribute("ResGarden").getDouble())
+        currentAttList.addAttribute("ResRoofCon", prevAttList.getAttribute("ResRoofCon").getDouble())
+        
+        if prevAttList.getAttribute("HDRFlats").getDouble() != 0:
+            currentAttList.addAttribute("HasFlats", 1)
+        else:
+            currentAttList.addAttribute("HasFlats", 0)
+            
+        currentAttList.addAttribute("avSt_RES", prevAttList.getAttribute("avSt_RES").getDouble())
+        currentAttList.addAttribute("HDRFlats", prevAttList.getAttribute("HDRFlats").getDouble())
+        currentAttList.addAttribute("HDRRoofA", prevAttList.getAttribute("HDRRoofA").getDouble())
+        currentAttList.addAttribute("HDROccup", prevAttList.getAttribute("HDROccup").getDouble())
+        currentAttList.addAttribute("HDR_TIA", prevAttList.getAttribute("HDR_TIA").getDouble())
+        currentAttList.addAttribute("HDR_EIA", prevAttList.getAttribute("HDR_EIA").getDouble())
+        currentAttList.addAttribute("HDRFloors", prevAttList.getAttribute("HDRFloors").getDouble())
+        currentAttList.addAttribute("av_HDRes", prevAttList.getAttribute("av_HDRes").getDouble())
+        currentAttList.addAttribute("HDRGarden", prevAttList.getAttribute("HDRGarden").getDouble())
+        currentAttList.addAttribute("HDRCarPark", prevAttList.getAttribute("HDRCarPark").getDouble())
+        
+        if prevAttList.getAttribute("LIestates").getDouble() != 0:
+            currentAttList.addAttribute("Has_LI", 1)
+        else:
+            currentAttList.addAttribute("Has_LI", 0)
+            
+        currentAttList.addAttribute("LIjobs", prevAttList.getAttribute("LIjobs").getDouble())
+        currentAttList.addAttribute("LIestates", prevAttList.getAttribute("LIestates").getDouble())
+        currentAttList.addAttribute("avSt_LI", prevAttList.getAttribute("avSt_LI").getDouble())
+        currentAttList.addAttribute("LIAfront", prevAttList.getAttribute("LIAfront").getDouble())
+        currentAttList.addAttribute("LIAfrEIA", prevAttList.getAttribute("LIAfrEIA").getDouble())
+        currentAttList.addAttribute("LIAestate", prevAttList.getAttribute("LIAestate").getDouble())
+        currentAttList.addAttribute("LIAeBldg", prevAttList.getAttribute("LIAeBldg").getDouble())
+        currentAttList.addAttribute("LIFloors", prevAttList.getAttribute("LIFloors").getDouble())
+        currentAttList.addAttribute("LIAeLoad", prevAttList.getAttribute("LIAeLoad").getDouble())
+        currentAttList.addAttribute("LIAeCPark", prevAttList.getAttribute("LIAeCPark").getDouble())
+        currentAttList.addAttribute("avLt_LI", prevAttList.getAttribute("avLt_LI").getDouble())
+        currentAttList.addAttribute("LIAeLgrey", prevAttList.getAttribute("LIAeLgrey").getDouble())
+        currentAttList.addAttribute("LIAeEIA", prevAttList.getAttribute("LIAeEIA").getDouble())
+        currentAttList.addAttribute("LIAeTIA", prevAttList.getAttribute("LIAeTIA").getDouble())
+        
+        if prevAttList.getAttribute("HIestates").getDouble() != 0:
+            currentAttList.addAttribute("Has_HI", 1)
+        else:
+            currentAttList.addAttribute("Has_HI", 0)
+            
+        currentAttList.addAttribute("HIjobs", prevAttList.getAttribute("HIjobs").getDouble())
+        currentAttList.addAttribute("HIestates", prevAttList.getAttribute("HIestates").getDouble())
+        currentAttList.addAttribute("avSt_HI", prevAttList.getAttribute("avSt_HI").getDouble())
+        currentAttList.addAttribute("HIAfront", prevAttList.getAttribute("HIAfront").getDouble())
+        currentAttList.addAttribute("HIAfrEIA", prevAttList.getAttribute("HIAfrEIA").getDouble())
+        currentAttList.addAttribute("HIAestate", prevAttList.getAttribute("HIAestate").getDouble())
+        currentAttList.addAttribute("HIAeBldg", prevAttList.getAttribute("HIAeBldg").getDouble())
+        currentAttList.addAttribute("HIFloors", prevAttList.getAttribute("HIFloors").getDouble())
+        currentAttList.addAttribute("HIAeLoad", prevAttList.getAttribute("HIAeLoad").getDouble())
+        currentAttList.addAttribute("HIAeCPark", prevAttList.getAttribute("HIAeCPark").getDouble())
+        currentAttList.addAttribute("avLt_HI", prevAttList.getAttribute("avLt_HI").getDouble())
+        currentAttList.addAttribute("HIAeLgrey", prevAttList.getAttribute("HIAeLgrey").getDouble())
+        currentAttList.addAttribute("HIAeEIA", prevAttList.getAttribute("HIAeEIA").getDouble())
+        currentAttList.addAttribute("HIAeTIA", prevAttList.getAttribute("HIAeTIA").getDouble())
+        
+        if prevAttList.getAttribute("COMestates").getDouble() != 0:
+            currentAttList.addAttribute("Has_Com", 1)
+        else:
+            currentAttList.addAttribute("Has_Com", 0)
+            
+        currentAttList.addAttribute("COMjobs", prevAttList.getAttribute("COMjobs").getDouble())
+        currentAttList.addAttribute("COMestates", prevAttList.getAttribute("COMestates").getDouble())
+        currentAttList.addAttribute("avSt_COM", prevAttList.getAttribute("avSt_COM").getDouble())
+        currentAttList.addAttribute("COMAfront", prevAttList.getAttribute("COMAfront").getDouble())
+        currentAttList.addAttribute("COMAfrEIA", prevAttList.getAttribute("COMAfrEIA").getDouble())
+        currentAttList.addAttribute("COMAestate", prevAttList.getAttribute("COMAestate").getDouble())
+        currentAttList.addAttribute("COMAeBldg", prevAttList.getAttribute("COMAeBldg").getDouble())
+        currentAttList.addAttribute("COMFloors", prevAttList.getAttribute("COMFloors").getDouble())
+        currentAttList.addAttribute("COMAeLoad", prevAttList.getAttribute("COMAeLoad").getDouble())
+        currentAttList.addAttribute("COMAeCPark", prevAttList.getAttribute("COMAeCPark").getDouble())
+        currentAttList.addAttribute("avLt_COM", prevAttList.getAttribute("avLt_COM").getDouble())
+        currentAttList.addAttribute("COMAeLgrey", prevAttList.getAttribute("COMAeLgrey").getDouble())
+        currentAttList.addAttribute("COMAeEIA", prevAttList.getAttribute("COMAeEIA").getDouble())
+        currentAttList.addAttribute("COMAeTIA", prevAttList.getAttribute("COMAeTIA").getDouble())
+        
+        if prevAttList.getAttribute("ORCestates").getDouble() != 0:
+            currentAttList.addAttribute("Has_ORC", 1)
+        else:
+            currentAttList.addAttribute("Has_ORC", 0)
+            
+        currentAttList.addAttribute("ORCjobs", prevAttList.getAttribute("ORCjobs").getDouble())
+        currentAttList.addAttribute("ORCestates", prevAttList.getAttribute("ORCestates").getDouble())
+        currentAttList.addAttribute("avSt_ORC", prevAttList.getAttribute("avSt_ORC").getDouble())
+        currentAttList.addAttribute("ORCAfront", prevAttList.getAttribute("ORCAfront").getDouble())
+        currentAttList.addAttribute("ORCAfrEIA", prevAttList.getAttribute("ORCAfrEIA").getDouble())
+        currentAttList.addAttribute("ORCAestate", prevAttList.getAttribute("ORCAestate").getDouble())
+        currentAttList.addAttribute("ORCAeBldg", prevAttList.getAttribute("ORCAeBldg").getDouble())
+        currentAttList.addAttribute("ORCFloors", prevAttList.getAttribute("ORCFloors").getDouble())
+        currentAttList.addAttribute("ORCAeLoad", prevAttList.getAttribute("ORCAeLoad").getDouble())
+        currentAttList.addAttribute("ORCAeCPark", prevAttList.getAttribute("ORCAeCPark").getDouble())
+        currentAttList.addAttribute("avLt_ORC", prevAttList.getAttribute("avLt_ORC").getDouble())
+        currentAttList.addAttribute("ORCAeLgrey", prevAttList.getAttribute("ORCAeLgrey").getDouble())
+        currentAttList.addAttribute("ORCAeEIA", prevAttList.getAttribute("ORCAeEIA").getDouble())
+        currentAttList.addAttribute("ORCAeTIA", prevAttList.getAttribute("ORCAeTIA").getDouble())
+        currentAttList.addAttribute("Blk_TIA", prevAttList.getAttribute("Blk_TIA").getDouble())
+        currentAttList.addAttribute("Blk_EIA", prevAttList.getAttribute("Blk_EIA").getDouble())
+        currentAttList.addAttribute("Blk_EIF", prevAttList.getAttribute("Blk_EIF").getDouble())
+        currentAttList.addAttribute("Blk_TIF", prevAttList.getAttribute("Blk_TIF").getDouble())
+        currentAttList.addAttribute("Blk_RoofsA", prevAttList.getAttribute("Blk_RoofsA").getDouble())
+        return True
+    
     ########################################################
     #DYNAMIND-SPECIFIC FUNCTIONS                           #
     ########################################################   
     
     def getBlockUUID(self, blockid,city):
 	try:
-		key = self.BLOCKIDtoUUID[blockid]
+            key = self.BLOCKIDtoUUID[blockid]
 	except KeyError:
-		key = ""
+            key = ""
 	return city.getFace(key)
         
+    def getPrevBlockUUID(self, blockid, city):
+        try:
+            key = self.prevBLOCKIDtoUUID[blockid]
+        except KeyError:
+            key = ""
+        return city.getComponent(key)
+    
     def initBLOCKIDtoUUID(self, city):
 	blockuuids = city.getUUIDsOfComponentsInView(self.blocks)
         for blockuuid in blockuuids:
             block = city.getFace(blockuuid)
             ID = int(round(block.getAttribute("BlockID").getDouble()))
 	    self.BLOCKIDtoUUID[ID] = blockuuid
+    
+    def initPrevBLOCKIDtoUUID(self, city):
+        prevblockuuids = city.getUUIDsOfComponentsInView(self.prevBlocks)
+        for uuid in prevblockuuids:
+            block = city.getComponent(uuid)
+            ID = int(round(block.getAttribute("BlockID").getDouble()))
+            self.prevBLOCKIDtoUUID[ID] = uuid
     
     def createInputDialog(self):
         form = activateurbplanbbGUI(self, QApplication.activeWindow())
