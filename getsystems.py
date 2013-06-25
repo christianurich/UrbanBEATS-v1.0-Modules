@@ -107,6 +107,7 @@ v0.80 (March 2012):
         dataSource = driver.Open(file_name, 0)
         if dataSource is None:
             print "Error, could not open "+file_name
+            sys_global.addAttribute("TotalSystems", 0)
             return False
         
         layer = dataSource.GetLayer()
