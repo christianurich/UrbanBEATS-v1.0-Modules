@@ -107,7 +107,7 @@ v0.80 (March 2012):
         dataSource = driver.Open(file_name, 0)
         if dataSource is None:
             print "Error, could not open "+file_name
-            sys.exit(1)
+            return False
         
         layer = dataSource.GetLayer()
         total_systems = layer.GetFeatureCount()
@@ -121,6 +121,7 @@ v0.80 (March 2012):
         #add global attributes
         sys_global.addAttribute("TotalSystems", total_systems)
         print "Total Systems in Map: ", total_systems
+        sys_global.addAttribute("UBFile", self.ubeats_file)
         
         #Loop through each feature and grab all the relevant information
         for i in range(int(total_systems)):

@@ -204,9 +204,11 @@ class WriteResults2MUSIC(Module):
                 if currentAttList.getAttribute("Status").getDouble() == 0:
                     continue    #Skip block since it has no info
                 downID = int(currentAttList.getAttribute("downID").getDouble())
-                if downID == -1:
+                if downID == -1 or downID == 0:
                     downID = int(currentAttList.getAttribute("drainID").getDouble())
-                if downID == -1:
+                if downID == -1 or downID == 0:
+                    continue
+                if int(currentAttList.getAttribute("Outlet").getDouble()) == 1:
                     continue
                 else:
                     nodelink = self.getDownstreamNodeLink(musicnodedb["BlockID"+str(currentID)], musicnodedb["BlockID"+str(downID)])

@@ -265,67 +265,26 @@ class Techimplement(Module):
                 if sys.getAttribute("Scale").getString() in ["L_RES"]:
                     qty, curImpT, year = self.implementLotSystem(currentAttList, masterplanAttList, sys)
                     if qty != 0:
-                        self.writeSystemAttributesToOutput(sys, 1, year, qty, curImpT)
+                        self.writeSystemAttributesToOutput(sys, year, qty, curImpT, currentAttList, blocks_size, city)
                     
                 elif sys.getAttribute("Scale").getString() in ["L_COM", "L_HDR", "L_LI", "L_HI"]:
                     qty, curImpT, year = self.implementLotSystem(currentAttList, masterplanAttList, sys)
                     if qty != 0:
-                        self.writeSystemAttributesToOutput(sys, 1, year, qty, curImpT)
+                        self.writeSystemAttributesToOutput(sys, year, qty, curImpT, currentAttList, blocks_size, city)
                     
                 elif sys.getAttribute("Scale").getString() in ["S", "N"]:
                     curImpT, year = self.implementStreetNeighSystem(currentAttList, masterplanAttList, sys)
                     if curImpT != 0:
-                        self.writeSystemAttributesToOutput(sys, status, year, qty, currentImpT)
+                        self.writeSystemAttributesToOutput(sys, year, 1, curImpT, currentAttList, blocks_size, city)
                     
                 elif sys.getAttribute("Scale").getString() in ["B"]:
-                    curImpT, year = self.implementBasinSystem(currentAttList, masterplanAttList, sys)
+                    curImpT, year = self.implementBasinSystem(currentAttList, masterplanAttList, sys, city)
                     if curImpT != 0:
-                        self.writeSystemAttributesToOutput(sys, status, year, qty, currentImpT)
-                    
-
-#            ### LOT IMPLEMENTATION ###
-#            ### Condition 1: block_skip=False, Condtion 2: there are systems at that scale, Condition 3: there are allotments in the block
-#            #Get Lot Systems Details
-#            lot_details = [0, 0] #[0] - total lot treated, [1] - lot degree
-#            if block_skip == False:
-#                sys_implement_lot = self.locatePlannedSystems(sys_implement, "L",city)
-#                if sys_implement_lot == None:
-#                    print "No Lot Systems planned for Block "+str(currentID)
-#                else:
-#                    new_lot_details = self.implementLot(currentID, sys_implement_lot, mpdata, [centreX, centreY], currentyear,city)
-#                    if new_lot_details != 0:
-#                        lot_details[0] += new_lot_details[0] #update total impervious area treated at lot
-#                        lot_details[1] = new_lot_details[1] #update the % implementation at lot scale
+                        self.writeSystemAttributesToOutput(sys, year, 1, curImpT, currentAttList, blocks_size, city)
             
-#            ### STREET IMPLEMENTATION ###
-#            ### Condition 1: block_skip=False, Condition 2: there are street systems planned
-#            streetdeg = 0
-#            if block_skip == False:
-#                sys_implement_street = self.locatePlannedSystems(sys_implement, "S",city)
-#                if sys_implement_street == None:
-#                    print "No Street Systems planned for Block "+str(currentID)
-#                else:
-#                    self.implementStreet(currentID, sys_implement_street, mpdata, [centreX, centreY], currentyear, lot_details,city)
-                    
-#            ### NEIGHBOURHOOD IMPLEMENTATION ###
-#            neighdeg = 0
-#            if block_skip == False:
-#                sys_implement_neigh = self.locatePlannedSystems(sys_implement, "N",city)
-#                if sys_implement_neigh == None:
-#                    print "No Neighbourhood Systems planned for Block "+str(currentID)
-#                else:
-#                    self.implementNeighbourhood(currentID, sys_implement_neigh, mpdata, [centreX, centreY], currentyear, lot_details,city)
-        
-#            ### PRECINCT IMPLEMENTATION ###
-#            precdeg = 0
-#            sys_implement_prec = self.locatePlannedSystems(sys_implement, "P",city)
-#            if sys_implement_prec == None:
-#                print "No Precinct Systems planned for Block "+str(currentID)
-#            else:
-#                self.implementPrecinct(currentID, sys_implement_prec, mpdata, [centreX, centreY], currentyear,city)
+            #BLOCK FOR LOOP END (Repeat for next BlockID)
             
-            #FOR LOOP END (Repeat for next BlockID)
-        #Output vector update
+        print "End of Implementation Module"
 
     ########################################################
     #TECHIMPLEMENT FUNCTIONS                               #
@@ -373,23 +332,21 @@ class Techimplement(Module):
         else:
             return False        #Otherwise skip
     
-    def writeSystemAttributesToOutput(self, sys, year, qty, currentImpT, currentAttList, block_size):
+    def writeSystemAttributesToOutput(self, sys, year, qty, currentImpT, currentAttList, block_size, city):
         """Writes the attributes to module output of the systems implemented"""
-        
         centreX = currentAttList.getAttribute("CentreX").getDouble()
         centreY = currentAttList.getAttribute("CentreY").getDouble() 
         currentID = int(currentAttList.getAttribute("BlockID").getDouble())
         
-        offsets_matrix = [[centreX+float(self.block_size)/16.0, centreY+float(self.block_size)/4.0],
-                          [centreX+float(self.block_size)/12.0, centreY+float(self.block_size)/4.0],
-                          [centreX+float(self.block_size)/8.0, centreY+float(self.block_size)/4.0],
-                          [centreX+float(self.block_size)/6.0, centreY+float(self.block_size)/4.0],
-                          [centreX+float(self.block_size)/4.0, centreY+float(self.block_size)/4.0],
-                          [centreX+float(self.block_size)/3.0, centreY+float(self.block_size)/4.0],
-                          [centreX+float(self.block_size)/4.0, centreY-float(self.block_size)/8.0],
-                          [centreX-float(self.block_size)/8.0, centreY-float(self.block_size)/4.0],
-                          [centreX-float(self.block_size)/4.0, centreY-float(self.block_size)/8.0]]
-        blockscale_names = ["L_RES", "L_HDR", "L_LI", "L_HI", "L_COM", "L_ORC", "S", "N", "B"]
+        offsets_matrix = [[centreX+float(block_size)/16.0, centreY+float(block_size)/4.0],
+                          [centreX+float(block_size)/12.0, centreY+float(block_size)/4.0],
+                          [centreX+float(block_size)/8.0, centreY+float(block_size)/4.0],
+                          [centreX+float(block_size)/4.0, centreY+float(block_size)/4.0],
+                          [centreX+float(block_size)/3.0, centreY+float(block_size)/4.0],
+                          [centreX+float(block_size)/4.0, centreY-float(block_size)/8.0],
+                          [centreX-float(block_size)/8.0, centreY-float(block_size)/4.0],
+                          [centreX-float(block_size)/4.0, centreY-float(block_size)/8.0]]
+        blockscale_names = ["L_RES", "L_HDR", "L_LI", "L_HI", "L_COM", "S", "N", "B"]
         
         coordinates = offsets_matrix[blockscale_names.index(sys.getAttribute("Scale").getString())]
         
@@ -457,17 +414,17 @@ class Techimplement(Module):
             return 0,0,0
         
         goallots = sys.getAttribute("GoalQty").getDouble()      #Saved from Techplacement
-        if goalallots == 0:
+        if goallots == 0:
             return 0,0,0    #No implementation specified, not even going to try
         
         if int(sys.getAttribute("Year").getDouble()) == 9999:       #System not even built yet
             if self.bb_lot_rule == "AMAP":
                 #As many as possible, the smaller of what the goal is or how many allotments have been built
-                lotqty = min(goalallots, units)      #The smaller of the two
+                lotqty = min(goallots, units)      #The smaller of the two
                 year = int(self.currentyear)
             elif self.bb_lot_rule == "STRICT":
                 #Maintain ratio as development is built
-                lotqty = (goalallots/masterUnits) * units   #Envisioned ratio x current number of units
+                lotqty = (goallots/masterUnits) * units   #Envisioned ratio x current number of units
                 year = int(self.currentyear)
                 
         elif int(sys.getAttribute("Year").getDouble()) != 9999:     #Code is duplicated in case of future algorithms
@@ -477,12 +434,15 @@ class Techimplement(Module):
                 year = int(self.currentyear)
                 
             elif remainingQty > 0 and self.bb_lot_rule == "STRICT":
-                lotqty = (goalallots/masterUnits) * units   #New systems
+                lotqty = (goallots/masterUnits) * units   #New systems
                 year = int(self.currentyear)
                 
             elif remainingQty <= 0:
-                lotqty = goalallots
+                lotqty = goallots
                 year = int(sys.getAttribute("Year").getDouble())
+        
+        #SPACE FOR FUTURE DECISION VARIABLES
+        
         currentImpT = lotqty * sys.getAttribute("ImpT").getDouble()
         return lotqty, currentImpT, year
     
@@ -499,7 +459,7 @@ class Techimplement(Module):
             return curImpT, year
         #If status == 0, then buildyear is also 9999
         
-        #Check available space
+        #CRITERIA 1 - Check available space
         if sys.getAttribute("Scale").getString() == "S":
             avl_space = currentAttList.getAttribute("avSt_RES").getDouble()
         elif sys.getAttribute("Scale").getString() == "N":
@@ -508,15 +468,17 @@ class Techimplement(Module):
                     currentAttList.getAttribute("REF_av").getDouble()
         
         sysarea = sys.getAttribute("SysArea").getDouble()
-        if int(sys.getAttribute("Scale").getString()) == "S":
+        if sys.getAttribute("Scale").getString() == "S":
             if self.bb_street_zone == 0 and avl_space < sysarea:
                 return 0,0
-        elif int(sys.getAttribute("Scale").getString()) == "N":
+        elif sys.getAttribute("Scale").getString() == "N":
             if self.bb_neigh_zone == 0 and avl_space < sysarea:
                 return 0,0
         
-        #Check development Status
-        if int(sys.getAttribute("Scale").getString()) == "S":
+        #CRITERIA X - Future Criteria for deciding on implementation
+        
+        #CRITERIA 2 - Check development Status
+        if sys.getAttribute("Scale").getString() == "S":
             devarea = currentAttList.getAttribute("ResLotEIA").getDouble() * \
                 currentAttList.getAttribute("ResAllots").getDouble()
             masterplan = currentAttList.getAttribute("ResLotEIA").getDouble() * \
@@ -527,7 +489,7 @@ class Techimplement(Module):
                 year = self.currentyear
                 curImpT = sys.getAttribute("ImpT").getDouble()
                 return curImpT, year
-        elif int(sys.getAttribute("Scale").getString()) == "N":
+        elif sys.getAttribute("Scale").getString() == "N":
             #Develop. Have already checked the block threshold for the Neighbourhood
             year = self.currentyear
             curImpT = sys.getAttribute("ImpT").getDouble()
@@ -544,7 +506,7 @@ class Techimplement(Module):
             return curImpT, year
         #If status == 0, then buildyear is also 9999
         
-        #Check available space
+        #CRITERIA 1 - Check available space
         if sys.getAttribute("Type").getString() in ["BF", "WSUR", "PB", "IS"]:
             avl_space = currentAttList.getAttribute("PG_av").getDouble() + \
                 currentAttList.getAttribute("REF_av").getDouble()
@@ -553,9 +515,11 @@ class Techimplement(Module):
         if self.prec_zone_ignore == 0 and avl_space < sysarea:
             return 0,0
         
-        #Check development status of upstream area
+        #CRITERIA X - Future space for further criteria
+        
+        #CRITERIA 2 - Check development status of upstream area
         curUD, mastUD = self.retrieveUndevelopedAreas(currentAttList, masterAttList, city, "upstream")
-        if self.prec_dev_threshold == True 
+        if self.prec_dev_threshold == True: 
             if (1-curUD)/(1-mastUD) < float(self.prec_dev_percent/100):
                 #print "Upstream area not developed enough, skipping..."
                 return 0,0
@@ -590,8 +554,9 @@ class Techimplement(Module):
         activetrack = currentAttList.getAttribute("Active").getDouble()
         
         for i in range(len(streamIDs)):
-            blockattr = city.getBlockUUID(streamIDs[i])
-            mastattr = city.getPrevBlockUUID(streamIDs[i])
+            print streamIDs[i]
+            blockattr = self.getBlockUUID(streamIDs[i], city)
+            mastattr = self.getPrevBlockUUID(streamIDs[i], city)
             undevarea += blockattr.getAttribute("pLU_UND").getDouble() * \
                 blockattr.getAttribute("Active").getDouble()
             mastplanundev += mastattr.getAttribute("pLU_UND").getDouble() * \
@@ -614,10 +579,10 @@ class Techimplement(Module):
 
     def initPrevBLOCKIDtoUUID(self, city):
         prevblockuuids = city.getUUIDsOfComponentsInView(self.prevBlocks)
-        for uuid  in prevblockuuids:
+        for uuid in prevblockuuids:
             block = city.getComponent(uuid)
             ID = int(round(block.getAttribute("BlockID").getDouble()))
-            self.prevBLOCKIDtoUUID[ID] = blockuuid
+            self.prevBLOCKIDtoUUID[ID] = uuid
 
     def getBlockUUID(self, blockid,city):
 	try:
