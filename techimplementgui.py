@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'techimplementgui.ui'
 #
-# Created: Mon Jun 24 14:13:48 2013
+# Created: Wed Jun 26 13:04:13 2013
 #      by: PyQt4 UI code generator 4.8.6
 #
 # WARNING! All changes made in this file will be lost!

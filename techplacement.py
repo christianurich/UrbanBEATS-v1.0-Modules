@@ -322,7 +322,7 @@ class Techplacement(Module):
         self.createParameter("decom_thresh", DOUBLE,"")
         self.createParameter("renewal_thresh", DOUBLE,"")
         self.createParameter("renewal_alternative", STRING,"")
-        self.lot_renew = 0
+        self.lot_renew = 0      #NOT USED UNLESS LOT RENEWAL ALGORITHM EXISTS
         self.lot_decom = 0
         self.street_renew = 0
         self.street_decom = 0
@@ -684,9 +684,11 @@ class Techplacement(Module):
         self.num_output_strats = 5      #number of output strategies
         
         self.createParameter("startyear", DOUBLE, "")
+        self.createParameter("prevyear", DOUBLE, "")
         self.createParameter("currentyear", DOUBLE, "")
         self.startyear = 1960  #Retrofit Advanced Parameters - Set by Model Core
-        self.currentyear = 1960
+        self.prevyear = 1960
+        self.currentyear = 1980
         
         #SWH Harvesting algorithms
         self.createParameter("rainfile", STRING, "")    #Rainfall file for SWH
@@ -797,7 +799,6 @@ class Techplacement(Module):
 	self.addData("City", datastream)
 	
 	self.BLOCKIDtoUUID = {}
-        self.SYSTEMIDtoUUID = {}
 
     def run(self):
         city = self.getData("City")
@@ -932,224 +933,247 @@ class Techplacement(Module):
             elif self.retrofit_scenario == "F":
                 self.retrofit_Forced(currentID, sys_implement, city)
         
-#        ###-------------------------------------------------------------------###
-#        #  THIRD LOOP - OPPORTUNITIES ASSESSMENT ACROSS SCALES & IN-BLOCK TOP   #
-#        #                RANKED OPTIONS (ACROSS BLOCKS)                         #
-#        ###-------------------------------------------------------------------###
-#        #Initialize the database
-#        if os.path.isfile(r"D:\ubeatsdb2.db"):
-#            os.remove(r"D:\ubeatsdb2.db")
-#        self.sqlDB = sqlite3.connect(r"D:\ubeatsdb2.db")
-#        self.dbcurs = self.sqlDB.cursor()
+        ###-------------------------------------------------------------------###
+        #  THIRD LOOP - OPPORTUNITIES ASSESSMENT ACROSS SCALES & IN-BLOCK TOP   #
+        #                RANKED OPTIONS (ACROSS BLOCKS)                         #
+        ###-------------------------------------------------------------------###
+        #Initialize the database
+        if os.path.isfile(r"D:\ubeatsdb2.db"):
+            os.remove(r"D:\ubeatsdb2.db")
+        self.sqlDB = sqlite3.connect(r"D:\ubeatsdb2.db")
+        self.dbcurs = self.sqlDB.cursor()
         
-#        #Create Table for Individual Systems
-#        self.dbcurs.execute('''CREATE TABLE watertechs(BlockID, Type, Size, Scale, Service, Areafactor, Landuse, Designdegree)''')
-#        self.dbcurs.execute('''CREATE TABLE blockstrats(BlockID, Bin, RESType, RESQty, RESservice, HDRType, HDRQty, HDRService,
-#                            LIType, LIQty, LIService, HIType, HIQty, HIService, COMType, COMQty, COMService, StreetType, StreetQty, 
-#                            StreetService, NeighType, NeighQty, NeighService, TotService, MCATech, MCAEnv, MCAEcn, MCASoc, MCATotal)''')
-#        self.dbcurs.execute('''CREATE TABLE blockstratstop(BlockID, Bin, RESType, RESQty, RESservice, HDRType, HDRQty, HDRService,
-#                            LIType, LIQty, LIService, HIType, HIQty, HIService, COMType, COMQty, COMService, StreetType, StreetQty, 
-#                            StreetService, NeighType, NeighQty, NeighService, TotService, MCATech, MCAEnv, MCAEcn, MCASoc, MCATotal)''')
+        #Create Table for Individual Systems
+        self.dbcurs.execute('''CREATE TABLE watertechs(BlockID, Type, Size, Scale, Service, Areafactor, Landuse, Designdegree)''')
+        self.dbcurs.execute('''CREATE TABLE blockstrats(BlockID, Bin, RESType, RESQty, RESservice, HDRType, HDRQty, HDRService,
+                            LIType, LIQty, LIService, HIType, HIQty, HIService, COMType, COMQty, COMService, StreetType, StreetQty, 
+                            StreetService, NeighType, NeighQty, NeighService, TotService, MCATech, MCAEnv, MCAEcn, MCASoc, MCATotal)''')
+        self.dbcurs.execute('''CREATE TABLE blockstratstop(BlockID, Bin, RESType, RESQty, RESservice, HDRType, HDRQty, HDRService,
+                            LIType, LIQty, LIService, HIType, HIQty, HIService, COMType, COMQty, COMService, StreetType, StreetQty, 
+                            StreetService, NeighType, NeighQty, NeighService, TotService, MCATech, MCAEnv, MCAEcn, MCASoc, MCATotal)''')
         
-#        inblock_options = {}
-#        subbas_options = {}
+        inblock_options = {}
+        subbas_options = {}
         
-#        #Initialize increment variables
-#        self.lot_incr = self.setupIncrementVector(self.lot_rigour)
-#        self.street_incr = self.setupIncrementVector(self.street_rigour)
-#        self.neigh_incr = self.setupIncrementVector(self.neigh_rigour)
-#        self.subbas_incr = self.setupIncrementVector(self.subbas_rigour)
+        #Initialize increment variables
+        self.lot_incr = self.setupIncrementVector(self.lot_rigour)
+        self.street_incr = self.setupIncrementVector(self.street_rigour)
+        self.neigh_incr = self.setupIncrementVector(self.neigh_rigour)
+        self.subbas_incr = self.setupIncrementVector(self.subbas_rigour)
         
-#        if bool(self.ration_harvest):   #if harvest is a management objective
-#            #Initialize meteorological data vectors: Load rainfile and evaporation files, 
-#            #create the scaling factors for evap data
-#            print "Loading Climate Data... "
-#            self.raindata = ubseries.loadClimateFile(self.rainfile, "csv", self.rain_dt, 1440, self.rain_length)
-#            self.evapdata = ubseries.loadClimateFile(self.evapfile, "csv", self.evap_dt, 1440, self.rain_length)
-#            self.evapscale = ubseries.convertVectorToScalingFactors(self.evapdata)
-#            self.raindata = ubseries.removeDateStampFromSeries(self.raindata)             #Remove the date stamps
+        if bool(self.ration_harvest):   #if harvest is a management objective
+            #Initialize meteorological data vectors: Load rainfile and evaporation files, 
+            #create the scaling factors for evap data
+            print "Loading Climate Data... "
+            self.raindata = ubseries.loadClimateFile(self.rainfile, "csv", self.rain_dt, 1440, self.rain_length)
+            self.evapdata = ubseries.loadClimateFile(self.evapfile, "csv", self.evap_dt, 1440, self.rain_length)
+            self.evapscale = ubseries.convertVectorToScalingFactors(self.evapdata)
+            self.raindata = ubseries.removeDateStampFromSeries(self.raindata)             #Remove the date stamps
             
-#        for i in range(int(blocks_num)):
-#            currentID = i+1
-#            print "Current on Block ",currentID
-#            currentAttList = self.getBlockUUID(currentID, city)
-#            if currentAttList.getAttribute("Status").getDouble() == 0:
-#                print "Block not active in simulation"
-#                continue
+        for i in range(int(blocks_num)):
+            currentID = i+1
+            print "Current on Block ",currentID
+            currentAttList = self.getBlockUUID(currentID, city)
+            if currentAttList.getAttribute("Status").getDouble() == 0:
+                print "Block not active in simulation"
+                continue
             
-#            #INITIALIZE VECTORS
-#            lot_techRES = []
-#            lot_techHDR = []
-#            lot_techLI = []
-#            lot_techHI = []
-#            lot_techCOM = []
-#            street_tech = []
-#            neigh_tech = []
-#            subbas_tech = []
+            #INITIALIZE VECTORS
+            lot_techRES = []
+            lot_techHDR = []
+            lot_techLI = []
+            lot_techHI = []
+            lot_techCOM = []
+            street_tech = []
+            neigh_tech = []
+            subbas_tech = []
             
-#            #Assess Lot Opportunities
-#            if len(techListLot) != 0:
-#                lot_techRES, lot_techHDR, lot_techLI, lot_techHI, lot_techCOM = self.assessLotOpportunities(techListLot, currentAttList)
-#            else:
-#                lot_techRES.append(0)      #append the "Do Nothing Option regardless"
-#                lot_techHDR.append(0)
-#                lot_techLI.append(0)
-#                lot_techHI.append(0)
-#                lot_techCOM.append(0)
+            #Assess Lot Opportunities
+            if len(techListLot) != 0:
+                lot_techRES, lot_techHDR, lot_techLI, lot_techHI, lot_techCOM = self.assessLotOpportunities(techListLot, currentAttList)
+            else:
+                lot_techRES.append(0)      #append the "Do Nothing Option regardless"
+                lot_techHDR.append(0)
+                lot_techLI.append(0)
+                lot_techHI.append(0)
+                lot_techCOM.append(0)
                 
-#            #Assess Street Opportunities
-#            if len(techListStreet) != 0:
-#                street_tech = self.assessStreetOpportunities(techListStreet, currentAttList)
-#            else:
-#                street_tech.append(0)
+            #Assess Street Opportunities
+            if len(techListStreet) != 0:
+                street_tech = self.assessStreetOpportunities(techListStreet, currentAttList)
+            else:
+                street_tech.append(0)
                 
-#            #Assess Neigh Opportunities
-#            if len(techListNeigh) != 0:
-#                neigh_tech = self.assessNeighbourhoodOpportunities(techListNeigh, currentAttList)
-#            else:
-#                neigh_tech.append(0)
+            #Assess Neigh Opportunities
+            if len(techListNeigh) != 0:
+                neigh_tech = self.assessNeighbourhoodOpportunities(techListNeigh, currentAttList)
+            else:
+                neigh_tech.append(0)
                 
-#            #Assess Precinct Opportunities
-#            if len(techListSubbas) != 0:
-#                subbas_tech = self.assessSubbasinOpportunities(techListSubbas, currentAttList, city)
-#            else:
-#                subbas_tech.append(0)
+            #Assess Precinct Opportunities
+            if len(techListSubbas) != 0:
+                subbas_tech = self.assessSubbasinOpportunities(techListSubbas, currentAttList, city)
+            else:
+                subbas_tech.append(0)
             
-#            subbas_options["BlockID"+str(currentID)] = subbas_tech
-#            inblock_options["BlockID"+str(currentID)] = self.constructInBlockOptions(currentAttList, lot_techRES, lot_techHDR, lot_techLI, lot_techHI, lot_techCOM, street_tech, neigh_tech)
+            subbas_options["BlockID"+str(currentID)] = subbas_tech
+            inblock_options["BlockID"+str(currentID)] = self.constructInBlockOptions(currentAttList, lot_techRES, lot_techHDR, lot_techLI, lot_techHI, lot_techCOM, street_tech, neigh_tech)
         
-#        self.sqlDB.commit()
+        self.sqlDB.commit()
         
-#        ###-------------------------------------------------------------------###
-#        #  FOURTH LOOP - MONTE CARLO (ACROSS BASINS)                            #
-#        ###-------------------------------------------------------------------###
-#        gc.collect()
-#        #self.dbcurs.execute('''CREATE TABLE basinbrainstorm(BasinID, )''')
-##        output_log_file = open("UB_BasinStrategies.csv", 'w')
-##        output_log_file.write("UrbanBEATS Basin Strategies Evaluation File \n\n")
-##        output_log_file.write("Lost of all Basin Strategies \n\n")
-##        output_log_file.write("Basin ID, Strategy No., Service [%], TotalMCAScore, # Precinct, # Blocks Local\n")
+        ###-------------------------------------------------------------------###
+        #  FOURTH LOOP - MONTE CARLO (ACROSS BASINS)                            #
+        ###-------------------------------------------------------------------###
+        gc.collect()
+        #self.dbcurs.execute('''CREATE TABLE basinbrainstorm(BasinID, )''')
+#        output_log_file = open("UB_BasinStrategies.csv", 'w')
+#        output_log_file.write("UrbanBEATS Basin Strategies Evaluation File \n\n")
+#        output_log_file.write("Lost of all Basin Strategies \n\n")
+#        output_log_file.write("Basin ID, Strategy No., Service [%], TotalMCAScore, # Precinct, # Blocks Local\n")
         
-#        for i in range(int(basins)):
-#            currentBasinID = i+1
-#            print "Currently on Basin ID"+str(currentBasinID)
+        for i in range(int(basins)):
+            currentBasinID = i+1
+            print "Currently on Basin ID"+str(currentBasinID)
             
-#            basinBlockIDs, outletID = self.getBasinBlockIDs(currentBasinID, blocks_num, city)
-#            basinEIA = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Blk_EIA", "sum")
-#            basinPop = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Pop", "sum")
-#            #basinPubspace = ...
+            basinBlockIDs, outletID = self.getBasinBlockIDs(currentBasinID, blocks_num, city)
+            basinEIA = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Blk_EIA", "sum")
+            #basinDem = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Pop", "sum")        #>>> FUture
             
-#            basinTreated = self.retrieveAttributeFromIDs(city, basinBlockIDs, "ServedIA", "sum")
-#            basinremainEIA = max(basinEIA - basinTreated, 0)
-#            subbasPartakeIDs = self.findSubbasinPartakeIDs(basinBlockIDs, subbas_options) #Find locations of possible WSUD
+            #Calculate the Basin's Remaining Service Level required
+            basinTreated = self.retrieveAttributeFromIDs(city, basinBlockIDs, "ServedIA", "sum")        #All in-block treated
+            basinTreated += self.retrieveAttributeFromIDs(city, basinBlockIDs, "UpstrImpTreat", "sum")  #All upstream treated
             
-#            if basinremainEIA == 0:   # and basinPop == 0 and basinPubspace == 0:     >>>FUTURE
-#                #print "Basin ID: ", currentBasinID, " has no effective impervious area, skipping!"
-#                continue
-#            iterations = 1000
+            print "Served IA ", basinTreated
+            basinremainEIA = max(basinEIA - basinTreated, 0)
+            subbasPartakeIDs = self.findSubbasinPartakeIDs(basinBlockIDs, subbas_options) #Find locations of possible WSUD
+            prevBasinService = basinTreated/basinEIA
+            if max(1 - prevBasinService, 0) == 0:
+                delta_percentWQ == 0
+            else:
+                delta_percentWQ = (self.service_swmWQ/100 - prevBasinService) / (1 - prevBasinService)        #Relative amount of service level to achieve
+            #e.g. 90% wanted, 80% achieved, hence need to provide extra 10% of service on 20% of remaining area i.e achieve 50% on 100% of area
             
-#            if len(basinBlockIDs) == 1: #if we are dealing with a single-block basin, reduce the number of iterations
-#                iterations = 1
-#            #Begin Monte Carlo
-#            basin_strategies = []
-#            for iteration in range(iterations):   #1000 monte carlo simulations
-#                print "Current Iteration No. ", iteration+1
+            delta_percentQty = self.service_swmQty    ###>>>>>> FUTURE CHANGE THESE BASED ON TRACKING RETROFIT
+            delta_percentRec = self.service_rec
+            updatedService = [delta_percentQty, delta_percentWQ, delta_percentRec]
+            
+            print "Previous Treatment Efficiency: "+str(prevBasinService)
+            print "must choose a strategy now that treats: "+str(delta_percentWQ*100)+ "% of basin"
+            
+            if basinremainEIA == 0:   # and basinPop == 0 and basinPubspace == 0:     >>>FUTURE
+                #print "Basin ID: ", currentBasinID, " has no effective impervious area, skipping!"
+                continue
+            
+            iterations = 1000   #MONTE CARLO ITERATIONS - CAN SET TO SENSITIVITY VALUE IN FUTURE RELATIVE TO BASIN SIZE
+            
+            if len(basinBlockIDs) == 1: #if we are dealing with a single-block basin, reduce the number of iterations
+                iterations = 10
+            #Begin Monte Carlo
+            basin_strategies = []
+            for iteration in range(iterations):   #1000 monte carlo simulations
+                print "Current Iteration No. ", iteration+1
 
-#                #Create template arrays for sampling and tracking
-#                partakeIDstracker = []
-#                partakeIDssampler = []
-#                basinblockIDssampler = []
-#                #subbasID_treatedAimp = []
-#                for id in subbasPartakeIDs:
-#                    partakeIDstracker.append(id)
-#                    partakeIDssampler.append(id)
-#                    #subbasID_treatedAimp.append(0)
-#                for id in basinBlockIDs:
-#                    basinblockIDssampler.append(id)
+                #Create template arrays for sampling and tracking
+                partakeIDstracker = []
+                partakeIDssampler = []
+                basinblockIDssampler = []
+                #subbasID_treatedAimp = []
+                for id in subbasPartakeIDs:
+                    partakeIDstracker.append(id)
+                    partakeIDssampler.append(id)
+                    #subbasID_treatedAimp.append(0)
+                for id in basinBlockIDs:
+                    basinblockIDssampler.append(id)
                 
-#                #Draw Samples
-#                subbas_chosenIDs, inblocks_chosenIDs = self.selectTechLocationsByRandom(partakeIDssampler, basinblockIDssampler)
-#                #print subbas_chosenIDs
-#                #Create the Basin Management Strategy Object
-#                basinDem = np.inf
-#                current_bstrategy = tt.BasinManagementStrategy(iteration+1, currentBasinID, 
-#                                                               basinBlockIDs, subbasPartakeIDs, 
-#                                                               [basinremainEIA,basinDem])
+                #Draw Samples
+                subbas_chosenIDs, inblocks_chosenIDs = self.selectTechLocationsByRandom(partakeIDssampler, basinblockIDssampler)
+                #print subbas_chosenIDs
+                #Create the Basin Management Strategy Object
+                basinDem = np.inf
+                current_bstrategy = tt.BasinManagementStrategy(iteration+1, currentBasinID, 
+                                                               basinBlockIDs, subbasPartakeIDs, 
+                                                               [basinremainEIA,basinDem])
                 
-#                #Populate Basin Management Strategy Object based on the current sampled values
-#                self.populateBasinWithTech(current_bstrategy, subbas_chosenIDs, inblocks_chosenIDs, 
-#                                           partakeIDstracker, inblock_options, subbas_options, city)
-#                tt.updateBasinService(current_bstrategy)
-#                tt.calculateBasinStrategyMCAScores(current_bstrategy,self.priorities, self.mca_techlist, self.mca_tech, \
-#                                                  self.mca_env, self.mca_ecn, self.mca_soc, \
-#                                                      [self.bottomlines_tech_w, self.bottomlines_env_w, \
-#                                                               self.bottomlines_ecn_w, self.bottomlines_soc_w])
+                #Populate Basin Management Strategy Object based on the current sampled values
+                self.populateBasinWithTech(current_bstrategy, subbas_chosenIDs, inblocks_chosenIDs, 
+                                           partakeIDstracker, inblock_options, subbas_options, city)
+                tt.updateBasinService(current_bstrategy)
                 
-#                #Add basin strategy to list of possibilities
-#                service_objfunc = self.evaluateServiceObjectiveFunction(current_bstrategy)        #Calculates how well it meets the total service
+                tt.calculateBasinStrategyMCAScores(current_bstrategy,self.priorities, self.mca_techlist, self.mca_tech, \
+                                                  self.mca_env, self.mca_ecn, self.mca_soc, \
+                                                      [self.bottomlines_tech_w, self.bottomlines_env_w, \
+                                                               self.bottomlines_ecn_w, self.bottomlines_soc_w])
+                
+                #Add basin strategy to list of possibilities
+                
+                service_objfunc = self.evaluateServiceObjectiveFunction(current_bstrategy, updatedService)        #Calculates how well it meets the total service
 
-#                basin_strategies.append([service_objfunc,current_bstrategy.getServicePvalues(), current_bstrategy.getTotalMCAscore(), current_bstrategy])
+                basin_strategies.append([service_objfunc,current_bstrategy.getServicePvalues(), current_bstrategy.getTotalMCAscore(), current_bstrategy])
             
-#            #print basin_strategies
-#            #print "Must Achieve: ", self.service_swm/100.0
-#            #Pick the final option by narrowing down the list and choosing (based on how many
-#            #need to be chosen), sort and grab the top ranking options
-#            basin_strategies.sort()
-#            print basin_strategies
-#            self.debugPlanning(basin_strategies)
-#            acceptable_options = []
-#            for j in range(len(basin_strategies)):
-#                if basin_strategies[j][0] < 0:  #if the OF is <0 i.e. -1, skip
-#                    continue
-#                else:
-#                    acceptable_options.append(basin_strategies[j])
-#            print acceptable_options
-#            if self.ranktype == "RK":
-#                acceptable_options = acceptable_options[0:int(self.topranklimit)]
-#            elif self.ranktype == "CI":
-#                acceptableN = int(len(acceptable_options)*(1.0-float(self.conf_int)/100.0))
-#                acceptable_options = acceptable_options[0:acceptableN]
+            #print basin_strategies
+            #print "Must Achieve: ", self.service_swm/100.0
+            #Pick the final option by narrowing down the list and choosing (based on how many
+            #need to be chosen), sort and grab the top ranking options
+            basin_strategies.sort()
+            print basin_strategies
+            self.debugPlanning(basin_strategies)
+            acceptable_options = []
+            for j in range(len(basin_strategies)):
+                if basin_strategies[j][0] < 0:  #if the OF is <0 i.e. -1, skip
+                    continue
+                else:
+                    acceptable_options.append(basin_strategies[j])
+            print acceptable_options
+            if self.ranktype == "RK":
+                acceptable_options = acceptable_options[0:int(self.topranklimit)]
+            elif self.ranktype == "CI":
+                acceptableN = int(len(acceptable_options)*(1.0-float(self.conf_int)/100.0))
+                acceptable_options = acceptable_options[0:acceptableN]
             
-#            topcount = len(acceptable_options)
-#            acceptable_options.sort(key=lambda score: score[2])
-#            print acceptable_options
-#            #Choose final option
-#            numselect = min(topcount, self.num_output_strats)   #Determines how many options out of the matrix it should select
-#            final_selection = []
-#            for i in range(int(numselect)):            
-#                score_matrix = []       #Create the score matrix
-#                for j in acceptable_options:
-#                    score_matrix.append(j[2])
-#                selection_cdf = self.createCDF(score_matrix)    #Creat the CDF
-#                choice = self.samplefromCDF(selection_cdf)
-#                final_selection.append(acceptable_options[choice][3])   #Add ONLY the strategy_object
-#                acceptable_options.pop(choice)  #Pop the option at the selected index from the matrix
-#                #Repeat for as many options as requested
+            topcount = len(acceptable_options)
+            acceptable_options.sort(key=lambda score: score[2])
+            print acceptable_options
+            #Choose final option
+            numselect = min(topcount, self.num_output_strats)   #Determines how many options out of the matrix it should select
+            final_selection = []
+            for j in range(int(numselect)):            
+                score_matrix = []       #Create the score matrix
+                for opt in acceptable_options:
+                    score_matrix.append(opt[2])
+                selection_cdf = self.createCDF(score_matrix)    #Creat the CDF
+                choice = self.samplefromCDF(selection_cdf)
+                final_selection.append(acceptable_options[choice][3])   #Add ONLY the strategy_object
+                acceptable_options.pop(choice)  #Pop the option at the selected index from the matrix
+                #Repeat for as many options as requested
             
-#            #Write WSUD strategy attributes to output vector for that block
-#            print final_selection
-#            for j in range(len(final_selection)):
-#                cur_strat = final_selection[j]
-#                stratID = j+1
-#                self.writeStrategyView(city, stratID, currentBasinID, basinBlockIDs, cur_strat)
-            
-#            #Clear the array and garbage collect
-#            basin_strategies = []
-#            acceptable_options = []
-#            final_selection = []
-#            gc.collect()
-#            #END OF BASIN LOOP, continues to next basin
+            #Write WSUD strategy attributes to output vector for that block
+            print final_selection
+            if len(final_selection) == 0:
+                self.transferExistingSystemsToOutput(city, 1)   
+                #If there are no additional plans, just tranfer systems across, only one output as StrategyID1
+                
+            for j in range(len(final_selection)):       #Otherwise it'll loop
+                cur_strat = final_selection[j]
+                stratID = j+1
+                self.writeStrategyView(city, stratID, currentBasinID, basinBlockIDs, cur_strat)
+                self.transferExistingSystemsToOutput(city, stratID)
+            #Clear the array and garbage collect
+            basin_strategies = []
+            acceptable_options = []
+            final_selection = []
+            gc.collect()
+            #END OF BASIN LOOP, continues to next basin
         
-##        output_log_file.write("End of Basin Strategies Log \n\n")
-##        output_log_file.close()
+#        output_log_file.write("End of Basin Strategies Log \n\n")
+#        output_log_file.close()
         
-#        self.sqlDB.close()      #Close the database
+        self.sqlDB.close()      #Close the database
         #END OF MODULE
     
     ########################################################
     #TECHPLACEMENT SUBFUNCTIONS                            #
     ########################################################
-    def locatePlannedSystems(self, system_list, scale,city):
+    def locatePlannedSystems(self, system_list, scale, city):
         """Searches the input planned technologies list for a system that fits the scale in the block
         Returns the system attribute list. System_list is a vector of Components [curSys, curSys, curSys]
         """
@@ -1167,7 +1191,7 @@ class Techplacement(Module):
         elif type in ["PB"]: #then file = PB-MDx.xm.dcv
             pathname = 0
         return pathname
-
+    
     def retrieveNewAimpTreated(self, ID, scale, sys_descr,city):
         """Retrieves the system information for the given scale from the city datastream and
         assesses how well the current system's design can meet the current targets by comparing its
@@ -1224,6 +1248,8 @@ class Techplacement(Module):
         to determine what should be done with the system (i.e. keep, upgrade, decommission). Returns
         a final decision and the newly treated impervious area.
         """
+        
+        currentID = int(currentAttList.getAttribute("BlockID").getDouble())
         scalecheck = [[self.lot_renew, self.lot_decom], 
                       [self.street_renew, self.street_decom], 
                       [self.neigh_renew, self.neigh_decom], 
@@ -1249,8 +1275,10 @@ class Techplacement(Module):
         #print "System Age: "+str(age)
         
         if scaleconditions[1] == 1 and age > avglife: #decom
+            #print "System too old, decommission"
             decision_matrix.append(3)
         elif scaleconditions[0] == 1 and age > avglife/2: #renew
+            #print "System needs renewal because of age"
             decision_matrix.append(2)
         else: #keep
             decision_matrix.append(1)
@@ -1264,16 +1292,18 @@ class Techplacement(Module):
             perfdeficit = 1.0 #the system can no longer meet new targets, but is not retrofitted because of renewal cycles.
             new_imp = 0
         else:           #Need to catch this happening or else there will be a float division error!
-            new_imp = self.retrieveNewAimpTreated(ID, scale, sys_descr, city)
-            perfdeficit = abs(old_imp - new_imp)/old_imp
+            new_imp = self.retrieveNewAimpTreated(currentID, scale, sys_descr, city)
+            perfdeficit = (old_imp - new_imp)/old_imp
             
         #print "Old Imp: "+str(old_imp)
         #print "New Imp: "+str(new_imp)
         #print "Performance Deficit of System: "+str(perfdeficit)
         
         if scaleconditions[1] == 1 and perfdeficit >= (float(self.decom_thresh)/100.0): #Decom = Checked, threshold exceeded
+            #print "System's performance not up to scratch, decommission"
             decision_matrix.append(3)
         elif scaleconditions[0] == 1 and perfdeficit >= (float(self.renewal_thresh)/100.0): #Renew = checked, threshold exceeded
+            #print "System's performance ok, needs renewal"
             decision_matrix.append(2)
         else:
             decision_matrix.append(1)
@@ -1335,12 +1365,21 @@ class Techplacement(Module):
         evenly distribute this across those that have lot system and those that don't
         we therefore end up calculate how many systems lost as lot-perc * how many in place
         """
-        num_lots_lost = float(sys_descr.getAttribute("Qty").getDouble())*self.renewal_lot_perc/100
+        print "YEARS"
+        print self.currentyear, self.prevyear, self.renewal_lot_years
+        cycles = (float(self.currentyear) - float(self.prevyear)) // float(self.renewal_lot_years)
+        print "CYcles", cycles
+        currentQty = float(sys_descr.getAttribute("Qty").getDouble())
+        num_lots_lost = currentQty*self.renewal_lot_perc/100*cycles
+        newQty = currentQty - num_lots_lost
         goalquantity = sys_descr.getAttribute("GoalQty").getDouble()
         
         adjustedgoalQty = goalquantity - num_lots_lost
         #Update goal quantity: This is how many we can only reach now because we lost some
-        sys_descr.addAttribute("GoalQty", int(adjustedgoalQty))
+        sys_descr.changeAttribute("GoalQty", int(adjustedgoalQty))
+        
+        #Update current quantity: This is how many current exist in the map
+        sys_descr.changeAttribute("Qty", int(newQty))
         return sys_descr
     
     def retrofit_DoNothing(self, ID, sys_implement,city):
@@ -1366,7 +1405,11 @@ class Techplacement(Module):
             else:
                 currentAttList.addAttribute("Has"+str(luc_code)+"Sys", 1) #mark the system as having been taken
                 print luc_code+" Location: ", str(sys_descr.getAttribute("Location").getDouble())
-                imptreated = self.retrieveNewAimpTreated(ID, luc_code, sys_descr,city)
+                Aimplot = currentAttList.getAttribute("ResLotEIA").getDouble()
+                if luc_code == "L_RES":
+                    imptreated = min(self.retrieveNewAimpTreated(ID, luc_code, sys_descr, city), Aimplot)
+                else:
+                    imptreated = self.retrieveNewAimpTreated(ID, luc_code, sys_descr, city)
                 inblock_imp_treated += imptreated * sys_descr.getAttribute("GoalQty").getDouble()
                 sys_descr.changeAttribute("ImpT", imptreated)   #UNIT IMPERVIOUSNESS TREATED
                 sys_descr.changeAttribute("CurImpT", imptreated * sys_descr.getAttribute("Qty").getDouble())
@@ -1411,7 +1454,7 @@ class Techplacement(Module):
         currentAttList = self.getBlockUUID(ID,city)
         inblock_imp_treated = 0 #Initialize to keep track of treated in-block imperviousness
         
-        #LOT
+        #LOT, STREET & NEIGH
         for luc_code in ["L_RES", "L_HDR", "L_LI", "L_HI", "L_COM", "S", "N"]:
             sys_descr = self.locatePlannedSystems(sys_implement, luc_code,city)
             
@@ -1420,8 +1463,8 @@ class Techplacement(Module):
                 currentAttList.addAttribute("Has"+str(luc_code)+"Sys", 0)
                 continue
             
-            oldImp = sys_descr.getAttribute("ImpT")
-            decision, newImpT = self.dealWithSystem(currentAttList, sys_descr, luc_code,city)
+            oldImp = sys_descr.getAttribute("ImpT").getDouble()
+            decision, newImpT = self.dealWithSystem(currentAttList, sys_descr, luc_code, city)
             
             #CONDITIONS THAT WILL FORCE A DECISION == 1
             if luc_code in ["L_RES", "L_HDR", "L_LI", "L_HI", "L_COM"]:
@@ -1431,11 +1474,16 @@ class Techplacement(Module):
             if luc_code == "N" and self.force_neigh == 0: #if we do not force retrofit on neighbourhood, just keep the system
                 decision = 1
         
-            if decision == 1: #KEEP SYSTEM
+            if decision == 1:   #KEEP SYSTEM
                 currentAttList.addAttribute("Has"+str(luc_code)+"Sys", 1)
-                inblock_imp_treated += newImpT
-                sys_descr.changeAttribute("ImpT", newImpT)
-                sys_descr.changeAttribute("CurImpT", newImpT * sys_descr.getAttribute("Qty").getDouble())
+                Aimplot = currentAttList.getAttribute("ResLotEIA").getDouble()
+                if luc_code == "L_RES":
+                    imptreated = min(newImpT, Aimplot)
+                else:
+                    imptreated = newImpT
+                inblock_imp_treated += imptreated
+                sys_descr.changeAttribute("ImpT", imptreated)
+                sys_descr.changeAttribute("CurImpT", imptreated * sys_descr.getAttribute("Qty").getDouble())
             
             elif decision == 2: #RENEWAL
                 print "Renewing the System - Redesigning and Assessing Space Requirements"
@@ -1447,16 +1495,17 @@ class Techplacement(Module):
                 elif luc_code == "N":
                     avlSpace = currentAttList.getAttribute("PG_av").getDouble() + currentAttList.getAttribute("REF_av").getDouble()
                 
-                if newAsys > avlSpace and renewal_alternative == "K": #if system does not fit and alternative is 'Keep'
+                if newAsys > avlSpace and self.renewal_alternative == "K": #if system does not fit and alternative is 'Keep'
                     print "Cannot fit new system design, keeping old design instead"
                     currentAttList.addAttribute("Has"+str(luc_code)+"Sys", 1)
                     inblock_imp_treated += newImpT
                     sys_descr.changeAttribute("ImpT", newImpT)
                     sys_descr.changeAttribute("CurImpT", newImpT * sys_descr.getAttribute("Qty").getDouble())
-                elif newAsys > avlSpace and renewal_alternative == "D": #if system does not fit and alternative is 'Decommission'
+                elif newAsys > avlSpace and self.renewal_alternative == "D": #if system does not fit and alternative is 'Decommission'
                     print "Cannot fit new system design, decommissioning instead"
                     inblock_imp_treated += 0 #quite self-explanatory but is added here for clarity
                     currentAttList.addAttribute("Has"+str(luc_code)+"Sys", 1)
+                    sys_implement.remove(sys_descr)
                     city.removeComponent(sys_descr.getUUID())
                 else: #otherwise it'll fit, transfer new information
                     print "New System Upgrades fit, transferring this information to output"
@@ -1469,6 +1518,7 @@ class Techplacement(Module):
                 inblock_imp_treated += 0 #quite self-explanatory but is added here for clarity
                 #remove all attributes, wipe the attributes entry in techconfigout with a blank attribute object
                 currentAttList.addAttribute("Has"+str(luc_code)+"Sys", 0) #Remove system placeholder
+                sys_implement.remove(sys_descr)
                 city.removeComponent(sys_descr.getUUID())
                 
         currentAttList.addAttribute("ServedIA", inblock_imp_treated)
@@ -1483,7 +1533,7 @@ class Techplacement(Module):
         currentAttList.addAttribute("MaxLotDeg", max_houses)
         
         #SUBBASIN
-        sys_descr = self.locatePlannedSystems(sys_implement, "B",city)
+        sys_descr = self.locatePlannedSystems(sys_implement, "B", city)
         if sys_descr == None:
             currentAttList.addAttribute("HasBSys", 0)
         else:
@@ -1503,16 +1553,17 @@ class Techplacement(Module):
                 print "Renewing the System - Redesigning and Assessing Space Requirements"
                 newAsys, newEAFact = self.redesignSystem(currentAttList, sys_descr, "B", oldImp,city) #get new system size & EA
                 avlSpace = currentAttList.getAttribute("PG_av").getDouble() + currentAttList.getAttribute("REF_av").getDouble()
-                if newAsys > avlSpace and renewal_alternative == "K": #if system does not fit and alternative is 'Keep'
+                if newAsys > avlSpace and self.renewal_alternative == "K": #if system does not fit and alternative is 'Keep'
                     print "Cannot fit new system design, keeping old design instead"
                     currentAttList.addAttribute("HasBSys", 1)
                     currentAttList.addAttribute("UpstrImpTreat", newImpT)
                     sys_descr.changeAttribute("ImpT", newImpT)
                     sys_descr.changeAttribute("CurImpT", newImpT * sys_descr.getAttribute("Qty").getDouble())
-                elif newAsys > avlSpace and renewal_alternative == "D": #if system does not fit and alternative is 'Decommission'
+                elif newAsys > avlSpace and self.renewal_alternative == "D": #if system does not fit and alternative is 'Decommission'
                     print "Cannot fit new system design, decommissioning instead"
                     currentAttList.addAttribute("UpstrImpTreat", 0)
                     currentAttList.addAttribute("HasBSys", 0) #Remove system placeholder
+                    sys_implement.remove(sys_descr)
                     city.removeComponent(sys_descr.getUUID())
                 else: #otherwise it'll fit, transfer new information
                     print "New System Upgrades fit, transferring this information to output"
@@ -1525,6 +1576,7 @@ class Techplacement(Module):
                 currentAttList.addAttribute("UpstrImpTreat", 0)
                 #remove all attributes, wipe the attributes entry in techconfigout with a blank attribute object
                 currentAttList.addAttribute("HasSubbasS", 0)
+                sys_implement.remove(sys_descr)
                 city.removeComponent(sys_descr.getUUID())
         return True
 
@@ -1541,7 +1593,7 @@ class Techplacement(Module):
          - Decommission: technology is removed from the area, impervious area is freed up
          scale in said block is marked as 'available'"""
 
-        time_passed = self.currentyear - self.startyear
+        time_passed = self.currentyear - self.prevyear
         
         print "Block: "+str(ID)
         print sys_implement
@@ -1567,29 +1619,42 @@ class Techplacement(Module):
                 print "Before: "+str(sys_descr.getAttribute("GoalQty").getDouble())
                 #modify the current sys_descr attribute to take into account lot systems that have disappeared.
                 #If systems have disappeared the final quantity of lot implementation (i.e. goalqty) will drop
-                sys_descr = self.updateForBuildingStockRenewal(currentAttList, sys_descr)
+                if luc_code == "L_RES":
+                    sys_descr = self.updateForBuildingStockRenewal(currentAttList, sys_descr)
                 print "After: "+str(sys_descr.getAttribute("GoalQty").getDouble())
             else:
                 go_retrofit = 0
                 
             #NOW DETERMINE IF ARE RETROFITTING OR NOT: IF NOT READY FOR RETROFIT, KEEP, ELSE GO INTO CYCLE
             oldImp = sys_descr.getAttribute("ImpT").getDouble() #Old ImpT using the old GoalQty value
-            decision, newImpT = self.dealWithSystem(currentAttList, sys_descr, "L",city) #gets the new ImpT using new GoalQty value (if it changed)
+            decision, newImpT = self.dealWithSystem(currentAttList, sys_descr, luc_code ,city) #gets the new ImpT using new GoalQty value (if it changed)
             if go_retrofit == 0:        #If the decision is to NOT retrofit yet, then KEEP the system
                 decision = 1
                 
             if decision == 1: #KEEP
                 print "Keeping the System"
                 currentAttList.addAttribute("Has"+str(luc_code)+"Sys", 1)
-                inblock_imp_treated += newImpT
-                sys_descr.changeAttribute("ImpT", newImpT)
-                sys_descr.changeAttribute("CurImpT", newImpT * sys_descr.getAttribute("Qty").getDouble())
+                Aimplot = currentAttList.getAttribute("ResLotEIA").getDouble()
+                if luc_code == "L_RES":
+                    imptreated = min(newImpT, Aimplot)
+                else:
+                    imptreated = newImpT
+                inblock_imp_treated += imptreated
+                sys_descr.changeAttribute("ImpT", imptreated)
+                sys_descr.changeAttribute("CurImpT", imptreated * sys_descr.getAttribute("Qty").getDouble())
                 
             elif decision == 2: #RENEWAL
                 if luc_code in ["L_RES", "L_HDR", "L_COM", "L_LI", "L_HI"]:
                     print "Lot-scale systems will not allow renewal, instead the systems will be kept as is until plan is abandoned"
                     currentAttList.addAttribute("Has"+str(luc_code)+"Sys", 1)
-                    inblock_imp_treated += newImpT
+                    Aimplot = currentAttList.getAttribute("ResLotEIA").getDouble()
+                    if luc_code == "L_RES":
+                        imptreated = min(newImpT, Aimplot)
+                    else:
+                        imptreated = newImpT
+                    inblock_imp_treated += imptreated
+                    sys_descr.changeAttribute("ImpT", imptreated)
+                    sys_descr.changeAttribute("CurImpT", imptreated * sys_descr.getAttribute("Qty").getDouble())
                     #FUTURE DYNAMICS TO BE INTRODUCED
                 else:
                     print "Renewing the System - Redesigning and Assessing Space Requirements"
@@ -1601,16 +1666,17 @@ class Techplacement(Module):
                     elif luc_code == "N":
                         avlSpace = currentAttList.getAttribute("PG_av").getDouble() + currentAttList.getAttribute("REF_av").getDouble()
                     
-                    if newAsys > avlSpace and renewal_alternative == "K": #if system does not fit and alternative is 'Keep'
+                    if newAsys > avlSpace and self.renewal_alternative == "K": #if system does not fit and alternative is 'Keep'
                         print "Cannot fit new system design, keeping old design instead"
                         currentAttList.addAttribute("Has"+str(luc_code)+"Sys", 1)
                         inblock_imp_treated += newImpT
                         sys_descr.changeAttribute("ImpT", newImpT)
                         sys_descr.changeAttribute("CurImpT", newImpT * sys_descr.getAttribute("Qty").getDouble())
-                    elif newAsys > avlSpace and renewal_alternative == "D": #if system does not fit and alternative is 'Decommission'
+                    elif newAsys > avlSpace and self.renewal_alternative == "D": #if system does not fit and alternative is 'Decommission'
                         print "Cannot fit new system design, decommissioning instead"
                         inblock_imp_treated += 0 #quite self-explanatory but is added here for clarity
                         currentAttList.addAttribute("Has"+str(luc_code)+"Sys", 1)
+                        sys_implement.remove(sys_descr)
                         city.removeComponent(sys_descr.getUUID())
                     else: #otherwise it'll fit, transfer new information
                         print "New System Upgrades fit, transferring this information to output"
@@ -1623,6 +1689,7 @@ class Techplacement(Module):
                 inblock_imp_treated += 0 #quite self-explanatory but is added here for clarity
                 #remove all attributes, wipe the attributes entry in techconfigout with a blank attribute object
                 currentAttList.addAttribute("Has"+str(luc_code)+"Sys", 0) #Remove system placeholder
+                sys_implement.remove(sys_descr)
                 city.removeComponent(sys_descr.getUUID())
                 
         currentAttList.addAttribute("ServedIA", inblock_imp_treated)
@@ -1664,16 +1731,17 @@ class Techplacement(Module):
                 print "Renewing the System - Redesigning and Assessing Space Requirements"
                 newAsys, newEAFact = self.redesignSystem(currentAttList, sys_descr, "B", oldImp,city) #get new system size & EA
                 avlSpace = currentAttList.getAttribute("PG_av").getDouble() + currentAttList.getAttribute("REF_av").getDouble()
-                if newAsys > avlSpace and renewal_alternative == "K": #if system does not fit and alternative is 'Keep'
+                if newAsys > avlSpace and self.renewal_alternative == "K": #if system does not fit and alternative is 'Keep'
                     print "Cannot fit new system design, keeping old design instead"
                     currentAttList.addAttribute("HasBSys", 1)
                     currentAttList.addAttribute("UpstrImpTreat", newImpT)
                     sys_descr.changeAttribute("ImpT", newImpT)
                     sys_descr.changeAttribute("CurImpT", newImpT * sys_descr.getAttribute("Qty").getDouble())
-                elif newAsys > avlSpace and renewal_alternative == "D": #if system does not fit and alternative is 'Decommission'
+                elif newAsys > avlSpace and self.renewal_alternative == "D": #if system does not fit and alternative is 'Decommission'
                     print "Cannot fit new system design, decommissioning instead"
                     currentAttList.addAttribute("UpstrImpTreat", 0)
                     currentAttList.addAttribute("HasBSys", 0) #Remove system placeholder
+                    sys_implement.remove(sys_descr)
                     city.removeComponent(sys_descr.getUUID())
                 else: #otherwise it'll fit, transfer new information
                     print "New System Upgrades fit, transferring this information to output"
@@ -1686,6 +1754,7 @@ class Techplacement(Module):
                 currentAttList.addAttribute("UpstrImpTreat", 0)
                 #remove all attributes, wipe the attributes entry in techconfigout with a blank attribute object
                 currentAttList.addAttribute("HasSubbasS", 0)
+                sys_implement.remove(sys_descr)
                 city.removeComponent(sys_descr.getUUID())
         return True
     
@@ -2076,7 +2145,8 @@ class Techplacement(Module):
             maxsize = eval("self."+j+"maxsize")          #gets the specific system's maximum size
             #Design curve path
             dcvpath = self.getDCVPath(j)            #design curve file as a string
-            if hasHouses != 0 and Aimplot > 0.0001 and j not in ["banned","list","of","tech"]:    #Do lot-scale house system
+            hasRESsystems = int(currentAttList.getAttribute("HasL_RESSys").getDouble())
+            if hasRESsystems == 0 and hasHouses != 0 and Aimplot > 0.0001 and j not in ["banned","list","of","tech"]:    #Do lot-scale house system
                 sys_object = self.designTechnology(1.0, Aimplot, 0, j, dcvpath, tech_applications, soilK, minsize, maxsize, lot_avail_sp, "RES", currentID)
                 if sys_object == 0:
                     pass
@@ -2085,7 +2155,8 @@ class Techplacement(Module):
             if len(tdRES) == 0:
                 tdRES.append(0) #if the array is completely empty, append zero, otherwise leave zero out
             
-            if hasApts != 0 and Aimphdr > 0.0001 and j not in ["banned","list","of","tech"]:    #Do apartment lot-scale system
+            hasHDRsystems = int(currentAttList.getAttribute("HasL_HDRSys").getDouble())
+            if hasHDRsystems == 0 and hasApts != 0 and Aimphdr > 0.0001 and j not in ["banned","list","of","tech"]:    #Do apartment lot-scale system
                 for i in self.lot_incr:
                     if i == 0:
                         continue
@@ -2096,8 +2167,9 @@ class Techplacement(Module):
                         tdHDR.append(sys_object)
             if len(tdHDR) == 0:
                 tdHDR.append(0)
-                    
-            if hasLI != 0 and AimpLI > 0.0001 and j not in ["banned","list","of","tech"]:
+            
+            hasLIsystems = int(currentAttList.getAttribute("HasL_LISys").getDouble())  
+            if hasLIsystems == 0 and hasLI != 0 and AimpLI > 0.0001 and j not in ["banned","list","of","tech"]:
                 for i in self.lot_incr:
                     if i == 0:
                         continue
@@ -2109,7 +2181,8 @@ class Techplacement(Module):
             if len(tdLI) == 0:
                 tdLI.append(0)
             
-            if hasHI != 0 and AimpHI > 0.0001 and j not in ["banned","list","of","tech"]:
+            hasHIsystems = int(currentAttList.getAttribute("HasL_HISys").getDouble())
+            if hasHIsystems == 0 and hasHI != 0 and AimpHI > 0.0001 and j not in ["banned","list","of","tech"]:
                 for i in self.lot_incr:
                     if i == 0:
                         continue
@@ -2121,7 +2194,8 @@ class Techplacement(Module):
             if len(tdHI) == 0:
                 tdHI.append(0)
             
-            if hasCOM != 0 and AimpCOM > 0.0001 and j not in ["banned","list","of","tech"]:
+            hasCOMsystems = int(currentAttList.getAttribute("HasL_COMSys").getDouble())
+            if hasCOMsystems == 0 and hasCOM != 0 and AimpCOM > 0.0001 and j not in ["banned","list","of","tech"]:
                 for i in self.lot_incr:
                     if i == 0:
                         continue
@@ -2205,7 +2279,8 @@ class Techplacement(Module):
         technologydesigns = []
         #Check first if there is residential lot to manage
         hasHouses = int(currentAttList.getAttribute("HasHouses").getDouble())
-        if hasHouses == 0:
+        hasSsystems = int(currentAttList.getAttribute("HasSSys").getDouble())
+        if hasHouses == 0 or hasSsystems == 1:
             return technologydesigns
         
         street_avail_Res = currentAttList.getAttribute("avSt_RES").getDouble()
@@ -2263,7 +2338,9 @@ class Techplacement(Module):
         
         #Grab total impervious area and available space
         AblockEIA = currentAttList.getAttribute("Blk_EIA").getDouble()
-        if AblockEIA <= 0.0001:
+        hasNsystems = int(currentAttList.getAttribute("HasNSys").getDouble())
+        hasBsystems = int(currentAttList.getAttribute("HasBSys").getDouble())
+        if AblockEIA <= 0.0001 or hasNsystems == 1 or hasBsystems == 1:
             return technologydesigns
         
         av_PG = currentAttList.getAttribute("PG_av").getDouble()
@@ -2325,7 +2402,9 @@ class Techplacement(Module):
         soilK = currentAttList.getAttribute("Soil_k").getDouble()
         #CONDITION 1: Grab Block's Upstream Area
         upstreamIDs = self.retrieveStreamBlockIDs(currentAttList, "upstream")
-        if len(upstreamIDs) == 0:
+        hasBsystems = int(currentAttList.getAttribute("HasBSys").getDouble())
+        hasNsystems = int(currentAttList.getAttribute("HasBSys").getDouble())
+        if len(upstreamIDs) == 0 or hasBsystems == 1 or hasNsystems == 1:
             #print "Current Block has no upstream areas, skipping"
             return technologydesigns
         
@@ -2643,14 +2722,12 @@ class Techplacement(Module):
         #Initialize treated Tracking Variable
         subbasID_treatedAimpQty = {}
         subbasID_treatedAimpWQ = {}
-        subbasID_treatedPop = {}        #Depending on the recycling scheme will relate to each block
-        subbasID_treatedPubspace = {}
+        subbasID_treatedDem = {}        #Depending on the recycling scheme will relate to each block
         
         for i in range(len(partakeIDs)):
             subbasID_treatedAimpQty[partakeIDs[i]] = 0
             subbasID_treatedAimpWQ[partakeIDs[i]] = 0
-            subbasID_treatedPop[partakeIDs[i]] = 0
-            subbasID_treatedPubspace[partakeIDs[i]] = 0
+            subbasID_treatedDem[partakeIDs[i]] = 0
         
         #Loop across all precinct blocks partaking in possible sub-basin technologies:
         #       1.) Check for upstream subbasins to create an array of blocks unique to        #               that sub-basin
@@ -2693,16 +2770,17 @@ class Techplacement(Module):
             #print "Complete Aimp: ", completeAimp
             #print "TotalAimp_subbasin: ", totalAimp_subbasin
             
-            #Calculate the total waterdemand based on the recycling scheme
+            #>>>>Calculate the total waterdemand based on the recycling scheme
             
             subbas_treatedAimpQty = 0  #Sum of already treated imp area in upstream sub-basins and the now planned treatment
             subbas_treatedAimpWQ = 0
-#            subbas_treatedDem = 0
+            subbas_treatedDem = 0
+            
             for sbID in subbasinIDs:
                 subbas_treatedAimpQty += subbasID_treatedAimpQty[sbID]    #Check all upstream sub-basins for their treated Aimp            
                 subbas_treatedAimpWQ += subbasID_treatedAimpWQ[sbID]    #Check all upstream sub-basins for their treated Aimp            
-#                subbas_treatedPop += subbasID_treatedPop[sbID]          #The deficit if upstream-downstream or just normal
-#                subbas_treatedPubspace += subbasID_treatedPubspace[sbID]        #Depends on scheme
+#                subbas_treatedDem += subbasID_treatedDem[sbID]          #The deficit if upstream-downstream or just normal
+
             remainAimp_subbasinQty = max(totalAimp_subbasin - subbas_treatedAimpQty, 0)
             remainAimp_subbasinWQ = max(totalAimp_subbasin - subbas_treatedAimpWQ, 0)
 #            remainPop_subbasin = totalPop_subbasin - subbas_treatedPop
@@ -2711,13 +2789,14 @@ class Techplacement(Module):
             if totalAimp_subbasin == 0:
                 max_degreeQty = 0
                 max_degreeWQ = 0
+                max_degreeREC = 0
             else:
                 max_degreeQty = remainAimp_subbasinQty/totalAimp_subbasin
                 max_degreeWQ = remainAimp_subbasinWQ/totalAimp_subbasin
-
-            max_degDem = 1      #>>> FUTURE
+                
+            max_degreeDem = 1      #>>> FUTURE
             
-            max_degree = min(max_degreeQty, max_degreeWQ)+float(self.service_redundancy/100.0)  
+            max_degree = min(max_degreeQty, max_degreeWQ, max_degreeDem)+float(self.service_redundancy/100.0)  
             #choose the minimum, bring in allowance using redundancy parameter
             
             current_bstrategy.addSubBasinInfo(currentBlockID, upstreamIDs, subbasinIDs, [totalAimp_subbasin,0,0])       #>>>Add on population and public area in future
@@ -2762,7 +2841,7 @@ class Techplacement(Module):
             subbasID_treatedAimpWQ[i] = subbas_treatedAimpWQ
         return True
     
-    def evaluateServiceObjectiveFunction(self, basinstrategy):
+    def evaluateServiceObjectiveFunction(self, basinstrategy, updatedservice):
         """Calculates how close the basinstrategy meets the required service
         levels set by the user. A performance metric is returned. If one of the
         service levels has not been met, performance is automatically assigned
@@ -2770,10 +2849,11 @@ class Techplacement(Module):
         The objective function used to find the optimum strategies is calculated
         as:
             choice = min { sum(serviceProvided - serviceRequired) }, OF >0
+            updatedservice = [serviceQty, serviceWQ, serviceREC] based on delta_percent
         """
-        serviceQty = float(int(self.ration_runoff))*float(self.service_swmQty/100.0)
-        serviceWQ = float(int(self.ration_pollute))*float(self.service_swmWQ/100.0)
-        serviceRec = float(int(self.ration_harvest))*float(self.service_rec/100.0)
+        serviceQty = float(int(self.ration_runoff))*float(updatedservice[0])
+        serviceWQ = float(int(self.ration_pollute))*float(updatedservice[1])
+        serviceRec = float(int(self.ration_harvest))*float(updatedservice[2])
         serviceRequired = [serviceQty, serviceWQ, serviceRec]
         serviceBooleans = [int(self.ration_runoff), int(self.ration_pollute), int(self.ration_harvest)]
         
@@ -2948,9 +3028,36 @@ class Techplacement(Module):
                     loc.addAttribute("WDepth", float(eval("self."+str(outblock_strat.getType())+"spec_MD")))
                 if outblock_strat.getType() in ["BF", "IS"]:
                     loc.addAttribute("FDepth", eval("self."+str(outblock_strat.getType())+"spec_FD"))
-            
-            #ADD ALL EXISTING SYSTEMS TO THE VECTOR
-            #-->Retrofit case
+        return True
+    
+    def transferExistingSystemsToOutput(self, city, stratID):
+        """Writes all existing systems to the new output view under a new strategyID as they
+        will accompany all newly planned systems under a future alternative"""
+        existSys = city.getUUIDsOfComponentsInView(self.sysAttr)
+        for uuid in existSys:
+            curSys = city.getComponent(uuid)    #curSys holds the current Component() object
+            if curSys == None:
+                continue        #RemoveComponent only removes the components, not the UUID, must therefore catch this
+            loc = Component()   #Create a new placeholder for a component object, save it to self.wsudAttr View
+            loc.addAttribute("StrategyID", stratID)
+            loc.addAttribute("posX", curSys.getAttribute("posX").getDouble())
+            loc.addAttribute("posY", curSys.getAttribute("posY").getDouble())
+            loc.addAttribute("BasinID", int(curSys.getAttribute("BasinID").getDouble()))
+            loc.addAttribute("Location", int(curSys.getAttribute("Location").getDouble()))
+            loc.addAttribute("Scale", curSys.getAttribute("Scale").getString())
+            loc.addAttribute("Type", curSys.getAttribute("Type").getString())
+            loc.addAttribute("Qty", curSys.getAttribute("Qty").getDouble())      #currently none available
+            loc.addAttribute("GoalQty", curSys.getAttribute("GoalQty").getDouble())  #lot scale mainly - number of lots to build
+            loc.addAttribute("SysArea", curSys.getAttribute("SysArea").getDouble())
+            loc.addAttribute("Status", int(curSys.getAttribute("Status").getDouble()))
+            loc.addAttribute("Year", int(curSys.getAttribute("Year").getDouble()))
+            loc.addAttribute("EAFact", curSys.getAttribute("EAFact").getDouble())
+            loc.addAttribute("ImpT", curSys.getAttribute("ImpT").getDouble())
+            loc.addAttribute("CurImpT", curSys.getAttribute("CurImpT").getDouble())  #New systems don't treat anything yet before implemented
+            loc.addAttribute("Upgrades", int(curSys.getAttribute("Upgrades").getDouble()))
+            loc.addAttribute("WDepth", curSys.getAttribute("WDepth").getDouble())
+            loc.addAttribute("FDepth", curSys.getAttribute("FDepth").getDouble())
+            city.addComponent(loc, self.wsudAttr)
         return True
     
     def determineBlockWaterRating(self):

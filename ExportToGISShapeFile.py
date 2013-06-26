@@ -330,6 +330,8 @@ class ExportToGISShapeFile(Module):
         fielddefmatrix.append(ogr.FieldDefn("Blk_WD", ogr.OFTReal))
         fielddefmatrix.append(ogr.FieldDefn("Blk_WD_OUT", ogr.OFTReal))
         
+        fielddefmatrix.append(ogr.FieldDefn("ServedIA", ogr.OFTReal))
+        
         #Create the fields
         for field in fielddefmatrix:
             layer.CreateField(field)
@@ -551,6 +553,8 @@ class ExportToGISShapeFile(Module):
             feature.SetField("Blk_WD", currentAttList.getAttribute("Blk_WD").getDouble())
             feature.SetField("Blk_WD_OUT", currentAttList.getAttribute("Blk_WD_OUT").getDouble())
             
+            feature.SetField("ServedIA", currentAttList.getAttribute("ServedIA").getDouble())
+            
             layer.CreateFeature(feature)
         
         shapefile.Destroy()
@@ -755,6 +759,8 @@ class ExportToGISShapeFile(Module):
             #DEFINE ATTRIBUTES
             fielddefmatrix = []
             fielddefmatrix.append(ogr.FieldDefn("StrategyID", ogr.OFTInteger))
+            fielddefmatrix.append(ogr.FieldDefn("posX", ogr.OFTReal))
+            fielddefmatrix.append(ogr.FieldDefn("posY", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("BasinID", ogr.OFTInteger))
             fielddefmatrix.append(ogr.FieldDefn("Location", ogr.OFTInteger))
             fielddefmatrix.append(ogr.FieldDefn("Scale", ogr.OFTString))
@@ -791,6 +797,8 @@ class ExportToGISShapeFile(Module):
                 
                 #Add Attributes
                 feature.SetField("StrategyID", int(currentAttList.getAttribute("StrategyID").getDouble()))
+                feature.SetField("posX", currentAttList.getAttribute("posX").getDouble())
+                feature.SetField("posY", currentAttList.getAttribute("posY").getDouble())
                 feature.SetField("BasinID", int(currentAttList.getAttribute("BasinID").getDouble()))
                 feature.SetField("Location", int(currentAttList.getAttribute("Location").getDouble()))
                 feature.SetField("Scale", currentAttList.getAttribute("Scale").getString())
@@ -834,6 +842,8 @@ class ExportToGISShapeFile(Module):
         #DEFINE ATTRIBUTES
         fielddefmatrix = []
         fielddefmatrix.append(ogr.FieldDefn("StrategyID", ogr.OFTInteger))
+        fielddefmatrix.append(ogr.FieldDefn("posX", ogr.OFTReal))
+        fielddefmatrix.append(ogr.FieldDefn("posY", ogr.OFTReal))
         fielddefmatrix.append(ogr.FieldDefn("BasinID", ogr.OFTInteger))
         fielddefmatrix.append(ogr.FieldDefn("Location", ogr.OFTInteger))
         fielddefmatrix.append(ogr.FieldDefn("Scale", ogr.OFTString))
@@ -867,6 +877,8 @@ class ExportToGISShapeFile(Module):
             
             #Add Attributes
             feature.SetField("StrategyID", int(currentAttList.getAttribute("StrategyID").getDouble()))
+            feature.SetField("posX", currentAttList.getAttribute("posX").getDouble())
+            feature.SetField("posY", currentAttList.getAttribute("posY").getDouble())
             feature.SetField("BasinID", int(currentAttList.getAttribute("BasinID").getDouble()))
             feature.SetField("Location", int(currentAttList.getAttribute("Location").getDouble()))
             feature.SetField("Scale", currentAttList.getAttribute("Scale").getString())
