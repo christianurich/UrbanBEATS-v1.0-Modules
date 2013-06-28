@@ -2089,5 +2089,5 @@ class Delinblocks(Module):      #DYNAMIND
     
     def createInputDialog(self):    #DYNAMIND FUNCTION --------------------------
         form = activatedelinblocksGUI(self, QApplication.activeWindow())
-        form.show()
+        form.exec_()
         return True #-----------------END OF DYNAMIND FUNCTIOn ------------------
