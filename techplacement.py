@@ -2774,8 +2774,10 @@ class Techplacement(Module):
             subbasID_treatedDem[partakeIDs[i]] = 0
         
         #Loop across all precinct blocks partaking in possible sub-basin technologies:
-        #       1.) Check for upstream subbasins to create an array of blocks unique to        #               that sub-basin
-        #       2.) Pick a precinct technology if the ID is among the chosen ones        #       3.) Fill out the in-block strategies if the block IDs within the precinct
+        #       1.) Check for upstream subbasins to create an array of blocks unique to
+        #               that sub-basin
+        #       2.) Pick a precinct technology if the ID is among the chosen ones
+        #       3.) Fill out the in-block strategies if the block IDs within the precinct
         #               have been chosen.
         #       4.) Tally up the final service level
         
@@ -3788,7 +3790,7 @@ class Techplacement(Module):
     ########################################################
     def createInputDialog(self):
         form = activatetechplacementGUI(self, QApplication.activeWindow())
-        form.show()
+        form.exec_()
         return True  
 
     def getBlockUUID(self, blockid,city):

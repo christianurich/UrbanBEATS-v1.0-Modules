@@ -1945,7 +1945,7 @@ class Urbplanbb(Module):
     
     def createInputDialog(self):
         form = activateurbplanbbGUI(self, QApplication.activeWindow())
-        form.show()
+        form.exec_()
         return True  
 
         
