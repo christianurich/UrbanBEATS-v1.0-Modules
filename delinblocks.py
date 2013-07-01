@@ -390,33 +390,6 @@ class Delinblocks(Module):      #DYNAMIND
         self.blocklocality.addAttribute("ARoof")
         self.blocklocality.addAttribute("AvgWD")
         
-        #Append all views to the data stream
-        datastream = []
-        datastream.append(self.elevation)
-        datastream.append(self.soil)
-        datastream.append(self.landuse)
-        datastream.append(self.population)
-        #datastream.append(self.urbansim)
-        
-        datastream.append(self.plan_map)
-        datastream.append(self.employment)
-        datastream.append(self.groundwater)
-        
-        #datastream.append(self.road_map)
-        #datastream.append(self.supply_net)
-        #datastream.append(self.sewer_net)
-        
-        datastream.append(self.socpar1)
-        datastream.append(self.socpar2)
-        
-        datastream.append(self.mapattributes)
-        datastream.append(self.block)
-        datastream.append(self.patch)
-        datastream.append(self.network)
-        datastream.append(self.blocknodes)
-        datastream.append(self.blocklocality)
-        
-        self.addData("City", datastream)
 
         #================================================================================================= DYNAMIND VIEWS END
   
@@ -448,6 +421,38 @@ class Delinblocks(Module):      #DYNAMIND
 #        rasterload = ubdata.importRasterData(dataset[str(dtype)])
 #        self.printc("Load "+str(dtype)+" Complete")
 #        return rasterload    
+
+    """
+    Defines data stream depending on the chosen parameters
+    """
+    def init(self):
+        #Append all views to the data stream
+        datastream = []
+        datastream.append(self.elevation)
+        datastream.append(self.soil)
+        datastream.append(self.landuse)
+        datastream.append(self.population)
+        #datastream.append(self.urbansim)
+        
+        if self.include_plan_map: datastream.append(self.plan_map)
+        if self.include_employment: datastream.append(self.employment)
+        if self.include_groundwater: datastream.append(self.groundwater)
+        #datastream.append(self.road_map)
+        #datastream.append(self.supply_net)
+        #datastream.append(self.sewer_net)
+        
+        if self.include_soc_par1: datastream.append(self.socpar1)
+        if self.include_soc_par2: datastream.append(self.socpar2)
+        
+        datastream.append(self.mapattributes)
+        datastream.append(self.block)
+        datastream.append(self.patch)
+        datastream.append(self.network)
+        datastream.append(self.blocknodes)
+        datastream.append(self.blocklocality)
+        
+        self.addData("City", datastream)        
+
     
     def getBlockUUID(self, blockid,city):       #DYNAMIND FUNCTION
         try:
