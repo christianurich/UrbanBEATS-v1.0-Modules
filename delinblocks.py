@@ -102,6 +102,7 @@ class Delinblocks(Module):      #DYNAMIND
     
     def __init__(self):            #DYNAMIND
         Module.__init__(self)       #DYNAMIND
+        self.DynaMind_Core_Version = 0.2
 
 #    def __init__(self, activesim, curstate, tabindex):      #UBCORE
 #        self.cycletype = curstate       #UBCORE: contains either planning or implementation (so it knows what to do and whether to skip)
@@ -1160,25 +1161,46 @@ class Delinblocks(Module):      #DYNAMIND
             socpar2matrix.append([])
             
             for j in range(cellsinblock):
-                lucdatamatrix[i].append(datasources[0].getValue(x_start+i, y_start+j))
-                popdatamatrix[i].append(datasources[1].getValue(x_start+i, y_start+j))
-                elevdatamatrix[i].append(datasources[2].getValue(x_start+i, y_start+j))
-                
-                if self.soildatatype == "C":
-                    if datasources[3].getValue(x_start+i, y_start+j) != -9999:
-                        soildatamatrix[i].append(self.soildictionary[int(datasources[3].getValue(x_start+i, y_start+j))-1])        #look up mm/hr value
-                    else:
-                        soildatamatrix[i].append(-9999)
-                elif self.soildataunits == "hrs":
-                    soildatamatrix[i].append(datasources[3].getValue(x_start+i, y_start+j))     #keep as mm/hr
-                elif self.soildataunits == "sec":
-                    soildatamatrix[i].append((datasources[3].getValue(x_start+i, y_start+j))*1000*60*60)        #convert to mm/hr
-                
-                if datasources[4] != 0: planmapmatrix[i].append(datasources[4].getValue(x_start+i, y_start+j))
-                if datasources[5] != 0: employmentmatrix[i].append(datasources[5].getValue(x_start+i, y_start+j))
-                if datasources[6] != 0: groundwatermatrix[i].append(datasources[6].getValue(x_start+i, y_start+j))
-                if datasources[7] != 0: socpar1matrix[i].append(datasources[7].getValue(x_start+i, y_start+j))
-                if datasources[8] != 0: socpar2matrix[i].append(datasources[8].getValue(x_start+i, y_start+j))
+                if self.DynaMind_Core_Version < 0.4:
+                    lucdatamatrix[i].append(datasources[0].getValue(x_start+i, y_start+j))
+                    popdatamatrix[i].append(datasources[1].getValue(x_start+i, y_start+j))
+                    elevdatamatrix[i].append(datasources[2].getValue(x_start+i, y_start+j))
+                    
+                    if self.soildatatype == "C":
+                        if datasources[3].getValue(x_start+i, y_start+j) != -9999:
+                            soildatamatrix[i].append(self.soildictionary[int(datasources[3].getValue(x_start+i, y_start+j))-1])        #look up mm/hr value
+                        else:
+                            soildatamatrix[i].append(-9999)
+                    elif self.soildataunits == "hrs":
+                        soildatamatrix[i].append(datasources[3].getValue(x_start+i, y_start+j))     #keep as mm/hr
+                    elif self.soildataunits == "sec":
+                        soildatamatrix[i].append((datasources[3].getValue(x_start+i, y_start+j))*1000*60*60)        #convert to mm/hr
+                    
+                    if datasources[4] != 0: planmapmatrix[i].append(datasources[4].getValue(x_start+i, y_start+j))
+                    if datasources[5] != 0: employmentmatrix[i].append(datasources[5].getValue(x_start+i, y_start+j))
+                    if datasources[6] != 0: groundwatermatrix[i].append(datasources[6].getValue(x_start+i, y_start+j))
+                    if datasources[7] != 0: socpar1matrix[i].append(datasources[7].getValue(x_start+i, y_start+j))
+                    if datasources[8] != 0: socpar2matrix[i].append(datasources[8].getValue(x_start+i, y_start+j))
+                else:
+                    lucdatamatrix[i].append(datasources[0].getCell(x_start+i, y_start+j))
+                    popdatamatrix[i].append(datasources[1].getCell(x_start+i, y_start+j))
+                    elevdatamatrix[i].append(datasources[2].getCell(x_start+i, y_start+j))
+                    
+                    if self.soildatatype == "C":
+                        if datasources[3].getCell(x_start+i, y_start+j) != -9999:
+                            soildatamatrix[i].append(self.soildictionary[int(datasources[3].getValue(x_start+i, y_start+j))-1])        #look up mm/hr value
+                        else:
+                            soildatamatrix[i].append(-9999)
+                    elif self.soildataunits == "hrs":
+                        soildatamatrix[i].append(datasources[3].getValue(x_start+i, y_start+j))     #keep as mm/hr
+                    elif self.soildataunits == "sec":
+                        soildatamatrix[i].append((datasources[3].getValue(x_start+i, y_start+j))*1000*60*60)        #convert to mm/hr
+                    
+                    if datasources[4] != 0: planmapmatrix[i].append(datasources[4].getCell(x_start+i, y_start+j))
+                    if datasources[5] != 0: employmentmatrix[i].append(datasources[5].getCell(x_start+i, y_start+j))
+                    if datasources[6] != 0: groundwatermatrix[i].append(datasources[6].getCell(x_start+i, y_start+j))
+                    if datasources[7] != 0: socpar1matrix[i].append(datasources[7].getCell(x_start+i, y_start+j))
+                    if datasources[8] != 0: socpar2matrix[i].append(datasources[8].getCell(x_start+i, y_start+j))                   
                 
         datamatrices = [lucdatamatrix, popdatamatrix, elevdatamatrix, soildatamatrix, planmapmatrix, employmentmatrix, groundwatermatrix, socpar1matrix, socpar2matrix]
         return datamatrices
