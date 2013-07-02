@@ -322,7 +322,7 @@ def sizeStoreArea_RT(vol, sysdepth, minsize, maxsize):
     
     surfarea = vol / sysdepth       #[sqm]
     Areq = surfarea
-    print "Area required: ", Areq
+    #print "Area required: ", Areq
     if surfarea < minsize:
         Areq = minsize
     if surfarea > maxsize:

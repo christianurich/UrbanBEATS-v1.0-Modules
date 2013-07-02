@@ -1034,14 +1034,23 @@ class Techplacement(Module):
             
             basinBlockIDs, outletID = self.getBasinBlockIDs(currentBasinID, blocks_num, city)
             basinEIA = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Blk_EIA", "sum")
-            #basinDem = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Pop", "sum")        #>>> FUture
+            
+            #>>>>>>>>>>
+            basinDem = 0#self.retrieveAttributeFromIDs(city, basinBlockIDs, "Pop", "sum")        #>>> FUture
+            #>>>>>>>>>>
             
             #Calculate the Basin's Remaining Service Level required
             basinTreated = self.retrieveAttributeFromIDs(city, basinBlockIDs, "ServedIA", "sum")        #All in-block treated
             basinTreated += self.retrieveAttributeFromIDs(city, basinBlockIDs, "UpstrImpTreat", "sum")  #All upstream treated
             
+            #>>>>>>>>>>
+            demSupplied = 0 #self.retrieveAttributeFromIDs(city, basinBlockIDs, 
+            #>>>>>>>>>>
+            
             print "Served IA ", basinTreated
             basinremainEIA = max(basinEIA - basinTreated, 0)
+            basinremainDEM = max(basinDem - demSupplied, 0)
+            
             subbasPartakeIDs = self.findSubbasinPartakeIDs(basinBlockIDs, subbas_options) #Find locations of possible WSUD
             prevBasinService = basinTreated/basinEIA
             if max(1 - prevBasinService, 0) == 0:
@@ -1057,7 +1066,7 @@ class Techplacement(Module):
             print "Previous Treatment Efficiency: "+str(prevBasinService)
             print "must choose a strategy now that treats: "+str(delta_percentWQ*100)+ "% of basin"
             
-            if basinremainEIA == 0:   # and basinPop == 0 and basinPubspace == 0:     >>>FUTURE
+            if basinremainEIA == 0: #or basinremainDEM == 0:   # and basinPop == 0 and basinPubspace == 0:     >>>FUTURE
                 #print "Basin ID: ", currentBasinID, " has no effective impervious area, skipping!"
                 continue
             
@@ -1085,11 +1094,11 @@ class Techplacement(Module):
                 #Draw Samples
                 subbas_chosenIDs, inblocks_chosenIDs = self.selectTechLocationsByRandom(partakeIDssampler, basinblockIDssampler)
                 #print subbas_chosenIDs
+                
                 #Create the Basin Management Strategy Object
-                basinDem = np.inf
                 current_bstrategy = tt.BasinManagementStrategy(iteration+1, currentBasinID, 
                                                                basinBlockIDs, subbasPartakeIDs, 
-                                                               [basinremainEIA,basinremainDem])
+                                                               [basinremainEIA,basinremainDEM])
                 
                 #Populate Basin Management Strategy Object based on the current sampled values
                 self.populateBasinWithTech(current_bstrategy, subbas_chosenIDs, inblocks_chosenIDs, 
@@ -1102,7 +1111,6 @@ class Techplacement(Module):
                                                                self.bottomlines_ecn_w, self.bottomlines_soc_w])
                 
                 #Add basin strategy to list of possibilities
-                
                 service_objfunc = self.evaluateServiceObjectiveFunction(current_bstrategy, updatedService)        #Calculates how well it meets the total service
 
                 basin_strategies.append([service_objfunc,current_bstrategy.getServicePvalues(), current_bstrategy.getTotalMCAscore(), current_bstrategy])
@@ -2376,7 +2384,6 @@ class Techplacement(Module):
         
         Aimplot = currentAttList.getAttribute("ResLotEIA").getDouble()
         Aimphdr = currentAttList.getAttribute("HDR_EIA").getDouble()
-        #Pop = currentAttList.getAttribute("Pop").getDouble()                   #>>>>>>>>>>>>>>> POP
         
         #Size a combination of stormwater harvesting stores
         if bool(int(self.ration_harvest)):
@@ -2391,22 +2398,29 @@ class Techplacement(Module):
             dcvpath = self.getDCVPath(j)
             for neigh_deg in self.neigh_incr:
                 #print "Current Neigh Deg: ", neigh_deg
-                if neigh_deg == 0:
-                    continue
-                curStoreObjs = neighSWstores[neigh_deg]
+                if neigh_deg == 0: continue
                 Aimptotreat = neigh_deg * AblockEIA
-                for supplyincr in self.neigh_incr:
-                    if supplyincr == 0: continue
-                    storeObj = curStoreObjs[supplyincr]
-                    if Aimptotreat > 0.0001:
+                if bool(int(self.ration_harvest)):
+                    curStoreObjs = neighSWstores[neigh_deg]
+                    for supplyincr in self.neigh_incr:
+                        if supplyincr == 0 or Aimptotreat < 0.0001: 
+                            continue
+                        storeObj = curStoreObjs[supplyincr]
                         sys_object = self.designTechnology(neigh_deg, Aimptotreat, j, dcvpath, tech_applications,
-                                                           soilK, minsize, maxsize, totalavailable, "Neigh", currentID,
-                                                           storeObj)
-                        if sys_object == 0:
-                            pass
-                        else:
+                                         soilK, minsize, maxsize, totalavailable, "Neigh", currentID, storeObj)
+                        if sys_object != 0:
                             sys_object.setDesignIncrement(neigh_deg)
                             technologydesigns.append(sys_object)
+                else:
+                    if Aimptotreat < 0.0001:
+                        continue
+                    storeObj = np.inf
+                    sys_object = self.designTechnology(neigh_deg, Aimptotreat, j, dcvpath, tech_applications,
+                                                       soilK, minsize, maxsize, totalavailable, "Neigh", currentID, storeObj) 
+                    if sys_object != 0:
+                        sys_object.setDesignIncrement(neigh_deg)
+                        technologydesigns.append(sys_object)
+                    
 #            for lot_deg in self.lot_incr:
 #                Aimpremain = AblockEIA - lot_deg*allotments*Aimplot - lot_deg*Aimphdr
 #                for neigh_deg in self.neigh_incr:
@@ -2455,9 +2469,7 @@ class Techplacement(Module):
         
         #CONDITION 3: Get Block's upstream Impervious area
         upstreamImp = self.retrieveAttributeFromIDs(city, upstreamIDs, "Blk_EIA", "sum")
-        upstreamPop = self.retrieveAttributeFromIDs(city, upstreamIDs, "Pop", "sum")
-#        upstreamPublicSpace = self.retrieveAttributeFromIDs(city, upstreamIDs, "PubSpace", "sum")
-        if upstreamImp < 0.0001 and upstreamPop < 1: #and upstreamPublicSpace < 0.0001:
+        if upstreamImp < 0.0001:
             #print "Total Upstream Impervious Area: ", upstreamImp, "less than threshold"
             return technologydesigns
         
@@ -2480,23 +2492,27 @@ class Techplacement(Module):
                 #print "Current Basin Deg: ", bas_deg
                 if bas_deg == 0:
                     continue
-                curStoreObjs = subbasSWstores[bas_deg]  #current dict of possible stores based on harvestable area (bas_Deg)
                 Aimptotreat = upstreamImp * bas_deg
-                Apoptoserve = upstreamPop * bas_deg
 #                print "Aimp to treat: ", Aimptotreat
                 #Loop across all options in curStoreObj
-                for supplyincr in self.subbas_incr:
-                    if supplyincr == 0: continue
-                    storeObj = curStoreObjs[supplyincr]
-                    if Aimptotreat > 0.0001 and Apoptoserve > 0:
-                        sys_object = self.designTechnology(bas_deg, Aimptotreat, j, 
-                                                           dcvpath, tech_applications, soilK, minsize, 
-                                                           maxsize, totalavailable, "Subbas", currentID, storeObj)
-                        if sys_object == 0:
-                            pass
-                        else:
+                if bool(int(self.ration_harvest)):
+                    curStoreObjs = subbasSWstores[bas_deg]  #current dict of possible stores based on harvestable area (bas_Deg)
+                    for supplyincr in self.subbas_incr:
+                        if supplyincr == 0 or Aimptotreat < 0.0001: 
+                            continue
+                        storeObj = curStoreObjs[supplyincr]
+                        sys_object = self.designTechnology(bas_deg, Aimptotreat, j, dcvpath, tech_applications, 
+                                        soilK, minsize, maxsize, totalavailable, "Subbas", currentID, storeObj)
+                        if sys_object != 0:
                             sys_object.setDesignIncrement(bas_deg)
                             technologydesigns[bas_deg].append(sys_object)
+                else:
+                    storeObj = np.inf
+                    sys_object = self.designTechnology(bas_deg, Aimptotreat, j, dcvpath, tech_applications, 
+                                        soilK, minsize, maxsize, totalavailable, "Subbas", currentID, storeObj)
+                    if sys_object != 0:
+                        sys_object.setDesignIncrement(bas_deg)
+                        technologydesigns[bas_deg].append(sys_object)
         return technologydesigns
 
     def constructInBlockOptions(self, currentAttList, lot_techRES, lot_techHDR, lot_techLI, 
@@ -2586,13 +2602,13 @@ class Techplacement(Module):
                     #print servicematrix
                     
                     if servicematrix[0] > AblockEIA or servicematrix[1] > AblockEIA:
-                        print "Overtreatment on Qty or WQ side"
+                        #print "Overtreatment on Qty or WQ side"
                         continue
                     elif servicematrix[2] > blockDem: #CHANGE TO DEMAND!
-                        print "Oversupply of demand"
+                        #print "Oversupply of demand"
                         continue
                     else:
-                        print "Strategy is fine"
+                        #print "Strategy is fine"
                         #Create Block Strategy and put it into one of the subbas bins of allInBlockOptions
                         servicebin = self.identifyBin(servicematrix, AblockEIA, blockDem)
                         blockstrat = tt.BlockStrategy(combo, servicematrix, lotcounts, currentID, servicebin)
@@ -2786,7 +2802,7 @@ class Techplacement(Module):
             currentAttList = self.getBlockUUID(currentBlockID, city)
             print "ID: ", currentBlockID
             upstreamIDs = self.retrieveStreamBlockIDs(currentAttList, "upstream")
-            downsrtreamIDs = self.retrieveStreamBlockIDs(currentAttList, "downstream")
+            downstreamIDs = self.retrieveStreamBlockIDs(currentAttList, "downstream")
             basinblockIDs = []
             print "Upstream: ", upstreamIDs
             remain_upIDs = []   #Make a copy of upstreamIDs to track Blocks
@@ -2825,11 +2841,11 @@ class Techplacement(Module):
             
             if self.hs_strategy == 'ud':
                 completeDemand = currentAttList.getAttribute("Blk_WD").getDouble() + self.retrieveAttributeFromIDs(city, downstreamIDs, "Blk_WD", "sum")
-                nonresDemand = currentAttList.getAttribue("wd_Nres_IN").getDouble() + self.retrieveAttributeFromIDs(city, downstreamIDs, "wd_Nres_IN", "sum")
+                nonresDemand = currentAttList.getAttribute("wd_Nres_IN").getDouble() + self.retrieveAttributeFromIDs(city, downstreamIDs, "wd_Nres_IN", "sum")
                 completePlanDem = completeDemand - nonresDemand #Total demand from block and downstream that is being managed under recycling scheme
             elif self.hs_strategy == 'uu':
                 completeDemand = currentAttList.getAttribute("Blk_WD").getDouble() + self.retrieveAttributeFromIDs(city, upstreamIDs, "Blk_WD", "sum")
-                nonresDemand = currentAttList.getAttribue("wd_Nres_IN").getDouble() + self.retrieveAttributeFromIDs(city, upstreamIDs, "wd_Nres_IN", "sum")
+                nonresDemand = currentAttList.getAttribute("wd_Nres_IN").getDouble() + self.retrieveAttributeFromIDs(city, upstreamIDs, "wd_Nres_IN", "sum")
                 completePlanDem = completeDemand - nonresDemand #Total demand from block and downstream that is being managed under recycling scheme
             elif self.hs_strategy == 'ua':
                 completeDemand = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Blk_WD", "sum")
@@ -2848,6 +2864,7 @@ class Techplacement(Module):
             remainAimp_subbasinWQ = max(totalAimp_subbasin - subbas_treatedAimpWQ, 0)
 
             if self.hs_strategy == 'ud':
+                remainDem_subbasinRec = 0       #<<< NEED TO CALCULATE THIS
                 pass
                     
                 
