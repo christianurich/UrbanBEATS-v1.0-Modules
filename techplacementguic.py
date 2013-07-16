@@ -6,7 +6,7 @@
 @section LICENSE
 
 This file is part of VIBe2
-Copyright (C) 2011  Peter M Bach
+Copyright (C) 2011, 2012, 2013  Peter M Bach
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -567,14 +567,20 @@ class activatetechplacementGUI(QtGui.QDialog):
         elif self.module.getParameterAsString("BFspec_FD") == "0.8":
             self.ui.BFspecs_FD_combo.setCurrentIndex(3)
         
+        if self.module.getParameterAsString("BFexfil") == "0":
+            self.ui.BFexfil_combo.setCurrentIndex(0)
+        elif self.module.getParameterAsString("BFexfil") == "0.18":
+            self.ui.BFexfil_combo.setCurrentIndex(1)
+        elif self.module.getParameterAsString("BFexfil") == "0.36":
+            self.ui.BFexfil_combo.setCurrentIndex(2)
+        elif self.module.getParameterAsString("BFexfil") == "1.8":
+            self.ui.BFexfil_combo.setCurrentIndex(3)
+        elif self.module.getParameterAsString("BFexfil") == "3.6":
+            self.ui.BFexfil_combo.setCurrentIndex(4)
+        
         self.ui.BFminsize_box.setText(self.module.getParameterAsString("BFminsize"))
         self.ui.BFmaxsize_box.setText(self.module.getParameterAsString("BFmaxsize"))
         self.ui.BFavglifespin.setValue(int(self.module.getParameterAsString("BFavglife")))
-        
-        if self.module.getParameterAsString("BFlined") == "1":
-            self.ui.BFlined_check.setChecked(1)
-        else:
-            self.ui.BFlined_check.setChecked(0)
         
         #futher design info coming soon
         
@@ -662,6 +668,15 @@ class activatetechplacementGUI(QtGui.QDialog):
             self.ui.ISspecs_FD_combo.setCurrentIndex(2)
         elif self.module.getParameterAsString("ISspec_FD") == "0.8":
             self.ui.ISspecs_FD_combo.setCurrentIndex(3)
+        print self.module.getParameterAsString("ISexfil")
+        if self.module.getParameterAsString("ISexfil") == "0.18":
+            self.ui.ISexfil_combo.setCurrentIndex(0)
+        elif self.module.getParameterAsString("ISexfil") == "0.36":
+            self.ui.ISexfil_combo.setCurrentIndex(1)
+        elif self.module.getParameterAsString("ISexfil") == "1.8":
+            self.ui.ISexfil_combo.setCurrentIndex(2)
+        elif self.module.getParameterAsString("ISexfil") == "3.6":
+            self.ui.ISexfil_combo.setCurrentIndex(3)
         
         self.ui.ISminsize_box.setText(self.module.getParameterAsString("ISminsize"))
         self.ui.ISmaxsize_box.setText(self.module.getParameterAsString("ISmaxsize"))
@@ -737,6 +752,17 @@ class activatetechplacementGUI(QtGui.QDialog):
             self.ui.PBspecs_combo.setCurrentIndex(3)
         elif self.module.getParameterAsString("PBspec_MD") == "1.25":
             self.ui.PBspecs_combo.setCurrentIndex(4)    
+        
+        if self.module.getParameterAsString("PBexfil") == "0":
+            self.ui.PBexfil_combo.setCurrentIndex(0)
+        elif self.module.getParameterAsString("PBexfil") == "0.18":
+            self.ui.PBexfil_combo.setCurrentIndex(1)
+        elif self.module.getParameterAsString("PBexfil") == "0.36":
+            self.ui.PBexfil_combo.setCurrentIndex(2)
+        elif self.module.getParameterAsString("PBexfil") == "1.8":
+            self.ui.PBexfil_combo.setCurrentIndex(3)
+        elif self.module.getParameterAsString("PBexfil") == "3.6":
+            self.ui.PBexfil_combo.setCurrentIndex(4)
         
         self.ui.PBminsize_box.setText(self.module.getParameterAsString("PBminsize"))
         self.ui.PBmaxsize_box.setText(self.module.getParameterAsString("PBmaxsize"))
@@ -876,6 +902,17 @@ class activatetechplacementGUI(QtGui.QDialog):
         elif self.module.getParameterAsString("WSURspec_EDD") == "0.75":
             self.ui.WSURspecs_combo.setCurrentIndex(5)
         
+        if self.module.getParameterAsString("WSURexfil") == "0":
+            self.ui.WSURexfil_combo.setCurrentIndex(0)
+        elif self.module.getParameterAsString("WSURexfil") == "0.18":
+            self.ui.WSURexfil_combo.setCurrentIndex(1)
+        elif self.module.getParameterAsString("WSURexfil") == "0.36":
+            self.ui.WSURexfil_combo.setCurrentIndex(2)
+        elif self.module.getParameterAsString("WSURexfil") == "1.8":
+            self.ui.WSURexfil_combo.setCurrentIndex(3)
+        elif self.module.getParameterAsString("WSURexfil") == "3.6":
+            self.ui.WSURexfil_combo.setCurrentIndex(4)
+        
         self.ui.WSURminsize_box.setText(self.module.getParameterAsString("WSURminsize"))
         self.ui.WSURmaxsize_box.setText(self.module.getParameterAsString("WSURmaxsize"))
         self.ui.WSURavglifespin.setValue(int(self.module.getParameterAsString("WSURavglife")))
@@ -923,6 +960,17 @@ class activatetechplacementGUI(QtGui.QDialog):
         QtCore.QObject.connect(self.ui.SWdesignUB_box, QtCore.SIGNAL("clicked()"), self.SWdesign_enable)
         
         #Design Information
+        
+        if self.module.getParameterAsString("SWexfil") == "0":
+            self.ui.SWexfil_combo.setCurrentIndex(0)
+        elif self.module.getParameterAsString("SWexfil") == "0.18":
+            self.ui.SWexfil_combo.setCurrentIndex(1)
+        elif self.module.getParameterAsString("SWexfil") == "0.36":
+            self.ui.SWexfil_combo.setCurrentIndex(2)
+        elif self.module.getParameterAsString("SWexfil") == "1.8":
+            self.ui.SWexfil_combo.setCurrentIndex(3)
+        elif self.module.getParameterAsString("SWexfil") == "3.6":
+            self.ui.SWexfil_combo.setCurrentIndex(4)
         
         #combo box with specs
         self.ui.SWminsize_box.setText(self.module.getParameterAsString("SWminsize"))
@@ -1631,15 +1679,12 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.module.setParameterValue("BFspec_EDD", str(BFspec_EDD))
         self.module.setParameterValue("BFspec_FD", str(BFspec_FD))
         
+        BFexfil_matrix = [0, 0.18, 0.36, 1.8, 3.6]
+        self.module.setParameterValue("BFexfil", str(BFexfil_matrix[self.ui.BFexfil_combo.currentIndex()]))
+        
         self.module.setParameterValue("BFminsize", str(self.ui.BFminsize_box.text()))
         self.module.setParameterValue("BFmaxsize", str(self.ui.BFmaxsize_box.text()))
         self.module.setParameterValue("BFavglife", str(self.ui.BFavglifespin.value()))
-        
-        if self.ui.BFlined_check.isChecked() == 1:
-            BFlined = 1
-        else:
-            BFlined = 0
-        self.module.setParameterValue("BFlined", str(BFlined))
         
         #further design parameters coming soon...
         
@@ -1723,6 +1768,9 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.module.setParameterValue("ISspec_EDD", str(ISspec_EDD))
         self.module.setParameterValue("ISspec_FD", str(ISspec_FD))
         
+        ISexfil_matrix = [0.18, 0.36, 1.8, 3.6]
+        self.module.setParameterValue("ISexfil", str(ISexfil_matrix[self.ui.ISexfil_combo.currentIndex()]))
+        
         self.module.setParameterValue("ISminsize", str(self.ui.ISminsize_box.text()))
         self.module.setParameterValue("ISmaxsize", str(self.ui.ISmaxsize_box.text()))
         self.module.setParameterValue("ISavglife", str(self.ui.ISavglifespin.value()))
@@ -1789,6 +1837,9 @@ class activatetechplacementGUI(QtGui.QDialog):
         PBspec_MDindex = self.ui.PBspecs_combo.currentIndex()
         PBspec_MD = PBspec_matrix[PBspec_MDindex]
         self.module.setParameterValue("PBspec_MD", str(PBspec_MD))
+        
+        PBexfil_matrix = [0, 0.18, 0.36, 1.8, 3.6]
+        self.module.setParameterValue("PBexfil", str(PBexfil_matrix[self.ui.PBexfil_combo.currentIndex()]))
         
         self.module.setParameterValue("PBminsize", str(self.ui.PBminsize_box.text()))
         self.module.setParameterValue("PBmaxsize", str(self.ui.PBmaxsize_box.text()))
@@ -1924,6 +1975,9 @@ class activatetechplacementGUI(QtGui.QDialog):
         WSURspec_EDD = WSURspec_matrix[WSURspec_EDDindex]
         self.module.setParameterValue("WSURspec_EDD", str(WSURspec_EDD))
         
+        WSURexfil_matrix = [0, 0.18, 0.36, 1.8, 3.6]
+        self.module.setParameterValue("WSURexfil", str(WSURexfil_matrix[self.ui.WSURexfil_combo.currentIndex()]))
+        
         self.module.setParameterValue("WSURminsize", str(self.ui.WSURminsize_box.text()))
         self.module.setParameterValue("WSURmaxsize", str(self.ui.WSURmaxsize_box.text()))
         self.module.setParameterValue("WSURavglife", str(self.ui.WSURavglifespin.value()))
@@ -1968,6 +2022,10 @@ class activatetechplacementGUI(QtGui.QDialog):
         
         #Design Information
         #combo box
+        
+        SWexfil_matrix = [0, 0.18, 0.36, 1.8, 3.6]
+        self.module.setParameterValue("SWexfil", str(SWexfil_matrix[self.ui.SWexfil_combo.currentIndex()]))
+        
         self.module.setParameterValue("SWminsize", str(self.ui.SWminsize_box.text()))
         self.module.setParameterValue("SWmaxsize", str(self.ui.SWmaxsize_box.text()))
         self.module.setParameterValue("SWavglife", str(self.ui.SWavglifespin.value()))

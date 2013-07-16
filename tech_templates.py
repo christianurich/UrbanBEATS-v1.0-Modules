@@ -33,8 +33,7 @@ def CalculateMCATechScores(strategyobject, totalvalues, priorities, techarray, t
         - strategyobject = the strategy object containing the information about the technologies
         - totalvalues[0] = total impervious area to work with for Qty
         - totalvalues[1] = total impervious area to work with for WQ
-        - totalvalues[2] = total population to work with
-        - totalvalues[3] = total public open space to work with
+        - totalvalues[2] = total demand to work with
         - bracketwidth = 
     """
     techs = strategyobject.getTechnologies()    #grab the array of technologies in the block
@@ -146,8 +145,9 @@ def updateBasinService(basinstrategyobject):
             if inblocks[i] == 0:
                 continue
             total_service += inblocks[i].getService(abbr)
-        
+    
         basinstrategyobject.setService(abbr, total_service)
+    
     basinstrategyobject.setServicePvalues()
     return True
 
@@ -341,7 +341,7 @@ class BlockStrategy(object):
         self.__blockservice = {} #e.g. total imp served, total pop served
         self.__blockservice["Qty"] = totalserviceabsolute[0]            #Impervious area [sqm]
         self.__blockservice["WQ"] = totalserviceabsolute[1]             #Impervious area [sqm]
-        self.__blockservice["Rec"] = totalserviceabsolute[2]          #Population [people]
+        self.__blockservice["Rec"] = totalserviceabsolute[2]          #Demand substituted [kL]
         self.__blockbin = bin   #Maximum of the blockservice matrix e.g. [0.5, 0.5, 0.5, 0.5] --> 0.5 service
                                                                         #[0.76, 0.2, 0.1, 0] --> 0.76 service
         self.__location = currentID
@@ -407,8 +407,9 @@ class BasinManagementStrategy(object):
         self.__basinblockIDs = (basinblockIDs)
         self.__subbas_partake_IDs = partakeIDs
         
-        self.__basinAimp = basin_info[0]    #Impervious Area
-        self.__basinDem = basin_info[1]
+        self.__basinAimpQty = basin_info[0]    #Impervious Area to be managed for QTY
+        self.__basinAimpWQ = basin_info[1]     #Impervious area to be managed for WQ
+        self.__basinDemRec = basin_info[2]         #Basin demand to be managed
         
         #Service Metrics
         self.__basin_services = {"Qty":0, "WQ":0, "Rec":0}
@@ -437,16 +438,25 @@ class BasinManagementStrategy(object):
     def getBasinEIA(self):
         return self.__basinAimp
     
-    def getBasinPop(self):
-        return self.__basinPop
-    
-    def getBasinPublicSpace(self):
-        return self.__basinPublic
-    
     def getBasinTotalValues(self):
         """Used in the MCA function to get the scores and totals to loop across for different
         objectives"""
-        return [self.__basinAimp, self.__basinAimp, self.__basinDem]
+        if self.__basinAimpQty == 0:
+            returnimpQty = np.inf  #Adjusts to avoid division by zero
+        else:
+            returnimpQty = self.__basinAimpQty
+        
+        if self.__basinAimpWQ == 0:
+            returnimpWQ = np.inf
+        else:
+            returnimpWQ = self.__basinAimpWQ
+        
+        if self.__basinDemRec == 0:
+            returndemRec = np.inf
+        else:
+            returndemRec = self.__basinDemRec
+        
+        return [returnimpQty, returnimpWQ, returndemRec]
     
     def setService(self, category, value):
         self.__basin_services[category] = value

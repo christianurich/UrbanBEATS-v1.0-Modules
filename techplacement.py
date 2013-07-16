@@ -91,12 +91,12 @@ class Techplacement(Module):
         self.createParameter("runoff_pri", DOUBLE,"")
         self.createParameter("pollute_pri", DOUBLE,"")
         self.createParameter("harvest_pri",DOUBLE,"")
-        self.ration_runoff = True                #Design for flood mitigation?
+        self.ration_runoff = False                #Design for flood mitigation?
         self.ration_pollute = True               #Design for pollution management?
         self.ration_harvest = False              #Design for harvesting & reuse? Adds storage-sizing to certain systems
         self.runoff_pri = 0                      #Priority of flood mitigation?
-        self.pollute_pri = 0                     #Priority of pollution management?
-        self.harvest_pri = 1                     #Priority for harvesting & reuse
+        self.pollute_pri = 1                     #Priority of pollution management?
+        self.harvest_pri = 0                     #Priority for harvesting & reuse
 	
 	self.priorities = []            #ADVANCED PARAMETER, holds the final weights for MCA
 	
@@ -130,7 +130,7 @@ class Techplacement(Module):
         self.createParameter("service_hi", BOOL, "")
         self.createParameter("service_redundancy", DOUBLE, "")
         self.service_swmQty = 50                #required service level for stormwater management
-        self.service_swmWQ = 90                 #required service level for stormwater management
+        self.service_swmWQ = 80                 #required service level for stormwater management
         self.service_rec = 50                   #required service level for substituting potable water demand through recycling
         self.service_res = True
         self.service_hdr = True
@@ -387,13 +387,13 @@ class Techplacement(Module):
         self.createParameter("BFminsize", DOUBLE, "")
         self.createParameter("BFmaxsize", DOUBLE,"")
         self.createParameter("BFavglife", DOUBLE,"")
-        self.createParameter("BFlined", BOOL,"")
+        self.createParameter("BFexfil", DOUBLE,"")
         self.BFspec_EDD = 0.3
         self.BFspec_FD = 0.6
         self.BFminsize = 5              #minimum surface area of the system in sqm
         self.BFmaxsize = 999999         #maximum surface area of system in sqm
 	self.BFavglife = 20             #average life span of a biofilter
-        self.BFlined = True
+        self.BFexfil = 0
         
         #---GREEN ROOF [GR]---###TBA###-----------------------------------------
         self.createParameter("GRstatus", BOOL,"")
@@ -429,11 +429,13 @@ class Techplacement(Module):
         self.createParameter("ISminsize", DOUBLE, "")
         self.createParameter("ISmaxsize", DOUBLE,"")
         self.createParameter("ISavglife", DOUBLE,"")
+        self.createParameter("ISexfil", DOUBLE, "")
         self.ISspec_EDD = 0.2
         self.ISspec_FD = 0.8
         self.ISminsize = 5
         self.ISmaxsize = 99999          #maximum surface area of system in sqm
 	self.ISavglife = 20             #average life span of an infiltration system
+        self.ISexfil = 3.6
         
         #---GROSS POLLUTANT TRAP [GPT]------------------------------------------
         self.createParameter("GPTstatus", BOOL,"")
@@ -476,10 +478,12 @@ class Techplacement(Module):
         self.createParameter("PBminsize", DOUBLE, "")
         self.createParameter("PBmaxsize", DOUBLE,"")
         self.createParameter("PBavglife", DOUBLE,"")
+        self.createParameter("PBexfil", DOUBLE, "")
         self.PBspec_MD = "1.25" 	#need a string for the combo box
         self.PBminsize = 100
         self.PBmaxsize = 9999999           #maximum surface area of system in sqm
 	self.PBavglife = 20             #average life span of a pond/basin
+        self.PBexfil = 0.36
 
         #---POROUS/PERVIOUS PAVEMENT [PP]---###TBA###---------------------------
         self.createParameter("PPstatus", BOOL,"")
@@ -553,10 +557,12 @@ class Techplacement(Module):
         self.createParameter("WSURminsize", DOUBLE, "")
 	self.createParameter("WSURmaxsize", DOUBLE,"")
 	self.createParameter("WSURavglife", DOUBLE,"")
+        self.createParameter("WSURexfil", DOUBLE, "") 
         self.WSURspec_EDD = 0.75
         self.WSURminsize = 200
         self.WSURmaxsize = 9999999           #maximum surface area of system in sqm
 	self.WSURavglife = 20             #average life span of a wetland
+        self.WSURexfil = 0.36
 
         #---SWALES & BUFFER STRIPS [SW]-----------------------------------------
         self.createParameter("SWstatus", BOOL,"")
@@ -583,10 +589,12 @@ class Techplacement(Module):
         self.createParameter("SWminsize", DOUBLE, "")
         self.createParameter("SWmaxsize", DOUBLE,"")
         self.createParameter("SWavglife", DOUBLE,"")
+        self.createParameter("SWexfil", DOUBLE, "")
         self.SWspec = 0
         self.SWminsize = 20
         self.SWmaxsize = 9999           #maximum surface area of system in sqm
 	self.SWavglife = 20             #average life span of a swale
+        self.SWexfil = 3.6              
         
         #---TREE PITS [TPS]---###TBA###-----------------------------------------
         self.createParameter("TPSstatus", BOOL,"")
@@ -695,7 +703,7 @@ class Techplacement(Module):
         self.evapfile = "C:/UrbanBEATSv1Dev/ub_modules/resources/MelbourneEvap1998-2007-Day.csv"
         self.createParameter("evap_dt", DOUBLE, "")
         self.evap_dt = 1440     #[mins]
-        self.lot_raintanksizes = [1,2,4,5,7.5,10,15,20]       #[kL]
+        self.lot_raintanksizes = [1,2,3,4,5,7.5,10,15,20]       #[kL]
         self.raindata = []      #Globals to contain the data time series
         self.evapdata = []
         self.evapscale = []
@@ -810,7 +818,9 @@ class Techplacement(Module):
         self.system_tarTN = self.ration_pollute * self.targets_TN
         self.system_tarREL = self.ration_harvest * self.targets_reliability
         self.targetsvector = [self.system_tarQ, self.system_tarTSS, self.system_tarTP, self.system_tarTN, self.system_tarREL]
+        print self.targetsvector
         self.servicevector = [self.service_swmQty, self.service_swmWQ, self.service_rec]
+        print self.servicevector
         self.sysdepths = {"RT": self.RT_maxdepth - self.RT_mindead, "GW": 1, "WSUR": self.WSURspec_EDD, "PB": self.PBspec_MD}
         #---> targetsvector TO BE USED TO ASSESS OPPORTUNITIES
         
@@ -1041,6 +1051,7 @@ class Techplacement(Module):
             dP_WQ, basinRemainWQ, basinTreatedWQ, basinEIA = self.calculateRemainingService("WQ", basinBlockIDs, city)
             dP_REC, basinRemainREC, basinTreatedREC, basinDem = self.calculateRemainingService("REC", basinBlockIDs, city)
             
+            print "Basin Totals: ", [basinRemainQTY, basinRemainWQ, basinRemainREC]
             print "Previous Treated Efficiency for: ", [basinTreatedQTY/basinEIA, basinTreatedWQ/basinEIA, basinTreatedREC/basinDem]
             print "Must choose a strategy now that treats: ", [dP_QTY*100, dP_WQ*100, dP_REC*100], "% of basin"
             
@@ -1055,7 +1066,7 @@ class Techplacement(Module):
             if sum(updatedService) == 0:
                 continue
             
-            iterations = 1000   #MONTE CARLO ITERATIONS - CAN SET TO SENSITIVITY VALUE IN FUTURE RELATIVE TO BASIN SIZE
+            iterations = 5000   #MONTE CARLO ITERATIONS - CAN SET TO SENSITIVITY VALUE IN FUTURE RELATIVE TO BASIN SIZE
             
             if len(basinBlockIDs) == 1: #if we are dealing with a single-block basin, reduce the number of iterations
                 iterations = 100        #If only one block in basin, do different/smaller number of iterations
@@ -2241,6 +2252,7 @@ class Techplacement(Module):
                 addstore = True
                 sysdepth = self.sysdepths[techabbr]
                 vol = storeObj.getSize()
+                print vol
                 AsystemRec = eval('td.sizeStoreArea_'+str(techabbr)+'('+str(vol)+','+str(sysdepth)+','+str(0)+','+str(9999)+')')
             else:
                 addstore = False
@@ -2657,26 +2669,21 @@ class Techplacement(Module):
         which bin a BlockStrategy should go into"""
         servicelevels = [servicematrix[0]/AblockEIA, servicematrix[1]/AblockEIA, servicematrix[2]/totdemand]
         
-        #bracketwidth = 1.0/float(self.subbas_rigour)   #Used to bin the score within the bracket and penalise MCA score
+        bracketwidth = 1.0/float(self.subbas_rigour)   #Used to bin the score within the bracket and penalise MCA score
         blockstratservice = max(servicelevels)
         #print "Maximum service achieved is: ", blockstratservice, servicelevels
         for i in self.subbas_incr:      #[0(skip), 0.25, 0.5, 0.75, 1.0]
-            if i == 0:
-                continue        #Skip the zero increment
-            if blockstratservice < i:   #bins will go from 0 to 0.25, 0.25, to 0.5 etc. (similar for other incr)
+            #Identify Bin using 'less than' rule. Will skip the zero increment bin!
+            #if blockstratservice < i:   #bins will go from 0 to 0.25, 0.25, to 0.5 etc. (similar for other incr)
+            #    return i
+            #else:
+            #    continue
+            
+            #Identify Bin using Bracket
+            if blockstratservice >= max((i-(bracketwidth/2)),0) and blockstratservice <= min((i+(bracketwidth/2)),1):
                 return i
-#            if i == 0:
-#                if blockstratservice < i:
-#                    return i
-#                else:
-#                    continue
-#            if servicelevel > (i-(bracketwidth/2)) and servicelevel < (i+(bracketwidth/2)):
-#                return i
-#            if i == 1:
-#                if servicelevel > (i-(bracketwidth/2)) and servicelevel < i:
-#                    return i
-#                else:
-#                    continue
+            else:
+                continue
         return max(self.subbas_incr)
         
     def getBasinBlockIDs(self, currentBasinID, numblocks, city):
@@ -2865,9 +2872,9 @@ class Techplacement(Module):
             
             for sbID in subbasinIDs:
                 subbas_treatedAimpQTY += subbasID_treatedQTY[sbID]  #Check all upstream sub-basins for their treated Aimp            
-                
                 subbas_treatedAimpWQ += subbasID_treatedWQ[sbID]    #Check all upstream sub-basins for their treated Aimp            
             
+            #print subbas_treatedAimpQTY
             #print subbas_treatedAimpWQ
 
             remainAimp_subbasinQTY = max(totalAimpQTY - subbas_treatedAimpQTY, 0)
@@ -2915,7 +2922,7 @@ class Techplacement(Module):
             
             #(3) PICK A SUB-BASIN TECHNOLOGY
             if currentBlockID in subbas_chosenIDs:
-                deg, obj, treatedQTY, treatedWQ, treatedREC = self.pickOption(currentBlockID, max_degree, subbas_options, [totalAimpQTY, totalAimpWQ, totalDemREC]) 
+                deg, obj, treatedQTY, treatedWQ, treatedREC = self.pickOption(currentBlockID, max_degree, subbas_options, [totalAimpQTY, totalAimpWQ, totalDemREC], "SB") 
                 #print "Option Treats: ", [treatedQTY, treatedWQ, treatedREC]
                 #print obj
 
@@ -2957,10 +2964,7 @@ class Techplacement(Module):
                 #print [block_Aimp*int(self.ration_runoff), block_Aimp*int(self.ration_pollute), block_Dem*int(self.ration_harvest)]
                 
                 #print "In Block Maximum Degree: ", max_degree
-                deg, obj, treatedQTY, treatedWQ, treatedREC = self.pickOption(rbID,max_degree,inblock_options,
-                                                                            [block_Aimp*bool(int(self.ration_runoff)), 
-                                                                             block_Aimp*bool(int(self.ration_pollute)), 
-                                                                             block_Dem*bool(int(self.ration_harvest))]) 
+                deg, obj, treatedQTY, treatedWQ, treatedREC = self.pickOption(rbID,max_degree,inblock_options, [block_Aimp*bool(int(self.ration_runoff)), block_Aimp*bool(int(self.ration_pollute)), block_Dem*bool(int(self.ration_harvest))], "BS") 
                 #print "Option Treats: ", [treatedQTY, treatedWQ, treatedREC]
                 #print obj
 
@@ -2975,9 +2979,10 @@ class Techplacement(Module):
                     current_bstrategy.appendTechnology(rbID, deg, obj, "b")
             
             #(5) FINALIZE THE SERVICE VALUES FOR QTY, WQ, REC BEFORE NEXT LOOP
-            subbasID_treatedQTY[currentBlockID] = subbas_treatedAimpQTY
-            subbasID_treatedWQ[currentBlockID] = subbas_treatedAimpWQ
-            subbasID_treatedREC[currentBlockID] = subbas_treatedDemREC
+            #   Avoid overtreatment by saying either total area is treated or if treated area is smaller then using that
+            subbasID_treatedQTY[currentBlockID] = min(subbas_treatedAimpQTY, totalAimpQTY)
+            subbasID_treatedWQ[currentBlockID] = min(subbas_treatedAimpWQ, totalAimpWQ)
+            subbasID_treatedREC[currentBlockID] = min(subbas_treatedDemREC, totalDemREC)
             #print subbasID_treatedQTY
             #print subbasID_treatedWQ
         return True
@@ -3001,7 +3006,8 @@ class Techplacement(Module):
         serviceProvided = basinstrategy.getServicePvalues() #[0,0,0] P values for service
         for i in range(len(serviceProvided)):
             serviceProvided[i] *= float(serviceBooleans[i])     #Rescale to ensure no service items are zero
-            
+        #print "Service Req", serviceProvided
+        #print "Service Provided", serviceRequired    
         #Objective Criterion: A strategy is most suitable to the user's input
         #requirements if the sum(service-provided - service-required) is a minimum
         #and >0
@@ -3015,34 +3021,67 @@ class Techplacement(Module):
             performance = -1       #One objective at least, not fulfilled
         return performance
     
-    def pickOption(self, blockID, max_degree, options_collection, totals):
+    def pickOption(self, blockID, max_degree, options_collection, totals, strattype):
         """Picks and returns a random option based on the input impervious area and maximum
         treatment degree. Can be used on either the in-block strategies or larger precinct 
         strategies. If it cannot pick anything, it will return zeros all around.
         """
-        AimpQTY = totals[0]
-        AimpWQ = totals[1]
-        DemREC = totals[2]
-        indices = []
-        for deg in self.subbas_incr:
-            if deg <= max_degree:
-                indices.append(deg)
-        if len(indices) != 0:
-            choice = random.randint(0, len(indices)-1)
-            chosen_deg = self.subbas_incr[choice]
-        else:
-            return 0, 0, 0, 0, 0
-        
-        Nopt = len(options_collection["BlockID"+str(blockID)][chosen_deg])
-        if chosen_deg != 0 and Nopt != 0:
-            treatedAimpQTY = chosen_deg * AimpQTY
-            treatedAimpWQ = chosen_deg * AimpWQ
-            treatedDemREC = chosen_deg * DemREC
-            choice = random.randint(0, Nopt-1)
-            chosen_obj = options_collection["BlockID"+str(blockID)][chosen_deg][choice]
-            return chosen_deg, chosen_obj, treatedAimpQTY, treatedAimpWQ, treatedDemREC
-        else:
-            return 0, 0, 0, 0, 0
+        bracketwidth = 1.0/float(self.subbas_rigour)    #Use bracket to determine optimum bin
+        #Continuous-based picking
+        #print options_collection["BlockID"+str(blockID)]
+        if strattype == "BS":   #in-block strategy
+            options = []
+            for i in options_collection["BlockID"+str(blockID)].keys():
+                for j in options_collection["BlockID"+str(blockID)][i]:
+                    if (i-bracketwidth/2) < max_degree:
+                        options.append(j)
+            #print options
+            if len(options) == 0:
+                return 0, 0, 0, 0, 0
+            scores = []
+            for i in options:
+                scores.append(i.getTotalMCAscore())
+            #print "Scores: ", scores
+            #Pick Option
+            scores = self.createCDF(scores)
+            #print "Scores CDF: ", scores
+            choice = self.samplefromCDF(scores)
+            #print choice
+            chosen_obj = options[choice]
+            treatedAimpQTY = chosen_obj.getService("Qty")
+            treatedAimpWQ = chosen_obj.getService("WQ")
+            treatedDemREC = chosen_obj.getService("Rec")
+            return chosen_obj.getBlockBin(), chosen_obj, treatedAimpQTY, treatedAimpWQ, treatedDemREC
+        elif strattype == "SB":  #sub-basin strategy
+            #Bin-based picking
+            AimpQTY = totals[0]
+            AimpWQ = totals[1]
+            DemREC = totals[2]
+            indices = []
+            for deg in self.subbas_incr:
+                if (deg-bracketwidth/2) <= max_degree:
+                    indices.append(deg)
+            if len(indices) != 0:
+                choice = random.randint(0, len(indices)-1)
+                chosen_deg = self.subbas_incr[choice]
+            else:
+                return 0, 0, 0, 0, 0
+            
+            Nopt = len(options_collection["BlockID"+str(blockID)][chosen_deg])
+            if Nopt != 0:
+            #if chosen_deg != 0 and Nopt != 0:
+                #treatedAimpQTY = chosen_deg * AimpQTY
+                #treatedAimpWQ = chosen_deg * AimpWQ
+                #treatedDemREC = chosen_deg * DemREC
+                choice = random.randint(0, Nopt-1)
+                chosen_obj = options_collection["BlockID"+str(blockID)][chosen_deg][choice]
+                treatedAimpQTY = chosen_obj.getService("Qty")
+                treatedAimpWQ = chosen_obj.getService("WQ")
+                treatedDemREC = chosen_obj.getService("Rec")
+
+                return chosen_deg, chosen_obj, treatedAimpQTY, treatedAimpWQ, treatedDemREC
+            else:
+                return 0, 0, 0, 0, 0
     
     def createCDF(self, score_matrix):
         """Creates a cumulative distribution for an input list of values by normalizing
