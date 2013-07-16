@@ -1768,7 +1768,7 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.module.setParameterValue("ISspec_EDD", str(ISspec_EDD))
         self.module.setParameterValue("ISspec_FD", str(ISspec_FD))
         
-        ISexfil_matrix = [0.18, 0.36, 1.8, 3.6]
+        ISexfil_matrix = [1.8, 3.6, 18, 36]
         self.module.setParameterValue("ISexfil", str(ISexfil_matrix[self.ui.ISexfil_combo.currentIndex()]))
         
         self.module.setParameterValue("ISminsize", str(self.ui.ISminsize_box.text()))

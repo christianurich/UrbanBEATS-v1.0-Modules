@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'techplacementgui.ui'
 #
-# Created: Tue Jul 16 11:06:48 2013
+# Created: Tue Jul 16 12:24:46 2013
 #      by: PyQt4 UI code generator 4.8.6
 #
 # WARNING! All changes made in this file will be lost!
@@ -2378,13 +2378,13 @@ class Ui_TechPlace_Dialog(object):
         self.ISexfil_combo.setWhatsThis(QtGui.QApplication.translate("TechPlace_Dialog", "The likely exfiltration rate from the system (less than the theoretical maximum infiltration rate of the soil). Select this value based on performance data of systems in your city.", None, QtGui.QApplication.UnicodeUTF8))
         self.ISexfil_combo.setObjectName(_fromUtf8("ISexfil_combo"))
         self.ISexfil_combo.addItem(_fromUtf8(""))
-        self.ISexfil_combo.setItemText(0, QtGui.QApplication.translate("TechPlace_Dialog", "0.18 mm/hr", None, QtGui.QApplication.UnicodeUTF8))
+        self.ISexfil_combo.setItemText(0, QtGui.QApplication.translate("TechPlace_Dialog", "1.8 mm/hr", None, QtGui.QApplication.UnicodeUTF8))
         self.ISexfil_combo.addItem(_fromUtf8(""))
-        self.ISexfil_combo.setItemText(1, QtGui.QApplication.translate("TechPlace_Dialog", "0.36 mm/hr", None, QtGui.QApplication.UnicodeUTF8))
+        self.ISexfil_combo.setItemText(1, QtGui.QApplication.translate("TechPlace_Dialog", "3.6 mm/hr", None, QtGui.QApplication.UnicodeUTF8))
         self.ISexfil_combo.addItem(_fromUtf8(""))
-        self.ISexfil_combo.setItemText(2, QtGui.QApplication.translate("TechPlace_Dialog", "1.8 mm/hr", None, QtGui.QApplication.UnicodeUTF8))
+        self.ISexfil_combo.setItemText(2, QtGui.QApplication.translate("TechPlace_Dialog", "18 mm/hr", None, QtGui.QApplication.UnicodeUTF8))
         self.ISexfil_combo.addItem(_fromUtf8(""))
-        self.ISexfil_combo.setItemText(3, QtGui.QApplication.translate("TechPlace_Dialog", "3.6 mm/hr", None, QtGui.QApplication.UnicodeUTF8))
+        self.ISexfil_combo.setItemText(3, QtGui.QApplication.translate("TechPlace_Dialog", "36 mm/hr", None, QtGui.QApplication.UnicodeUTF8))
         self.ISexfil_lbl = QtGui.QLabel(self.IS_inputgroup)
         self.ISexfil_lbl.setGeometry(QtCore.QRect(270, 245, 91, 16))
         self.ISexfil_lbl.setText(QtGui.QApplication.translate("TechPlace_Dialog", "Exfiltration Rate:", None, QtGui.QApplication.UnicodeUTF8))

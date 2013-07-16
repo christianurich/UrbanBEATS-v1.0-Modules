@@ -172,7 +172,8 @@ class WriteResults2MUSIC(Module):
                     else:
                         addOffset = 0
                     offsets = self.getSystemOffsetXY(curSys, blocks_size)
-                    parameter_list = eval("self.prepareParameters"+str(curSys.getAttribute("Type").getString())+"(curSys, current_soilK)")
+                    sysKexfil = curSys.getAttribute("Exfil").getDouble()
+                    parameter_list = eval("self.prepareParameters"+str(curSys.getAttribute("Type").getString())+"(curSys, sysKexfil)")
                     eval("ubmusic.writeMUSICnode"+str(systype)+"(ufile, currentID, scale, ncount, (blockX+offsets[0]+(addOffset*blocks_size/12))*scalar, (blockY+offsets[1]+(addOffset*blocks_size/12))*scalar, parameter_list)")
                     musicnodedb["BlockID"+str(currentID)]["S_"+scale] = ncount
                     ncount += 1
@@ -352,6 +353,7 @@ class WriteResults2MUSIC(Module):
         sysedd = curSys.getAttribute("WDepth").getDouble()
         sysarea = self.getEffectiveSystemArea(curSys)
         sysfd = curSys.getAttribute("FDepth").getDouble()
+        sysKexfil = curSys.getAttribute("Exfil").getDouble()
         parameter_list = [sysedd,sysarea,sysarea, (2*numpy.sqrt(sysarea/0.4)+2*sysarea/(numpy.sqrt(sysarea/0.4))), 180, sysfd, current_soilK]
         return parameter_list
     

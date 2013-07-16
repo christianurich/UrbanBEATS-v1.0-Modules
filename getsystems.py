@@ -80,6 +80,7 @@ v0.80 (March 2012):
 	self.sysAttr.addAttribute("Upgrades")
 	self.sysAttr.addAttribute("WDepth")
 	self.sysAttr.addAttribute("FDepth")
+        self.sysAttr.addAttribute("Exfil")
 	
 	datastream = []
         datastream.append(self.sysGlobal)

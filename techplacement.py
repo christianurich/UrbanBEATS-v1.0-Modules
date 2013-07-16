@@ -772,6 +772,7 @@ class Techplacement(Module):
 	self.sysAttr.getAttribute("Upgrades")
 	self.sysAttr.getAttribute("WDepth")
 	self.sysAttr.getAttribute("FDepth")
+        self.sysAttr.getAttribute("Exfil")
         
         self.wsudAttr = View("WsudAttr", COMPONENT, WRITE)
 	self.wsudAttr.addAttribute("StrategyID")
@@ -792,6 +793,7 @@ class Techplacement(Module):
 	self.wsudAttr.addAttribute("Upgrades")
 	self.wsudAttr.addAttribute("WDepth")
 	self.wsudAttr.addAttribute("FDepth")
+        self.wsudAttr.addAttribute("Exfil")
 	
 	#Datastream
 	datastream = []
@@ -1066,7 +1068,7 @@ class Techplacement(Module):
             if sum(updatedService) == 0:
                 continue
             
-            iterations = 5000   #MONTE CARLO ITERATIONS - CAN SET TO SENSITIVITY VALUE IN FUTURE RELATIVE TO BASIN SIZE
+            iterations = 1000   #MONTE CARLO ITERATIONS - CAN SET TO SENSITIVITY VALUE IN FUTURE RELATIVE TO BASIN SIZE
             
             if len(basinBlockIDs) == 1: #if we are dealing with a single-block basin, reduce the number of iterations
                 iterations = 100        #If only one block in basin, do different/smaller number of iterations
@@ -1187,6 +1189,7 @@ class Techplacement(Module):
         #Determine impervious area to deal with depending on scale
         currentAttList = self.getBlockUUID(ID,city)
         ksat = currentAttList.getAttribute("Soil_k").getDouble()
+        sysexfil = sys_descr.getAttribute("Exfil").getDouble()
         Asyseff = sys_descr.getAttribute("SysArea").getDouble()/sys_descr.getAttribute("EAFact").getDouble()
         type = sys_descr.getAttribute("Type").getString()
         #need to be using the effective area, not the planning area
@@ -1208,7 +1211,7 @@ class Techplacement(Module):
         #Depending on the type of system and classification, will need to retrieve design in different
         #ways
         if type in ["BF", "SW", "WSUR", "PB", "IS"]:    #DESIGN by DCV Systems
-            sys_perc = dcv.retrieveDesign(self.getDCVPath(type), type, ksat, self.targetsvector)
+            sys_perc = dcv.retrieveDesign(self.getDCVPath(type), type, min(ksat, sysexfil), self.targetsvector)
             print "Sys Percentage: ", sys_perc
         elif type in ["RT", "PP", "ASHP", "GW"]:        #DESIGN by EQN or SIM Systems
             #Other stuff
@@ -1320,6 +1323,7 @@ class Techplacement(Module):
         maxsize = eval("self."+str(type)+"maxsize")                     #FUTURE >>>>>> MULTI-oBJECTIVE DESIGN
         minsize = eval("self."+str(type)+"minsize")
         soilK = currentAttList.getAttribute("Soil_k").getDouble()
+        systemK = sys_descr.getAttribute("Exfil").getDouble()
         
         #Current targets
         targets = self.targetsvector
@@ -1327,7 +1331,7 @@ class Techplacement(Module):
         purpose = [0, tech_applications[1], 0]
 
         #Call the design function using eval, due to different system Types
-        newdesign = eval('td.design_'+str(type)+'('+str(originalAimpTreated)+',"'+str(dcvpath)+'",'+str(self.targetsvector)+','+str(purpose)+','+str(soilK)+','+str(minsize)+','+str(maxsize)+')')    
+        newdesign = eval('td.design_'+str(type)+'('+str(originalAimpTreated)+',"'+str(dcvpath)+'",'+str(self.targetsvector)+','+str(purpose)+','+str(soilK)+','+str(systemK)+','+str(minsize)+','+str(maxsize)+')')    
         
         Anewsystem = newdesign[0]
         newEAFactor = newdesign[1]
@@ -2226,11 +2230,18 @@ class Techplacement(Module):
             design_Dem = 0
         #print "Design Demand :", design_Dem
         
+        #Get Soil K to use for theoretical system design
+        if techabbr in ["BF", "SW", "IS", "WSUR", "PB"]:
+            systemK = eval("self."+str(techabbr)+"exfil")
+        else:
+            systemK = 0
+        print systemK
+        
         #print techabbr
         #OBJECTIVE 1 - Design for Runoff Control
         if tech_applications[0] == 1:
             purpose = [tech_applications[0], 0, 0]
-            AsystemQty = eval('td.design_'+str(techabbr)+'('+str(Adesign_imp)+',"'+str(dcvpath)+'",'+str(self.targetsvector)+','+str(purpose)+','+str(soilK)+','+str(minsize)+','+str(maxsize)+')')
+            AsystemQty = eval('td.design_'+str(techabbr)+'('+str(Adesign_imp)+',"'+str(dcvpath)+'",'+str(self.targetsvector)+','+str(purpose)+','+str(soilK)+','+str(systemK)+','+str(minsize)+','+str(maxsize)+')')
             #print AsystemQty
         else:
             AsystemQty = [None, 1]
@@ -2239,8 +2250,8 @@ class Techplacement(Module):
         #OBJECTIVE 2 - Design for WQ Control
         if tech_applications[1] == 1:
             purpose = [0, tech_applications[1], 0]
-            AsystemWQ = eval('td.design_'+str(techabbr)+'('+str(Adesign_imp)+',"'+str(dcvpath)+'",'+str(self.targetsvector)+','+str(purpose)+','+str(soilK)+','+str(minsize)+','+str(maxsize)+')')    
-            #print AsystemWQ
+            AsystemWQ = eval('td.design_'+str(techabbr)+'('+str(Adesign_imp)+',"'+str(dcvpath)+'",'+str(self.targetsvector)+','+str(purpose)+','+str(soilK)+','+str(systemK)+','+str(minsize)+','+str(maxsize)+')')    
+            print AsystemWQ
         else:
             AsystemWQ = [None, 1]
         if AsystemWQ[0] > Asystem[0]:
@@ -2263,9 +2274,9 @@ class Techplacement(Module):
         
         if AsystemRec[0] > Asystem[0]:
             Asystem = AsystemRec        #If area for recycling is bigger, choose that instead
-        #print "Final design outcome for :", techabbr, Asystem
+        print "Final design outcome for :", techabbr, Asystem
         if Asystem[0] < avail_sp and Asystem[0] != None:        #if it fits and is NOT a NoneType
-            #print "Fits"
+            print "Fits"
             servicematrix = [0,0,0]
             if AsystemQty[0] != None:
                 servicematrix[0] = Adesign_imp
@@ -2281,7 +2292,7 @@ class Techplacement(Module):
             sys_object.setDesignIncrement(incr)
             return sys_object
         else:
-            #print "Does not fit or not feasible"
+            print "Does not fit or not feasible"
             return 0
     
     def assessStreetOpportunities(self, techList, currentAttList):
@@ -3178,7 +3189,11 @@ class Techplacement(Module):
                     loc.addAttribute("WDepth", float(eval("self."+str(current_wsud.getType())+"spec_MD")))
                 if current_wsud.getType() in ["BF", "IS"]:
                     loc.addAttribute("FDepth", eval("self."+str(current_wsud.getType())+"spec_FD"))
-                
+                if current_wsud.getType() in ["BF", "SW", "IS", "WSUR", "PB"]:
+                    loc.addAttribute("Exfil", eval("self."+str(current_wsud.getType())+"exfil"))
+                else:
+                    loc.addAttribute("Exfil", 0)
+                    
             outblock_strat = strategyobject.getIndividualTechStrat(currentID, "s")
             if outblock_strat != None:
                 scale = "B"
@@ -3211,6 +3226,10 @@ class Techplacement(Module):
                     loc.addAttribute("WDepth", float(eval("self."+str(outblock_strat.getType())+"spec_MD")))
                 if outblock_strat.getType() in ["BF", "IS"]:
                     loc.addAttribute("FDepth", eval("self."+str(outblock_strat.getType())+"spec_FD"))
+                if outblock_strat.getType() in ["BF", "SW", "IS", "WSUR", "PB"]:
+                    loc.addAttribute("Exfil", eval("self."+str(outblock_strat.getType())+"exfil"))
+                else:
+                    loc.addAttribute("Exfil", 0)
         return True
     
     def transferExistingSystemsToOutput(self, city, stratID):
@@ -3240,6 +3259,7 @@ class Techplacement(Module):
             loc.addAttribute("Upgrades", int(curSys.getAttribute("Upgrades").getDouble()))
             loc.addAttribute("WDepth", curSys.getAttribute("WDepth").getDouble())
             loc.addAttribute("FDepth", curSys.getAttribute("FDepth").getDouble())
+            loc.addAttribute("Exfil", curSys.getAttribute("Exfil").getDouble())
             city.addComponent(loc, self.wsudAttr)
         return True
     
