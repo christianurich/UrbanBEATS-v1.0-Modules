@@ -776,6 +776,7 @@ class ExportToGISShapeFile(Module):
             fielddefmatrix.append(ogr.FieldDefn("Upgrades", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("WDepth", ogr.OFTReal))
             fielddefmatrix.append(ogr.FieldDefn("FDepth", ogr.OFTReal))
+            fielddefmatrix.append(ogr.FieldDefn("Exfil", ogr.OFTReal))
             
             for field in fielddefmatrix:
                 layer.CreateField(field)
@@ -814,6 +815,7 @@ class ExportToGISShapeFile(Module):
                 feature.SetField("Upgrades", currentAttList.getAttribute("Upgrades").getDouble())
                 feature.SetField("WDepth", currentAttList.getAttribute("WDepth").getDouble())
                 feature.SetField("FDepth", currentAttList.getAttribute("FDepth").getDouble())
+                feature.SetField("Exfil", currentAttList.getAttribute("Exfil").getDouble())
                 layer.CreateFeature(feature)
             
             shapefile.Destroy()
@@ -859,6 +861,7 @@ class ExportToGISShapeFile(Module):
         fielddefmatrix.append(ogr.FieldDefn("Upgrades", ogr.OFTReal))
         fielddefmatrix.append(ogr.FieldDefn("WDepth", ogr.OFTReal))
         fielddefmatrix.append(ogr.FieldDefn("FDepth", ogr.OFTReal))
+        fielddefmatrix.append(ogr.FieldDefn("Exfil", ogr.OFTReal))
         
         for field in fielddefmatrix:
             layer.CreateField(field)
@@ -894,6 +897,7 @@ class ExportToGISShapeFile(Module):
             feature.SetField("Upgrades", currentAttList.getAttribute("Upgrades").getDouble())
             feature.SetField("WDepth", currentAttList.getAttribute("WDepth").getDouble())
             feature.SetField("FDepth", currentAttList.getAttribute("FDepth").getDouble())
+            feature.SetField("Exfil", currentAttList.getAttribute("Exfil").getDouble())
             layer.CreateFeature(feature)
         
         shapefile.Destroy()
