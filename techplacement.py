@@ -2249,7 +2249,7 @@ class Techplacement(Module):
             AsystemQty = [None, 1]
         Asystem = AsystemQty    #First target, set as default system size, even if zero
         
-        #OBJECTIVE 2 - Design for WQ Control or get minimum size to meet recycling WQ targets (assuming same for now)
+        #OBJECTIVE 2 - Design for WQ Control
         if tech_applications[1] == 1:
             purpose = [0, tech_applications[1], 0]
             AsystemWQ = eval('td.design_'+str(techabbr)+'('+str(Adesign_imp)+',"'+str(dcvpath)+'",'+str(self.targetsvector)+','+str(purpose)+','+str(soilK)+','+str(systemK)+','+str(minsize)+','+str(maxsize)+')')    
@@ -2271,7 +2271,9 @@ class Techplacement(Module):
             if techabbr in ["RT", "GW", "WSUR", "PB"]:        #Then design storage
                 sysdepth = self.sysdepths[techabbr]
                 vol = storeObj.getSize()
-                #print vol
+                print vol
+                if vol == np.inf:       #Strange error where volume return is inf, yet the name 'inf' is not defined
+                    vol = np.inf
                 AsystemRecQty = eval('td.sizeStoreArea_'+str(techabbr)+'('+str(vol)+','+str(sysdepth)+','+str(0)+','+str(9999)+')')
                 if AsystemRecQty[0] > AsystemRecWQ[0]:
                     AsystemRec = AsystemRecQty
