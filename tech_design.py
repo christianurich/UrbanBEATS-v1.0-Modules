@@ -84,25 +84,6 @@ def design_BF(Aimp, dcv, targets, tech_apps, soilK, systemK, minsize, maxsize):
     #final check, if the system has exceeded maximum size, return 'impossible' = inf
     return [Areq, diff]
 
-def sizeStoreArea_BF(vol, sysdepth, minsize, maxsize):
-    """Adds storage to a Biofiltration system. The issue here is that the system will treat
-    and then store the water treated in a separate storage system e.g. a pond or tank.
-    Storage type determined by scale:
-        - Lot: tank system
-        - Neighbourhood/Subbasin: a pond
-    """
-    surfarea = vol / sysdepth       #[sqm]
-    Asystem = surfarea
-    if surfarea < minsize:
-        Asystem = minsize
-    if surfarea > maxsize:
-        return [None, 1]
-    
-    Areq = Asystem * 1.3   #batter multiplier
-    diff = Areq/Asystem
-
-    return [Areq, diff]    #No buffer for raintanks
-
 #---INFILTRATION SYSTEMS [IS]---------------------------------------------------
 def design_IS(Aimp, dcv, targets, tech_apps, soilK, systemK, minsize, maxsize):
     #Design of Infiltration systems

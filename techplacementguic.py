@@ -526,6 +526,11 @@ class activatetechplacementGUI(QtGui.QDialog):
         else:
             self.ui.BFpollute_check.setChecked(0)
         
+        if self.module.getParameterAsString("BFrecycle") == "1":
+            self.ui.BFrecycle_check.setChecked(1)
+        else:
+            self.ui.BFrecycle_check.setChecked(0)
+        
         #Design Curves
         if self.module.getParameterAsString("BFdesignUB") == "1":
             self.ui.BFdesignUB_box.setChecked(1)
@@ -1657,7 +1662,13 @@ class activatetechplacementGUI(QtGui.QDialog):
         else:
             BFpollute = 0
         self.module.setParameterValue("BFpollute", str(BFpollute))
-        
+
+        if self.ui.BFrecycle_check.isChecked() == 1:
+            BFrecycle = 1
+        else:
+            BFrecycle = 0
+        self.module.setParameterValue("BFrecycle", str(BFrecycle))
+
         #Design Curves
         if self.ui.BFdesignUB_box.isChecked() == 1:
             BFdesignUB = 1

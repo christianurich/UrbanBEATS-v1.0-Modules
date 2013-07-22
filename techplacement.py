@@ -372,8 +372,10 @@ class Techplacement(Module):
         #Available Applications
         self.createParameter("BFflow", BOOL, "")
 	self.createParameter("BFpollute", BOOL,"")
+        self.createParameter("BFrecycle", BOOL, "")
         self.BFflow = True
 	self.BFpollute = True
+        self.BFrecycle = True
 	
         #Design Curves
         self.createParameter("BFdesignUB", BOOL,"")
@@ -1068,7 +1070,7 @@ class Techplacement(Module):
             if sum(updatedService) == 0:
                 continue
             
-            iterations = 1000   #MONTE CARLO ITERATIONS - CAN SET TO SENSITIVITY VALUE IN FUTURE RELATIVE TO BASIN SIZE
+            iterations = 5000   #MONTE CARLO ITERATIONS - CAN SET TO SENSITIVITY VALUE IN FUTURE RELATIVE TO BASIN SIZE
             
             if len(basinBlockIDs) == 1: #if we are dealing with a single-block basin, reduce the number of iterations
                 iterations = 100        #If only one block in basin, do different/smaller number of iterations
@@ -2235,7 +2237,7 @@ class Techplacement(Module):
             systemK = eval("self."+str(techabbr)+"exfil")
         else:
             systemK = 0
-        print systemK
+        #print systemK
         
         #print techabbr
         #OBJECTIVE 1 - Design for Runoff Control
@@ -2247,11 +2249,11 @@ class Techplacement(Module):
             AsystemQty = [None, 1]
         Asystem = AsystemQty    #First target, set as default system size, even if zero
         
-        #OBJECTIVE 2 - Design for WQ Control
+        #OBJECTIVE 2 - Design for WQ Control or get minimum size to meet recycling WQ targets (assuming same for now)
         if tech_applications[1] == 1:
             purpose = [0, tech_applications[1], 0]
             AsystemWQ = eval('td.design_'+str(techabbr)+'('+str(Adesign_imp)+',"'+str(dcvpath)+'",'+str(self.targetsvector)+','+str(purpose)+','+str(soilK)+','+str(systemK)+','+str(minsize)+','+str(maxsize)+')')    
-            print AsystemWQ
+            #print AsystemWQ
         else:
             AsystemWQ = [None, 1]
         if AsystemWQ[0] > Asystem[0]:
@@ -2259,24 +2261,53 @@ class Techplacement(Module):
         
         #OBJECTIVE 3 - If system type permits storage, design for Recycling
         if tech_applications[2] == 1 and storeObj != np.inf:
+            #First design for WQ control (assume raintanks don't treat for now)
+            purpose = [0, 1, 0]
+            if techabbr in ["RT", "GW"]:
+                AsystemRecWQ = [0, 1]
+            else:
+                AsystemRecWQ = eval('td.design_'+str(techabbr)+'('+str(Adesign_imp)+',"'+str(dcvpath)+'",'+str(self.targetsvector)+','+str(purpose)+','+str(soilK)+','+str(systemK)+','+str(minsize)+','+str(maxsize)+')')    
+            
             if techabbr in ["RT", "GW", "WSUR", "PB"]:        #Then design storage
-                addstore = True
                 sysdepth = self.sysdepths[techabbr]
                 vol = storeObj.getSize()
-                print vol
-                AsystemRec = eval('td.sizeStoreArea_'+str(techabbr)+'('+str(vol)+','+str(sysdepth)+','+str(0)+','+str(9999)+')')
+                #print vol
+                AsystemRecQty = eval('td.sizeStoreArea_'+str(techabbr)+'('+str(vol)+','+str(sysdepth)+','+str(0)+','+str(9999)+')')
+                if AsystemRecQty[0] > AsystemRecWQ[0]:
+                    AsystemRec = AsystemRecQty
+                else:
+                    AsystemRec = AsystemRecWQ
+                addstore = [storeObj, AsystemRec[0], techabbr, 1]    #Input arguments to addstore function
+            elif techabbr in ["BF"]:    #Special Case BF where you have multi-tech combination
+                vol = storeObj.getSize()
+                if curscale in ["L"]:
+                    sysdepth = self.sysdepths["RT"]
+                    AsystemRecQty = eval('td.sizeStoreArea_RT('+str(vol)+','+str(sysdepth)+','+str(0)+','+str(9999)+')')
+                    addstore = [storeObj, AsystemRecQty, "RT", 0]
+                elif curscale in ["N", "B"]:
+                    sysdepth = self.sysdepths["PB"]
+                    AsystemRecQty = eval('td.sizeStoreArea_PB('+str(vol)+','+str(sysdepth)+','+str(0)+','+str(9999)+')')
+                    addstore = [storeObj, AsystemRecQty, "PB", 0]
+                #Calculate new area by adding BF area to Pond/Tank Area
+                if AsystemRecWQ[0] in [np.inf or None] or AsystemRecQty[0] in [None]:
+                    AsystemRec = [None, 1]
+                else:
+                    AsystemRec = [AsystemRecWQ[0] + AsystemRecQty[0], AsystemRecWQ]       #Planning Area to check for
             else:
-                addstore = False
+                addstore = []
                 AsystemRec = [None, 1]
         else:
-            addstore = False
+            addstore = []
             AsystemRec = [None, 1]        #[surface area, area factor, storage volume], the only exception
         
         if AsystemRec[0] > Asystem[0]:
-            Asystem = AsystemRec        #If area for recycling is bigger, choose that instead
-        print "Final design outcome for :", techabbr, Asystem
+            if techabbr in ["RT", "GW", "WSUR", "PB"]:  #Integrated storage systems
+                Asystem = AsystemRec     #If area for recycling is bigger, choose that instead
+            elif techabbr in ["BF"]:            #Non-integrated storage systems
+                Asystem = AsystemRec[1]  #If system is a biofilter, add surf area to the system's main attr, add the store area as additional
+        #print "Final design outcome for :", techabbr, Asystem
         if Asystem[0] < avail_sp and Asystem[0] != None:        #if it fits and is NOT a NoneType
-            print "Fits"
+            #print "Fits"
             servicematrix = [0,0,0]
             if AsystemQty[0] != None:
                 servicematrix[0] = Adesign_imp
@@ -2287,12 +2318,12 @@ class Techplacement(Module):
             servicematrixstring = tt.convertArrayToDBString(servicematrix)
             self.dbcurs.execute("INSERT INTO watertechs VALUES ("+str(currentID)+",'"+str(techabbr)+"',"+str(Asystem[0])+",'"+curscale+"','"+str(servicematrixstring)+"',"+str(Asystem[1])+",'"+str(landuse)+"',"+str(incr)+")")
             sys_object = tt.WaterTech(techabbr, Asystem[0], curscale, servicematrix, Asystem[1], landuse, currentID)
-            if addstore:
-                sys_object.addRecycledStoreToTech(storeObj)     #If analysis showed that system can accommodate store, add the store object
+            if len(addstore) != 0:
+                sys_object.addRecycledStoreToTech(addstore[0], addstore[1], addstore[2], addstore[3])     #If analysis showed that system can accommodate store, add the store object
             sys_object.setDesignIncrement(incr)
             return sys_object
         else:
-            print "Does not fit or not feasible"
+            #print "Does not fit or not feasible"
             return 0
     
     def assessStreetOpportunities(self, techList, currentAttList):

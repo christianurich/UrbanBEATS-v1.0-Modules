@@ -266,6 +266,9 @@ class WaterTech(object):
         self.__designincrement = 1.0    #If design increment = 1.0, then service matrix will be either all imp area or zero
         self.__blockID = blockID
         self.__rec_store = None
+        self.__rec_store_type = ""
+        self.__rec_Integrated = 0
+        self.__rec_store_surfaceArea = 0
         
         #Assign some descriptive variables to the object
         if self.__type in ['BF', 'IS']:
@@ -283,10 +286,19 @@ class WaterTech(object):
             self.isGreyTech = False
             self.isGreenTech = True
     
-    def addRecycledStoreToTech(self, storeObj):
+    def addRecycledStoreToTech(self, storeObj, surfarea, type, integrated):
         self.__rec_store = storeObj
         self.__service["Rec"] = storeObj.getSupply()
+        self.__rec_Integrated = integrated
+        self.__rec_store_type = type
+        self.__rec_store_surfaceArea = surfarea
         return True
+    
+    def getStoreSurfArea(self):
+        if bool(self.__rec_Integrated):
+            return 0
+        else:
+            return self.__rec_store_surfaceArea
     
     def setDesignIncrement(self, increment):
         self.__designincrement = increment
