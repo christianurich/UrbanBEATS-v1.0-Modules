@@ -758,54 +758,38 @@ class activatetechplacementGUI(QtGui.QDialog):
         
         self.ui.RT_maxdepth_box.setText(self.module.getParameterAsString("RT_maxdepth"))
         self.ui.RT_mindead_box.setText(self.module.getParameterAsString("RT_mindead"))
-        self.ui.RT_firstflush_box.setText(self.module.getParameterAsString("RT_firstflush"))
         
-        if self.module.getParameterAsString("RTscale_lot") == "1":
+        if self.module.getParameterAsString("RTlot") == "1":
             self.ui.RTscale_lot_box.setChecked(1)
         else:
             self.ui.RTscale_lot_box.setChecked(0)
         
-        if self.module.getParameterAsString("RTscale_street") == "1":
-            self.ui.RTscale_street_box.setChecked(1)
+        if self.module.getParameterAsString("RTneigh") == "1":
+            self.ui.RTscale_neighb_box.setChecked(1)
         else:
-            self.ui.RTscale_street_box.setChecked(0)
-                
-        if self.module.getParameterAsString("RTpurp_flood") == "1":
+            self.ui.RTscale_neighb_box.setChecked(0)
+        
+        if self.module.getParameterAsString("RTflow") == "1":
             self.ui.RTpurp_flood_box.setChecked(1)
         else:
             self.ui.RTpurp_flood_box.setChecked(0)
         
-        if self.module.getParameterAsString("RTpurp_recyc") == "1":
+        if self.module.getParameterAsString("RTrecycle") == "1":
             self.ui.RTpurp_recyc_box.setChecked(1)
         else:
             self.ui.RTpurp_recyc_box.setChecked(0)
         
-        if self.module.getParameterAsString("RT_shape_circ") == "1":
-            self.ui.RT_shape_circ_check.setChecked(1)
-        else:
-            self.ui.RT_shape_circ_check.setChecked(0)
-        
-        if self.module.getParameterAsString("RT_shape_rect") == "1":
-            self.ui.RT_shape_rect_check.setChecked(1)
-        else:
-            self.ui.RT_shape_rect_check.setChecked(0)
-        
-        if self.module.getParameterAsString("RT_sbmodel") == "ybs":
-            self.ui.RT_sbmodel_ybs_radio.setChecked(True)
-        if self.module.getParameterAsString("RT_sbmodel") == "yas":
-            self.ui.RT_sbmodel_yas_radio.setChecked(True)
-        
-        if self.module.getParameterAsString("RTdesignD4W") == "1":
-            self.ui.RTdesignD4W_box.setChecked(1)
+        if self.module.getParameterAsString("RTdesignUB") == "1":
+            self.ui.RTdesignUB_box.setChecked(1)
             self.ui.RTdesigncurve_browse.setEnabled(0)
             self.ui.RTdesigncurve_pathbox.setText("no file")
         else:
-            self.ui.RTdesignD4W_box.setChecked(0)
+            self.ui.RTdesignUB_box.setChecked(0)
             self.ui.RTdesigncurve_browse.setEnabled(1)
             self.ui.RTdesigncurve_pathbox.setText(self.module.getParameterAsString("RTdescur_path"))
         
         QtCore.QObject.connect(self.ui.RTdesigncurve_browse, QtCore.SIGNAL("clicked()"), self.openFileDialog_RT)
-        QtCore.QObject.connect(self.ui.RTdesignD4W_box, QtCore.SIGNAL("clicked()"), self.RTdesign_enable)
+        QtCore.QObject.connect(self.ui.RTdesignUB_box, QtCore.SIGNAL("clicked()"), self.RTdesign_enable)
         
         #---------- Sand/Peat/Gravel Filter -----------------------------------#
         if self.module.getParameterAsString("SFstatus") == "1":
@@ -1829,59 +1813,39 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.module.setParameterValue("RT_maxdepth", RT_maxdepth)
         RT_mindead = str(self.ui.RT_mindead_box.text())
         self.module.setParameterValue("RT_mindead", RT_mindead)
-        RT_firstflush = str(self.ui.RT_firstflush_box.text())
-        self.module.setParameterValue("RT_firstflush", RT_firstflush)
         
         if self.ui.RTscale_lot_box.isChecked() == 1:
             RTscale_lot = 1
         else:
             RTscale_lot = 0
-        self.module.setParameterValue("RTscale_lot", str(RTscale_lot))
+        self.module.setParameterValue("RTlot", str(RTscale_lot))
         
-        if self.ui.RTscale_street_box.isChecked() == 1:
-            RTscale_street = 1
+        if self.ui.RTscale_neighb_box.isChecked() == 1:
+            RTscale_neigh = 1
         else:
-            RTscale_street = 0
-        self.module.setParameterValue("RTscale_street", str(RTscale_street))
+            RTscale_neigh = 0
+        self.module.setParameterValue("RTneigh", str(RTscale_neigh))
         
         if self.ui.RTpurp_flood_box.isChecked() == 1:
             RTpurp_flood = 1
         else:
             RTpurp_flood = 0
-        self.module.setParameterValue("RTpurp_flood", str(RTpurp_flood))
+        self.module.setParameterValue("RTflow", str(RTpurp_flood))
         
         if self.ui.RTpurp_recyc_box.isChecked() == 1:
             RTpurp_recyc = 1
         else:
             RTpurp_recyc = 0
-        self.module.setParameterValue("RTpurp_recyc", str(RTpurp_recyc))
+        self.module.setParameterValue("RTrecycle", str(RTpurp_recyc))
         
-        if self.ui.RT_shape_circ_check.isChecked() == 1:
-            RT_shape_circ = 1
+        if self.ui.RTdesignUB_box.isChecked() == 1:
+            RTdesignUB = 1
         else:
-            RT_shape_circ = 0
-        self.module.setParameterValue("RT_shape_circ", str(RT_shape_circ))
-        
-        if self.ui.RT_shape_rect_check.isChecked() == 1:
-            RT_shape_rect = 1
-        else:
-            RT_shape_rect = 0
-        self.module.setParameterValue("RT_shape_rect", str(RT_shape_rect))
-        
-        if self.ui.RTdesignD4W_box.isChecked() == 1:
-            RTdesignD4W = 1
-        else:
-            RTdesignD4W = 0
-        self.module.setParameterValue("RTdesignD4W", str(RTdesignD4W))
+            RTdesignUB = 0
+        self.module.setParameterValue("RTdesignUB", str(RTdesignUB))
         
         RTdescur_path = str(self.ui.RTdesigncurve_pathbox.text())
         self.module.setParameterValue("RTdescur_path", RTdescur_path)
-        
-        if self.ui.RT_sbmodel_ybs_radio.isChecked() == True:
-            RT_sbmodel = "ybs"
-        elif self.ui.RT_sbmodel_yas_radio.isChecked() == True:
-            RT_sbmodel = "yas"
-        self.module.setParameterValue("RT_sbmodel", RT_sbmodel)
         
         #---------- Sand/Peat/Gravel Filter -----------------------------------#
         if self.ui.SFstatus_box.isChecked() == 1:

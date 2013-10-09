@@ -221,18 +221,21 @@ class RecycledStorage(object):
         """An object to hold data on recycled storage"""
         
         self.__type = type
-        self.__volume = volume  #[kL]
-        self.__Aharvest = Aharvest #[sqm]
-        self.__rel = rel
-        self.__supply = supply  #Total demand supplied [kL/yr]
+        self.__volume = volume          #[kL]
+        self.__Aharvest = Aharvest      #[sqm]
+        self.__rel = rel                #[%]
+        self.__supply = supply          #Total demand supplied [kL/yr]
         self.__enduses = enduses        #Contains 'K, L, T, S, I, PI'
-        self.__scale = scale    #L=lot N=Neighbourhood B=subbasin
+        self.__scale = scale            #L=lot N=Neighbourhood B=subbasin
 
     def getSize(self):
         return self.__volume
     
     def getSupply(self):
         return self.__supply
+    
+    def getReliability(self):
+        return self.__rel
     
     def getAreaOfHarvest(self):
         return self.__Aharvest
@@ -262,7 +265,8 @@ class WaterTech(object):
         self.__landuse = landuse
         self.__designincrement = 1.0    #If design increment = 1.0, then service matrix will be either all imp area or zero
         self.__blockID = blockID
-
+        self.__rec_store = None
+        
         #Assign some descriptive variables to the object
         if self.__type in ['BF', 'IS']:
             self.hasFilter = True
@@ -279,8 +283,14 @@ class WaterTech(object):
             self.isGreyTech = False
             self.isGreenTech = True
     
+    def addRecycledStoreToTech(self, storeObj):
+        self.__rec_store = storeObj
+        self.__service["Rec"] = storeObj.getSupply()
+        return True
+    
     def setDesignIncrement(self, increment):
         self.__designincrement = increment
+        return True
     
     def getDesignIncrement(self):
         return self.__designincrement

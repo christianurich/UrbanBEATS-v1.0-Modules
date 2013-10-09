@@ -63,10 +63,10 @@ def loglogSWHEquation(city, targetrel, supplyvol, demandvol):
     Returns the size of the storage"""
     if targetrel > 95:
         targetrel = 95  #Warning, model not cut out to predict for reliabilities beyond 95%
-    print "Total Supply: ", sum(supplyvol), " TotalDemand: ", sum(demandvol)
+    #print "Total Supply: ", sum(supplyvol), " TotalDemand: ", sum(demandvol)
     dvavg = calcDVavg(sum(supplyvol), sum(demandvol))
     rmse = calcRMSE(supplyvol, demandvol)
-    print dvavg
+    #print dvavg
     coefficients = getModelCoefficients(city)
     
     #Apply the model

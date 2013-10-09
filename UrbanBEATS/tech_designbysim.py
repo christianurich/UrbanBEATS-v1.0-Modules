@@ -40,7 +40,7 @@ def estimateStoreVolume(inflowseries, demandseries, targetrel, estTol, maxiter):
                     interpolation is done, prevent computational explosion
     """
     if len(inflowseries) != len(demandseries):
-        print "Error, inflow/demand time series must be of the same time step"
+        #print "Error, inflow/demand time series must be of the same time step"
         return False
     
     if targetrel > 95:
@@ -69,12 +69,12 @@ def estimateStoreVolume(inflowseries, demandseries, targetrel, estTol, maxiter):
         volest = (uppervol + lowervol)/2     #if est. Rel is larger than target, halve volume
         relTol = upperrel - lowerrel    #recalculate reliability difference to check against tolerance
         
-    print "Total Iterations Needed: ", iterationcount
+    #print "Total Iterations Needed: ", iterationcount
     #End of loop, we have bounding volumes and reliability, linearly interpolate
     storageVol = linearInterpolate(lowervol, uppervol, lowerrel, upperrel, targetrel)
-    print "Final Volume: ", storageVol    
+    #print "Final Volume: ", storageVol    
     storageREL = calculateTankReliability(inflowseries, demandseries, storageVol)
-    print "Final Reliability: ", storageREL, "%"
+    #print "Final Reliability: ", storageREL, "%"
     
     if abs(targetrel - storageREL) > 1: #within +/- 2% reliability accuracy
         return np.inf   #Cannot find a store with that reliability, return infinity

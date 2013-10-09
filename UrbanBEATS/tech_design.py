@@ -25,6 +25,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import math as m
 import numpy as np
 import tech_designbydcv as ddcv
+import tech_templates as tt
 
 ########################################################
 #DESIGN FUNCTIONS FOR DIFFERENT TECHNOLOGIES           #
@@ -179,16 +180,18 @@ def design_PB(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
     diff = Areq/system_area
     return [Areq, diff]
 
-#---RAINWATER TANKS [RT]--------------------------------------------------------
-def design_RT(self, currentID):
+def sizeStoreArea_PB(vol, sysdepth, minsize, maxsize):
+    surfarea = vol / sysdepth       #[sqm]
+    Asystem = surfarea
+    if surfarea < minsize:
+        Asystem = minsize
+    if surfarea > maxsize:
+        return [None, 1]
     
-    dcRT = [[0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.5,2.0], \
-            [0,45,59,70,78,81,86,90,91,95,97,98,99,99.9,100], \
-            [0,40,49,56,61,69,71,78,81,82,85,88,90,91,96], \
-            [0,37,41,48,51,58,60,65,69,71,73,78,80,84,90], \
-            [0,34,39,42,48,50,54,59,60,62,67,69,70,76,81]]
-    
-    return True
+    Areq = Asystem * 1.3   #batter multiplier
+    diff = Areq/Asystem
+
+    return [Areq, diff]    #No buffer for raintanks
 
 #---SURFACE WETLANDS [WSUR]-----------------------------------------------------
 def design_WSUR(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
@@ -230,6 +233,19 @@ def design_WSUR(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
     diff = Areq/system_area
     
     return [Areq, diff]
+
+def sizeStoreArea_WSUR(vol, sysdepth, minsize, maxsize):
+    surfarea = vol / sysdepth       #[sqm]
+    Asystem = surfarea
+    if surfarea < minsize:
+        Asystem = minsize
+    if surfarea > maxsize:
+        return [None, 1]
+    
+    Areq = Asystem * 1.3   #batter multiplier
+    diff = Areq/Asystem
+
+    return [Areq, diff]    #No buffer for raintanks
 
 #---SWALES & BUFFER STRIPS [SW]-------------------------------------------------
 def design_SW(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
@@ -301,3 +317,17 @@ def design_SW(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
     
     return [Areq, diff]
 
+#---RAINWATER/STORMWATAER TANK [RT]-------------------------------------------------
+def sizeStoreArea_RT(vol, sysdepth, minsize, maxsize):
+    
+    surfarea = vol / sysdepth       #[sqm]
+    Areq = surfarea
+    print "Area required: ", Areq
+    if surfarea < minsize:
+        Areq = minsize
+    if surfarea > maxsize:
+        return [None, 1]
+    
+    return [Areq, 1]    #No buffer for raintanks
+        
+    
