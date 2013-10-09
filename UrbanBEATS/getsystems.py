@@ -50,7 +50,7 @@ v0.80 (March 2012):
         
         self.createParameter("ubeats_file", BOOL,"")
         self.createParameter("ongoing_sim", BOOL,"")
-        self.createParameter("path_name", STRING,"")
+        self.createParameter("path_name", FILENAME,"")
 	self.ubeats_file = 1 #Was this file created by UrbanBEATS or is it man-made?
         self.ongoing_sim = 0 #Is this module part of an ongoing simulation?
 	#homeDir = os.environ['HOME']
