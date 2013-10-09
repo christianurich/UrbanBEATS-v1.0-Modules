@@ -32,7 +32,7 @@ import tech_templates as tt
 ########################################################
 
 #---BIOFILTRATION SYSTEM/RAINGARDEN [BF]----------------------------------------
-def design_BF(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize):
+def design_BF(Aimp, dcv, targets, tech_apps, soilK, systemK, minsize, maxsize):
     #Design of Biofiltration systems
     #   input: Imparea = Impervious Area to treat
     #          tarQ = Runoff reduction target
@@ -47,11 +47,13 @@ def design_BF(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize):
     tarTP *= tech_apps[1]
     tarTN *= tech_apps[1]
     
+    exfil = min(soilK, systemK)
+    
     if Aimp == 0:   #if there is no impervious area to design for, why bother?
         return [None, 1]
     #size the system for runoff reduction and pollution reduction independently
     if soilK != 0:
-        psystem = ddcv.retrieveDesign(dcv, "BF", soilK, [tarQ, tarTSS, tarTP, tarTN, 100])
+        psystem = ddcv.retrieveDesign(dcv, "BF", exfil, [tarQ, tarTSS, tarTP, tarTN, 100])
     else:
         psystem = np.inf
         
@@ -83,7 +85,7 @@ def design_BF(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize):
     return [Areq, diff]
 
 #---INFILTRATION SYSTEMS [IS]---------------------------------------------------
-def design_IS(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
+def design_IS(Aimp, dcv, targets, tech_apps, soilK, systemK, minsize, maxsize):
     #Design of Infiltration systems
     #   input: Imparea = Impervious Area to treat
     #          tarQ = Runoff reduction target
@@ -98,12 +100,14 @@ def design_IS(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
     tarTP *= tech_apps[1]
     tarTN *= tech_apps[1]
     
+    exfil = min(soilK, systemK)
+    
     if Aimp == 0:   #if there is no impervious area to design for, why bother?
         return [None, 1]
     
     #size the system
     if soilK != 0:
-        psystem = ddcv.retrieveDesign(dcv, "IS", soilK, [tarQ, tarTSS, tarTP, tarTN, 100])
+        psystem = ddcv.retrieveDesign(dcv, "IS", exfil, [tarQ, tarTSS, tarTP, tarTN, 100])
         #print psystem
     else:
         psystem = np.inf
@@ -141,7 +145,7 @@ def design_IS(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
     return [Areq, diff]
 
 #---PONDS & BASINS [PB]---------------------------------------------------------
-def design_PB(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
+def design_PB(Aimp, dcv, targets, tech_apps, soilK, systemK, minsize, maxsize ):
     #Design of Ponds & Lakes
     #   input: Imparea = Impervious Area to treat
     #          tarQ = Runoff reduction target
@@ -156,11 +160,13 @@ def design_PB(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
     tarTP *= tech_apps[1]
     tarTN *= tech_apps[1]
     
+    exfil = min(soilK, systemK)
+    
     if Aimp == 0:   #if there is no impervious area to design for, why bother?
         return [None, 1]
     #size the system
     if soilK != 0:
-        psystem = ddcv.retrieveDesign(dcv, "PB", soilK, [tarQ, tarTSS, tarTP, tarTN, 100])
+        psystem = ddcv.retrieveDesign(dcv, "PB", exfil, [tarQ, tarTSS, tarTP, tarTN, 100])
     else:
         psystem = np.inf
         
@@ -194,7 +200,7 @@ def sizeStoreArea_PB(vol, sysdepth, minsize, maxsize):
     return [Areq, diff]    #No buffer for raintanks
 
 #---SURFACE WETLANDS [WSUR]-----------------------------------------------------
-def design_WSUR(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
+def design_WSUR(Aimp, dcv, targets, tech_apps, soilK, systemK, minsize, maxsize ):
     #Design of Ponds & Lakes
     #   input: Imparea = Impervious Area to treat
     #          tarQ = Runoff reduction target
@@ -209,11 +215,13 @@ def design_WSUR(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
     tarTP *= tech_apps[1]
     tarTN *= tech_apps[1]
     
+    exfil = min(soilK, systemK)
+    
     if Aimp == 0:   #if there is no impervious area to design for, why bother?
         return [None, 1]
     #size the system
     if soilK != 0:
-        psystem = ddcv.retrieveDesign(dcv, "WSUR", soilK, [tarQ, tarTSS, tarTP, tarTN, 100])
+        psystem = ddcv.retrieveDesign(dcv, "WSUR", exfil, [tarQ, tarTSS, tarTP, tarTN, 100])
     else:
         psystem = np.inf    
     
@@ -248,7 +256,7 @@ def sizeStoreArea_WSUR(vol, sysdepth, minsize, maxsize):
     return [Areq, diff]    #No buffer for raintanks
 
 #---SWALES & BUFFER STRIPS [SW]-------------------------------------------------
-def design_SW(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
+def design_SW(Aimp, dcv, targets, tech_apps, soilK, systemK, minsize, maxsize ):
     #Design of Ponds & Lakes
     #   input: Imparea = Impervious Area to treat
     #          tarQ = Runoff reduction target
@@ -262,6 +270,8 @@ def design_SW(Aimp, dcv, targets, tech_apps, soilK, minsize, maxsize ):
     tarTSS *= tech_apps[1]
     tarTP *= tech_apps[1]
     tarTN *= tech_apps[1]
+    
+    exfil = min(soilK, systemK)
     
     dcSW = [[0,0.1,0.2,0.5,1.0,1.5,2,2.5,3], \
             [0,50,70,81,89,90,91,91.5,92], \
@@ -322,7 +332,7 @@ def sizeStoreArea_RT(vol, sysdepth, minsize, maxsize):
     
     surfarea = vol / sysdepth       #[sqm]
     Areq = surfarea
-    print "Area required: ", Areq
+    #print "Area required: ", Areq
     if surfarea < minsize:
         Areq = minsize
     if surfarea > maxsize:

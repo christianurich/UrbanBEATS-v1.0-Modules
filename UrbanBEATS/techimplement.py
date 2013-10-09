@@ -156,6 +156,7 @@ class Techimplement(Module):
 	self.sysAttr.getAttribute("Upgrades")
 	self.sysAttr.getAttribute("WDepth")
 	self.sysAttr.getAttribute("FDepth")
+        self.sysAttr.getAttribute("Exfil")
         
         #Views - Output
 	self.techimplAttr = View("WsudAttr",COMPONENT ,WRITE)	
@@ -177,6 +178,7 @@ class Techimplement(Module):
         self.techimplAttr.addAttribute("Upgrades")
         self.techimplAttr.addAttribute("WDepth")
         self.techimplAttr.addAttribute("FDepth")
+        self.techimplAttr.addAttribute("Exfil")
 
         #Datastream
 	datastream = []
@@ -370,6 +372,7 @@ class Techimplement(Module):
         sysAttr.addAttribute("Upgrades", sys.getAttribute("Upgrades").getDouble()) #Done in the retrofit/implementation part
         sysAttr.addAttribute("WDepth", sys.getAttribute("WDepth").getDouble()) #Done in the retrofit/implementation part
         sysAttr.addAttribute("FDepth", sys.getAttribute("FDepth").getDouble()) #Done in the retrofit/implementation part
+        sysAttr.addAttribute("Exfil", sys.getAttribute("Exfil").getDouble()) #Done in the retrofit/implementation part
         city.addComponent(sysAttr, self.techimplAttr)
         return True
     

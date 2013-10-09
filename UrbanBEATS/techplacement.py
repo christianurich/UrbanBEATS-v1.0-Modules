@@ -91,12 +91,12 @@ class Techplacement(Module):
         self.createParameter("runoff_pri", DOUBLE,"")
         self.createParameter("pollute_pri", DOUBLE,"")
         self.createParameter("harvest_pri",DOUBLE,"")
-        self.ration_runoff = True                #Design for flood mitigation?
+        self.ration_runoff = False                #Design for flood mitigation?
         self.ration_pollute = True               #Design for pollution management?
         self.ration_harvest = False              #Design for harvesting & reuse? Adds storage-sizing to certain systems
         self.runoff_pri = 0                      #Priority of flood mitigation?
-        self.pollute_pri = 0                     #Priority of pollution management?
-        self.harvest_pri = 1                     #Priority for harvesting & reuse
+        self.pollute_pri = 1                     #Priority of pollution management?
+        self.harvest_pri = 0                     #Priority for harvesting & reuse
 	
 	self.priorities = []            #ADVANCED PARAMETER, holds the final weights for MCA
 	
@@ -130,7 +130,7 @@ class Techplacement(Module):
         self.createParameter("service_hi", BOOL, "")
         self.createParameter("service_redundancy", DOUBLE, "")
         self.service_swmQty = 50                #required service level for stormwater management
-        self.service_swmWQ = 90                 #required service level for stormwater management
+        self.service_swmWQ = 80                 #required service level for stormwater management
         self.service_rec = 50                   #required service level for substituting potable water demand through recycling
         self.service_res = True
         self.service_hdr = True
@@ -138,6 +138,7 @@ class Techplacement(Module):
         self.service_li = True
         self.service_hi = True
         self.service_redundancy = 25
+        self.servicevector = []
         
         #STRATEGY CUSTOMIZE
         self.createParameter("strategy_lot_check", BOOL, "")
@@ -371,8 +372,10 @@ class Techplacement(Module):
         #Available Applications
         self.createParameter("BFflow", BOOL, "")
 	self.createParameter("BFpollute", BOOL,"")
+        self.createParameter("BFrecycle", BOOL, "")
         self.BFflow = True
 	self.BFpollute = True
+        self.BFrecycle = True
 	
         #Design Curves
         self.createParameter("BFdesignUB", BOOL,"")
@@ -386,13 +389,13 @@ class Techplacement(Module):
         self.createParameter("BFminsize", DOUBLE, "")
         self.createParameter("BFmaxsize", DOUBLE,"")
         self.createParameter("BFavglife", DOUBLE,"")
-        self.createParameter("BFlined", BOOL,"")
+        self.createParameter("BFexfil", DOUBLE,"")
         self.BFspec_EDD = 0.3
         self.BFspec_FD = 0.6
         self.BFminsize = 5              #minimum surface area of the system in sqm
         self.BFmaxsize = 999999         #maximum surface area of system in sqm
 	self.BFavglife = 20             #average life span of a biofilter
-        self.BFlined = True
+        self.BFexfil = 0
         
         #---GREEN ROOF [GR]---###TBA###-----------------------------------------
         self.createParameter("GRstatus", BOOL,"")
@@ -428,11 +431,13 @@ class Techplacement(Module):
         self.createParameter("ISminsize", DOUBLE, "")
         self.createParameter("ISmaxsize", DOUBLE,"")
         self.createParameter("ISavglife", DOUBLE,"")
+        self.createParameter("ISexfil", DOUBLE, "")
         self.ISspec_EDD = 0.2
         self.ISspec_FD = 0.8
         self.ISminsize = 5
         self.ISmaxsize = 99999          #maximum surface area of system in sqm
 	self.ISavglife = 20             #average life span of an infiltration system
+        self.ISexfil = 3.6
         
         #---GROSS POLLUTANT TRAP [GPT]------------------------------------------
         self.createParameter("GPTstatus", BOOL,"")
@@ -475,10 +480,12 @@ class Techplacement(Module):
         self.createParameter("PBminsize", DOUBLE, "")
         self.createParameter("PBmaxsize", DOUBLE,"")
         self.createParameter("PBavglife", DOUBLE,"")
+        self.createParameter("PBexfil", DOUBLE, "")
         self.PBspec_MD = "1.25" 	#need a string for the combo box
         self.PBminsize = 100
         self.PBmaxsize = 9999999           #maximum surface area of system in sqm
 	self.PBavglife = 20             #average life span of a pond/basin
+        self.PBexfil = 0.36
 
         #---POROUS/PERVIOUS PAVEMENT [PP]---###TBA###---------------------------
         self.createParameter("PPstatus", BOOL,"")
@@ -552,10 +559,12 @@ class Techplacement(Module):
         self.createParameter("WSURminsize", DOUBLE, "")
 	self.createParameter("WSURmaxsize", DOUBLE,"")
 	self.createParameter("WSURavglife", DOUBLE,"")
+        self.createParameter("WSURexfil", DOUBLE, "") 
         self.WSURspec_EDD = 0.75
         self.WSURminsize = 200
         self.WSURmaxsize = 9999999           #maximum surface area of system in sqm
 	self.WSURavglife = 20             #average life span of a wetland
+        self.WSURexfil = 0.36
 
         #---SWALES & BUFFER STRIPS [SW]-----------------------------------------
         self.createParameter("SWstatus", BOOL,"")
@@ -582,10 +591,12 @@ class Techplacement(Module):
         self.createParameter("SWminsize", DOUBLE, "")
         self.createParameter("SWmaxsize", DOUBLE,"")
         self.createParameter("SWavglife", DOUBLE,"")
+        self.createParameter("SWexfil", DOUBLE, "")
         self.SWspec = 0
         self.SWminsize = 20
         self.SWmaxsize = 9999           #maximum surface area of system in sqm
 	self.SWavglife = 20             #average life span of a swale
+        self.SWexfil = 3.6              
         
         #---TREE PITS [TPS]---###TBA###-----------------------------------------
         self.createParameter("TPSstatus", BOOL,"")
@@ -694,7 +705,7 @@ class Techplacement(Module):
         self.evapfile = "C:/UrbanBEATSv1Dev/ub_modules/resources/MelbourneEvap1998-2007-Day.csv"
         self.createParameter("evap_dt", DOUBLE, "")
         self.evap_dt = 1440     #[mins]
-        self.lot_raintanksizes = [1,2,4,5,7.5,10,15,20]       #[kL]
+        self.lot_raintanksizes = [1,2,3,4,5,7.5,10,15,20]       #[kL]
         self.raindata = []      #Globals to contain the data time series
         self.evapdata = []
         self.evapscale = []
@@ -763,6 +774,7 @@ class Techplacement(Module):
 	self.sysAttr.getAttribute("Upgrades")
 	self.sysAttr.getAttribute("WDepth")
 	self.sysAttr.getAttribute("FDepth")
+        self.sysAttr.getAttribute("Exfil")
         
         self.wsudAttr = View("WsudAttr", COMPONENT, WRITE)
 	self.wsudAttr.addAttribute("StrategyID")
@@ -783,6 +795,7 @@ class Techplacement(Module):
 	self.wsudAttr.addAttribute("Upgrades")
 	self.wsudAttr.addAttribute("WDepth")
 	self.wsudAttr.addAttribute("FDepth")
+        self.wsudAttr.addAttribute("Exfil")
 	
 	#Datastream
 	datastream = []
@@ -809,6 +822,9 @@ class Techplacement(Module):
         self.system_tarTN = self.ration_pollute * self.targets_TN
         self.system_tarREL = self.ration_harvest * self.targets_reliability
         self.targetsvector = [self.system_tarQ, self.system_tarTSS, self.system_tarTP, self.system_tarTN, self.system_tarREL]
+        print self.targetsvector
+        self.servicevector = [self.service_swmQty, self.service_swmWQ, self.service_rec]
+        print self.servicevector
         self.sysdepths = {"RT": self.RT_maxdepth - self.RT_mindead, "GW": 1, "WSUR": self.WSURspec_EDD, "PB": self.PBspec_MD}
         #---> targetsvector TO BE USED TO ASSESS OPPORTUNITIES
         
@@ -1033,67 +1049,48 @@ class Techplacement(Module):
             print "Currently on Basin ID"+str(currentBasinID)
             
             basinBlockIDs, outletID = self.getBasinBlockIDs(currentBasinID, blocks_num, city)
-            basinEIA = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Blk_EIA", "sum")
-            #basinDem = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Pop", "sum")        #>>> FUture
+            print "basinBlockIDs", basinBlockIDs, outletID
             
-            #Calculate the Basin's Remaining Service Level required
-            basinTreated = self.retrieveAttributeFromIDs(city, basinBlockIDs, "ServedIA", "sum")        #All in-block treated
-            basinTreated += self.retrieveAttributeFromIDs(city, basinBlockIDs, "UpstrImpTreat", "sum")  #All upstream treated
+            dP_QTY, basinRemainQTY, basinTreatedQTY, basinEIA = self.calculateRemainingService("QTY", basinBlockIDs, city)
+            dP_WQ, basinRemainWQ, basinTreatedWQ, basinEIA = self.calculateRemainingService("WQ", basinBlockIDs, city)
+            dP_REC, basinRemainREC, basinTreatedREC, basinDem = self.calculateRemainingService("REC", basinBlockIDs, city)
             
-            print "Served IA ", basinTreated
-            basinremainEIA = max(basinEIA - basinTreated, 0)
+            print "Basin Totals: ", [basinRemainQTY, basinRemainWQ, basinRemainREC]
+            print "Previous Treated Efficiency for: ", [basinTreatedQTY/basinEIA, basinTreatedWQ/basinEIA, basinTreatedREC/basinDem]
+            print "Must choose a strategy now that treats: ", [dP_QTY*100, dP_WQ*100, dP_REC*100], "% of basin"
+            
             subbasPartakeIDs = self.findSubbasinPartakeIDs(basinBlockIDs, subbas_options) #Find locations of possible WSUD
-            prevBasinService = basinTreated/basinEIA
-            if max(1 - prevBasinService, 0) == 0:
-                delta_percentWQ == 0
-            else:
-                delta_percentWQ = (self.service_swmWQ/100 - prevBasinService) / (1 - prevBasinService)        #Relative amount of service level to achieve
-            #e.g. 90% wanted, 80% achieved, hence need to provide extra 10% of service on 20% of remaining area i.e achieve 50% on 100% of area
             
-            delta_percentQty = self.service_swmQty    ###>>>>>> FUTURE CHANGE THESE BASED ON TRACKING RETROFIT
-            delta_percentRec = self.service_rec
-            updatedService = [delta_percentQty, delta_percentWQ, delta_percentRec]
+            updatedService = [dP_QTY, dP_WQ, dP_REC]
             
-            print "Previous Treatment Efficiency: "+str(prevBasinService)
-            print "must choose a strategy now that treats: "+str(delta_percentWQ*100)+ "% of basin"
-            
-            if basinremainEIA == 0:   # and basinPop == 0 and basinPubspace == 0:     >>>FUTURE
-                #print "Basin ID: ", currentBasinID, " has no effective impervious area, skipping!"
+            #SKIP CONDITIONS
+            if basinRemainQTY == 0 and basinRemainWQ == 0 and basinRemainREC == 0:
+                #print "Basin ID: ", currentBasinID, " has no remaining service requirements, skipping!"
+                continue
+            if sum(updatedService) == 0:
                 continue
             
-            iterations = 1000   #MONTE CARLO ITERATIONS - CAN SET TO SENSITIVITY VALUE IN FUTURE RELATIVE TO BASIN SIZE
+            iterations = 5000   #MONTE CARLO ITERATIONS - CAN SET TO SENSITIVITY VALUE IN FUTURE RELATIVE TO BASIN SIZE
             
             if len(basinBlockIDs) == 1: #if we are dealing with a single-block basin, reduce the number of iterations
-                iterations = 10
+                iterations = 100        #If only one block in basin, do different/smaller number of iterations
             #Begin Monte Carlo
             basin_strategies = []
             for iteration in range(iterations):   #1000 monte carlo simulations
-                print "Current Iteration No. ", iteration+1
-
-                #Create template arrays for sampling and tracking
-                partakeIDstracker = []
-                partakeIDssampler = []
-                basinblockIDssampler = []
-                #subbasID_treatedAimp = []
-                for id in subbasPartakeIDs:
-                    partakeIDstracker.append(id)
-                    partakeIDssampler.append(id)
-                    #subbasID_treatedAimp.append(0)
-                for id in basinBlockIDs:
-                    basinblockIDssampler.append(id)
-                
+                print "Current Iteration No. ", iteration+1                
                 #Draw Samples
-                subbas_chosenIDs, inblocks_chosenIDs = self.selectTechLocationsByRandom(partakeIDssampler, basinblockIDssampler)
-                #print subbas_chosenIDs
+                subbas_chosenIDs, inblocks_chosenIDs = self.selectTechLocationsByRandom(subbasPartakeIDs, basinBlockIDs)
+                #print "Selected Locations: Subbasins ", subbas_chosenIDs, " In Blocks ", inblocks_chosenIDs
+                
                 #Create the Basin Management Strategy Object
-                basinDem = np.inf
                 current_bstrategy = tt.BasinManagementStrategy(iteration+1, currentBasinID, 
                                                                basinBlockIDs, subbasPartakeIDs, 
-                                                               [basinremainEIA,basinremainDem])
+                                                               [basinRemainQTY, basinRemainWQ, basinRemainREC])
                 
                 #Populate Basin Management Strategy Object based on the current sampled values
                 self.populateBasinWithTech(current_bstrategy, subbas_chosenIDs, inblocks_chosenIDs, 
-                                           partakeIDstracker, inblock_options, subbas_options, basinBlockIDs, city)
+                                           inblock_options, subbas_options, basinBlockIDs, city)
+                
                 tt.updateBasinService(current_bstrategy)
                 
                 tt.calculateBasinStrategyMCAScores(current_bstrategy,self.priorities, self.mca_techlist, self.mca_tech, \
@@ -1102,7 +1099,6 @@ class Techplacement(Module):
                                                                self.bottomlines_ecn_w, self.bottomlines_soc_w])
                 
                 #Add basin strategy to list of possibilities
-                
                 service_objfunc = self.evaluateServiceObjectiveFunction(current_bstrategy, updatedService)        #Calculates how well it meets the total service
 
                 basin_strategies.append([service_objfunc,current_bstrategy.getServicePvalues(), current_bstrategy.getTotalMCAscore(), current_bstrategy])
@@ -1195,6 +1191,7 @@ class Techplacement(Module):
         #Determine impervious area to deal with depending on scale
         currentAttList = self.getBlockUUID(ID,city)
         ksat = currentAttList.getAttribute("Soil_k").getDouble()
+        sysexfil = sys_descr.getAttribute("Exfil").getDouble()
         Asyseff = sys_descr.getAttribute("SysArea").getDouble()/sys_descr.getAttribute("EAFact").getDouble()
         type = sys_descr.getAttribute("Type").getString()
         #need to be using the effective area, not the planning area
@@ -1216,7 +1213,7 @@ class Techplacement(Module):
         #Depending on the type of system and classification, will need to retrieve design in different
         #ways
         if type in ["BF", "SW", "WSUR", "PB", "IS"]:    #DESIGN by DCV Systems
-            sys_perc = dcv.retrieveDesign(self.getDCVPath(type), type, ksat, self.targetsvector)
+            sys_perc = dcv.retrieveDesign(self.getDCVPath(type), type, min(ksat, sysexfil), self.targetsvector)
             print "Sys Percentage: ", sys_perc
         elif type in ["RT", "PP", "ASHP", "GW"]:        #DESIGN by EQN or SIM Systems
             #Other stuff
@@ -1328,6 +1325,7 @@ class Techplacement(Module):
         maxsize = eval("self."+str(type)+"maxsize")                     #FUTURE >>>>>> MULTI-oBJECTIVE DESIGN
         minsize = eval("self."+str(type)+"minsize")
         soilK = currentAttList.getAttribute("Soil_k").getDouble()
+        systemK = sys_descr.getAttribute("Exfil").getDouble()
         
         #Current targets
         targets = self.targetsvector
@@ -1335,7 +1333,7 @@ class Techplacement(Module):
         purpose = [0, tech_applications[1], 0]
 
         #Call the design function using eval, due to different system Types
-        newdesign = eval('td.design_'+str(type)+'('+str(originalAimpTreated)+',"'+str(dcvpath)+'",'+str(self.targetsvector)+','+str(purpose)+','+str(soilK)+','+str(minsize)+','+str(maxsize)+')')    
+        newdesign = eval('td.design_'+str(type)+'('+str(originalAimpTreated)+',"'+str(dcvpath)+'",'+str(self.targetsvector)+','+str(purpose)+','+str(soilK)+','+str(systemK)+','+str(minsize)+','+str(maxsize)+')')    
         
         Anewsystem = newdesign[0]
         newEAFactor = newdesign[1]
@@ -1410,9 +1408,9 @@ class Techplacement(Module):
                 sys_descr.changeAttribute("CurImpT", imptreated * sys_descr.getAttribute("Qty").getDouble())
                 #Do Nothing Scenario: ImpT changes and CurImpT changes, but Status remains 1
                 
-        currentAttList.addAttribute("ServedIA", inblock_imp_treated)
+        currentAttList.addAttribute("ServWQ", inblock_imp_treated)
         inblock_impdeficit = max(currentAttList.getAttribute("Blk_EIA").getDouble() - inblock_imp_treated, 0)
-        currentAttList.addAttribute("DeficitIA", inblock_impdeficit)
+        currentAttList.addAttribute("DeficitWQ", inblock_impdeficit)
         print "Deficit Area still to treat inblock: ", str(inblock_impdeficit)
         
         #Calculate the maximum degree of lot implementation allowed (no. of houses)
@@ -1427,12 +1425,12 @@ class Techplacement(Module):
         sys_descr = self.locatePlannedSystems(sys_implement, "B",city)
         if sys_descr == None:
             currentAttList.addAttribute("HasBSys", 0)
-            currentAttList.addAttribute("UpstrImpTreat", 0)
+            currentAttList.addAttribute("ServUpWQ", 0)
         else:
             currentAttList.addAttribute("HasBSys", 1)
             subbasimptreated = self.retrieveNewAimpTreated(ID, "B", sys_descr,city)
             print "Subbasin Location: ", str(sys_descr.getAttribute("Location").getDouble())
-            currentAttList.addAttribute("UpstrImpTreat", subbasimptreated)
+            currentAttList.addAttribute("ServUpWQ", subbasimptreated)
             sys_descr.changeAttribute("ImpT", subbasimptreated)
             sys_descr.changeAttribute("CurImpT", subbasimptreated * sys_descr.getAttribute("Qty").getDouble())
         return True
@@ -1516,7 +1514,7 @@ class Techplacement(Module):
                 sys_implement.remove(sys_descr)
                 city.removeComponent(sys_descr.getUUID())
                 
-        currentAttList.addAttribute("ServedIA", inblock_imp_treated)
+        currentAttList.addAttribute("ServWQ", inblock_imp_treated)
         inblock_impdeficit = max(currentAttList.getAttribute("Blk_EIA").getDouble() - inblock_imp_treated, 0)
         currentAttList.addAttribute("DeficitIA", inblock_impdeficit)
         
@@ -1540,7 +1538,7 @@ class Techplacement(Module):
             if decision == 1: #KEEP
                 print "Keeping the System"
                 currentAttList.addAttribute("HasBSys", 1)
-                currentAttList.addAttribute("UpstrImpTreat", newImpT)
+                currentAttList.addAttribute("ServUpWQ", newImpT)
                 sys_descr.changeAttribute("ImpT", newImpT)
                 sys_descr.changeAttribute("CurImpT", newImpT * sys_descr.getAttribute("Qty").getDouble())
             
@@ -1551,12 +1549,12 @@ class Techplacement(Module):
                 if newAsys > avlSpace and self.renewal_alternative == "K": #if system does not fit and alternative is 'Keep'
                     print "Cannot fit new system design, keeping old design instead"
                     currentAttList.addAttribute("HasBSys", 1)
-                    currentAttList.addAttribute("UpstrImpTreat", newImpT)
+                    currentAttList.addAttribute("ServUpWQ", newImpT)
                     sys_descr.changeAttribute("ImpT", newImpT)
                     sys_descr.changeAttribute("CurImpT", newImpT * sys_descr.getAttribute("Qty").getDouble())
                 elif newAsys > avlSpace and self.renewal_alternative == "D": #if system does not fit and alternative is 'Decommission'
                     print "Cannot fit new system design, decommissioning instead"
-                    currentAttList.addAttribute("UpstrImpTreat", 0)
+                    currentAttList.addAttribute("ServUpWQ", 0)
                     currentAttList.addAttribute("HasBSys", 0) #Remove system placeholder
                     sys_implement.remove(sys_descr)
                     city.removeComponent(sys_descr.getUUID())
@@ -1564,11 +1562,11 @@ class Techplacement(Module):
                     print "New System Upgrades fit, transferring this information to output"
                     currentAttList.addAttribute("HasBSys", 1)
                     self.defineUpgradedSystemAttributes(sys_descr, newAsys, newEAFact, oldImp)
-                    currentAttList.addAttribute("UpstrImpTreat", oldImp)        #OLD IMP BECAUSE THE REDESIGNED SYSTEM IS NOW LARGER
+                    currentAttList.addAttribute("ServUpWQ", oldImp)        #OLD IMP BECAUSE THE REDESIGNED SYSTEM IS NOW LARGER
                                                                                 #AND BETTER TO HANDLE SAME IMP AREA AS BEFORE!
             elif decision == 3: #DECOMMISSIONING
                 print "Decommissioning the system"
-                currentAttList.addAttribute("UpstrImpTreat", 0)
+                currentAttList.addAttribute("ServUpWQ", 0)
                 #remove all attributes, wipe the attributes entry in techconfigout with a blank attribute object
                 currentAttList.addAttribute("HasSubbasS", 0)
                 sys_implement.remove(sys_descr)
@@ -1695,7 +1693,7 @@ class Techplacement(Module):
                 sys_implement.remove(sys_descr)
                 city.removeComponent(sys_descr.getUUID())
                 
-        currentAttList.addAttribute("ServedIA", inblock_imp_treated)
+        currentAttList.addAttribute("ServWQ", inblock_imp_treated)
         inblock_impdeficit = max(currentAttList.getAttribute("Blk_EIA").getDouble() - inblock_imp_treated, 0)
         currentAttList.addAttribute("DeficitIA", inblock_impdeficit)
         
@@ -1726,7 +1724,7 @@ class Techplacement(Module):
             if decision == 1: #keep
                 print "Keeping the System"
                 currentAttList.addAttribute("HasBSys", 1)
-                currentAttList.addAttribute("UpstrImpTreat", newImpT)
+                currentAttList.addAttribute("ServUpWQ", newImpT)
                 sys_descr.changeAttribute("ImpT", newImpT)
                 sys_descr.changeAttribute("CurImpT", newImpT * sys_descr.getAttribute("Qty").getDouble())
             
@@ -1737,12 +1735,12 @@ class Techplacement(Module):
                 if newAsys > avlSpace and self.renewal_alternative == "K": #if system does not fit and alternative is 'Keep'
                     print "Cannot fit new system design, keeping old design instead"
                     currentAttList.addAttribute("HasBSys", 1)
-                    currentAttList.addAttribute("UpstrImpTreat", newImpT)
+                    currentAttList.addAttribute("ServUpWQ", newImpT)
                     sys_descr.changeAttribute("ImpT", newImpT)
                     sys_descr.changeAttribute("CurImpT", newImpT * sys_descr.getAttribute("Qty").getDouble())
                 elif newAsys > avlSpace and self.renewal_alternative == "D": #if system does not fit and alternative is 'Decommission'
                     print "Cannot fit new system design, decommissioning instead"
-                    currentAttList.addAttribute("UpstrImpTreat", 0)
+                    currentAttList.addAttribute("ServUpWQ", 0)
                     currentAttList.addAttribute("HasBSys", 0) #Remove system placeholder
                     sys_implement.remove(sys_descr)
                     city.removeComponent(sys_descr.getUUID())
@@ -1750,11 +1748,11 @@ class Techplacement(Module):
                     print "New System Upgrades fit, transferring this information to output"
                     currentAttList.addAttribute("HasBSys", 1)
                     self.defineUpgradedSystemAttributes(sys_descr, newAsys, newEAFact, oldImp)
-                    currentAttList.addAttribute("UpstrImpTreat", oldImp)        #OLD IMP BECAUSE THE REDESIGNED SYSTEM IS NOW LARGER
+                    currentAttList.addAttribute("ServUpWQ", oldImp)        #OLD IMP BECAUSE THE REDESIGNED SYSTEM IS NOW LARGER
                                                                                 #AND BETTER TO HANDLE SAME IMP AREA AS BEFORE!
             elif decision == 3: #DECOMMISSIONING
                 print "Decommissioning the system"
-                currentAttList.addAttribute("UpstrImpTreat", 0)
+                currentAttList.addAttribute("ServUpWQ", 0)
                 #remove all attributes, wipe the attributes entry in techconfigout with a blank attribute object
                 currentAttList.addAttribute("HasSubbasS", 0)
                 sys_implement.remove(sys_descr)
@@ -2234,11 +2232,18 @@ class Techplacement(Module):
             design_Dem = 0
         #print "Design Demand :", design_Dem
         
+        #Get Soil K to use for theoretical system design
+        if techabbr in ["BF", "SW", "IS", "WSUR", "PB"]:
+            systemK = eval("self."+str(techabbr)+"exfil")
+        else:
+            systemK = 0
+        #print systemK
+        
         #print techabbr
         #OBJECTIVE 1 - Design for Runoff Control
         if tech_applications[0] == 1:
             purpose = [tech_applications[0], 0, 0]
-            AsystemQty = eval('td.design_'+str(techabbr)+'('+str(Adesign_imp)+',"'+str(dcvpath)+'",'+str(self.targetsvector)+','+str(purpose)+','+str(soilK)+','+str(minsize)+','+str(maxsize)+')')
+            AsystemQty = eval('td.design_'+str(techabbr)+'('+str(Adesign_imp)+',"'+str(dcvpath)+'",'+str(self.targetsvector)+','+str(purpose)+','+str(soilK)+','+str(systemK)+','+str(minsize)+','+str(maxsize)+')')
             #print AsystemQty
         else:
             AsystemQty = [None, 1]
@@ -2247,7 +2252,7 @@ class Techplacement(Module):
         #OBJECTIVE 2 - Design for WQ Control
         if tech_applications[1] == 1:
             purpose = [0, tech_applications[1], 0]
-            AsystemWQ = eval('td.design_'+str(techabbr)+'('+str(Adesign_imp)+',"'+str(dcvpath)+'",'+str(self.targetsvector)+','+str(purpose)+','+str(soilK)+','+str(minsize)+','+str(maxsize)+')')    
+            AsystemWQ = eval('td.design_'+str(techabbr)+'('+str(Adesign_imp)+',"'+str(dcvpath)+'",'+str(self.targetsvector)+','+str(purpose)+','+str(soilK)+','+str(systemK)+','+str(minsize)+','+str(maxsize)+')')    
             #print AsystemWQ
         else:
             AsystemWQ = [None, 1]
@@ -2256,20 +2261,52 @@ class Techplacement(Module):
         
         #OBJECTIVE 3 - If system type permits storage, design for Recycling
         if tech_applications[2] == 1 and storeObj != np.inf:
+            #First design for WQ control (assume raintanks don't treat for now)
+            purpose = [0, 1, 0]
+            if techabbr in ["RT", "GW"]:
+                AsystemRecWQ = [0, 1]
+            else:
+                AsystemRecWQ = eval('td.design_'+str(techabbr)+'('+str(Adesign_imp)+',"'+str(dcvpath)+'",'+str(self.targetsvector)+','+str(purpose)+','+str(soilK)+','+str(systemK)+','+str(minsize)+','+str(maxsize)+')')    
+            
             if techabbr in ["RT", "GW", "WSUR", "PB"]:        #Then design storage
-                addstore = True
                 sysdepth = self.sysdepths[techabbr]
                 vol = storeObj.getSize()
-                AsystemRec = eval('td.sizeStoreArea_'+str(techabbr)+'('+str(vol)+','+str(sysdepth)+','+str(0)+','+str(9999)+')')
+                print vol
+                if vol == np.inf:       #Strange error where volume return is inf, yet the name 'inf' is not defined
+                    vol = np.inf
+                AsystemRecQty = eval('td.sizeStoreArea_'+str(techabbr)+'('+str(vol)+','+str(sysdepth)+','+str(0)+','+str(9999)+')')
+                if AsystemRecQty[0] > AsystemRecWQ[0]:
+                    AsystemRec = AsystemRecQty
+                else:
+                    AsystemRec = AsystemRecWQ
+                addstore = [storeObj, AsystemRec[0], techabbr, 1]    #Input arguments to addstore function
+            elif techabbr in ["BF"]:    #Special Case BF where you have multi-tech combination
+                vol = storeObj.getSize()
+                if curscale in ["L"]:
+                    sysdepth = self.sysdepths["RT"]
+                    AsystemRecQty = eval('td.sizeStoreArea_RT('+str(vol)+','+str(sysdepth)+','+str(0)+','+str(9999)+')')
+                    addstore = [storeObj, AsystemRecQty, "RT", 0]
+                elif curscale in ["N", "B"]:
+                    sysdepth = self.sysdepths["PB"]
+                    AsystemRecQty = eval('td.sizeStoreArea_PB('+str(vol)+','+str(sysdepth)+','+str(0)+','+str(9999)+')')
+                    addstore = [storeObj, AsystemRecQty, "PB", 0]
+                #Calculate new area by adding BF area to Pond/Tank Area
+                if AsystemRecWQ[0] in [np.inf or None] or AsystemRecQty[0] in [None]:
+                    AsystemRec = [None, 1]
+                else:
+                    AsystemRec = [AsystemRecWQ[0] + AsystemRecQty[0], AsystemRecWQ]       #Planning Area to check for
             else:
-                addstore = False
+                addstore = []
                 AsystemRec = [None, 1]
         else:
-            addstore = False
+            addstore = []
             AsystemRec = [None, 1]        #[surface area, area factor, storage volume], the only exception
         
         if AsystemRec[0] > Asystem[0]:
-            Asystem = AsystemRec        #If area for recycling is bigger, choose that instead
+            if techabbr in ["RT", "GW", "WSUR", "PB"]:  #Integrated storage systems
+                Asystem = AsystemRec     #If area for recycling is bigger, choose that instead
+            elif techabbr in ["BF"]:            #Non-integrated storage systems
+                Asystem = AsystemRec[1]  #If system is a biofilter, add surf area to the system's main attr, add the store area as additional
         #print "Final design outcome for :", techabbr, Asystem
         if Asystem[0] < avail_sp and Asystem[0] != None:        #if it fits and is NOT a NoneType
             #print "Fits"
@@ -2283,8 +2320,8 @@ class Techplacement(Module):
             servicematrixstring = tt.convertArrayToDBString(servicematrix)
             self.dbcurs.execute("INSERT INTO watertechs VALUES ("+str(currentID)+",'"+str(techabbr)+"',"+str(Asystem[0])+",'"+curscale+"','"+str(servicematrixstring)+"',"+str(Asystem[1])+",'"+str(landuse)+"',"+str(incr)+")")
             sys_object = tt.WaterTech(techabbr, Asystem[0], curscale, servicematrix, Asystem[1], landuse, currentID)
-            if addstore:
-                sys_object.addRecycledStoreToTech(storeObj)     #If analysis showed that system can accommodate store, add the store object
+            if len(addstore) != 0:
+                sys_object.addRecycledStoreToTech(addstore[0], addstore[1], addstore[2], addstore[3])     #If analysis showed that system can accommodate store, add the store object
             sys_object.setDesignIncrement(incr)
             return sys_object
         else:
@@ -2376,7 +2413,6 @@ class Techplacement(Module):
         
         Aimplot = currentAttList.getAttribute("ResLotEIA").getDouble()
         Aimphdr = currentAttList.getAttribute("HDR_EIA").getDouble()
-        #Pop = currentAttList.getAttribute("Pop").getDouble()                   #>>>>>>>>>>>>>>> POP
         
         #Size a combination of stormwater harvesting stores
         if bool(int(self.ration_harvest)):
@@ -2391,22 +2427,29 @@ class Techplacement(Module):
             dcvpath = self.getDCVPath(j)
             for neigh_deg in self.neigh_incr:
                 #print "Current Neigh Deg: ", neigh_deg
-                if neigh_deg == 0:
-                    continue
-                curStoreObjs = neighSWstores[neigh_deg]
+                if neigh_deg == 0: continue
                 Aimptotreat = neigh_deg * AblockEIA
-                for supplyincr in self.neigh_incr:
-                    if supplyincr == 0: continue
-                    storeObj = curStoreObjs[supplyincr]
-                    if Aimptotreat > 0.0001:
+                if bool(int(self.ration_harvest)):
+                    curStoreObjs = neighSWstores[neigh_deg]
+                    for supplyincr in self.neigh_incr:
+                        if supplyincr == 0 or Aimptotreat < 0.0001: 
+                            continue
+                        storeObj = curStoreObjs[supplyincr]
                         sys_object = self.designTechnology(neigh_deg, Aimptotreat, j, dcvpath, tech_applications,
-                                                           soilK, minsize, maxsize, totalavailable, "Neigh", currentID,
-                                                           storeObj)
-                        if sys_object == 0:
-                            pass
-                        else:
+                                         soilK, minsize, maxsize, totalavailable, "Neigh", currentID, storeObj)
+                        if sys_object != 0:
                             sys_object.setDesignIncrement(neigh_deg)
                             technologydesigns.append(sys_object)
+                else:
+                    if Aimptotreat < 0.0001:
+                        continue
+                    storeObj = np.inf
+                    sys_object = self.designTechnology(neigh_deg, Aimptotreat, j, dcvpath, tech_applications,
+                                                       soilK, minsize, maxsize, totalavailable, "Neigh", currentID, storeObj) 
+                    if sys_object != 0:
+                        sys_object.setDesignIncrement(neigh_deg)
+                        technologydesigns.append(sys_object)
+                    
 #            for lot_deg in self.lot_incr:
 #                Aimpremain = AblockEIA - lot_deg*allotments*Aimplot - lot_deg*Aimphdr
 #                for neigh_deg in self.neigh_incr:
@@ -2455,9 +2498,7 @@ class Techplacement(Module):
         
         #CONDITION 3: Get Block's upstream Impervious area
         upstreamImp = self.retrieveAttributeFromIDs(city, upstreamIDs, "Blk_EIA", "sum")
-        upstreamPop = self.retrieveAttributeFromIDs(city, upstreamIDs, "Pop", "sum")
-#        upstreamPublicSpace = self.retrieveAttributeFromIDs(city, upstreamIDs, "PubSpace", "sum")
-        if upstreamImp < 0.0001 and upstreamPop < 1: #and upstreamPublicSpace < 0.0001:
+        if upstreamImp < 0.0001:
             #print "Total Upstream Impervious Area: ", upstreamImp, "less than threshold"
             return technologydesigns
         
@@ -2480,23 +2521,27 @@ class Techplacement(Module):
                 #print "Current Basin Deg: ", bas_deg
                 if bas_deg == 0:
                     continue
-                curStoreObjs = subbasSWstores[bas_deg]  #current dict of possible stores based on harvestable area (bas_Deg)
                 Aimptotreat = upstreamImp * bas_deg
-                Apoptoserve = upstreamPop * bas_deg
 #                print "Aimp to treat: ", Aimptotreat
                 #Loop across all options in curStoreObj
-                for supplyincr in self.subbas_incr:
-                    if supplyincr == 0: continue
-                    storeObj = curStoreObjs[supplyincr]
-                    if Aimptotreat > 0.0001 and Apoptoserve > 0:
-                        sys_object = self.designTechnology(bas_deg, Aimptotreat, j, 
-                                                           dcvpath, tech_applications, soilK, minsize, 
-                                                           maxsize, totalavailable, "Subbas", currentID, storeObj)
-                        if sys_object == 0:
-                            pass
-                        else:
+                if bool(int(self.ration_harvest)):
+                    curStoreObjs = subbasSWstores[bas_deg]  #current dict of possible stores based on harvestable area (bas_Deg)
+                    for supplyincr in self.subbas_incr:
+                        if supplyincr == 0 or Aimptotreat < 0.0001: 
+                            continue
+                        storeObj = curStoreObjs[supplyincr]
+                        sys_object = self.designTechnology(bas_deg, Aimptotreat, j, dcvpath, tech_applications, 
+                                        soilK, minsize, maxsize, totalavailable, "Subbas", currentID, storeObj)
+                        if sys_object != 0:
                             sys_object.setDesignIncrement(bas_deg)
                             technologydesigns[bas_deg].append(sys_object)
+                else:
+                    storeObj = np.inf
+                    sys_object = self.designTechnology(bas_deg, Aimptotreat, j, dcvpath, tech_applications, 
+                                        soilK, minsize, maxsize, totalavailable, "Subbas", currentID, storeObj)
+                    if sys_object != 0:
+                        sys_object.setDesignIncrement(bas_deg)
+                        technologydesigns[bas_deg].append(sys_object)
         return technologydesigns
 
     def constructInBlockOptions(self, currentAttList, lot_techRES, lot_techHDR, lot_techLI, 
@@ -2586,13 +2631,13 @@ class Techplacement(Module):
                     #print servicematrix
                     
                     if servicematrix[0] > AblockEIA or servicematrix[1] > AblockEIA:
-                        print "Overtreatment on Qty or WQ side"
+                        #print "Overtreatment on Qty or WQ side"
                         continue
                     elif servicematrix[2] > blockDem: #CHANGE TO DEMAND!
-                        print "Oversupply of demand"
+                        #print "Oversupply of demand"
                         continue
                     else:
-                        print "Strategy is fine"
+                        #print "Strategy is fine"
                         #Create Block Strategy and put it into one of the subbas bins of allInBlockOptions
                         servicebin = self.identifyBin(servicematrix, AblockEIA, blockDem)
                         blockstrat = tt.BlockStrategy(combo, servicematrix, lotcounts, currentID, servicebin)
@@ -2668,26 +2713,21 @@ class Techplacement(Module):
         which bin a BlockStrategy should go into"""
         servicelevels = [servicematrix[0]/AblockEIA, servicematrix[1]/AblockEIA, servicematrix[2]/totdemand]
         
-        #bracketwidth = 1.0/float(self.subbas_rigour)   #Used to bin the score within the bracket and penalise MCA score
+        bracketwidth = 1.0/float(self.subbas_rigour)   #Used to bin the score within the bracket and penalise MCA score
         blockstratservice = max(servicelevels)
         #print "Maximum service achieved is: ", blockstratservice, servicelevels
         for i in self.subbas_incr:      #[0(skip), 0.25, 0.5, 0.75, 1.0]
-            if i == 0:
-                continue        #Skip the zero increment
-            if blockstratservice < i:   #bins will go from 0 to 0.25, 0.25, to 0.5 etc. (similar for other incr)
+            #Identify Bin using 'less than' rule. Will skip the zero increment bin!
+            #if blockstratservice < i:   #bins will go from 0 to 0.25, 0.25, to 0.5 etc. (similar for other incr)
+            #    return i
+            #else:
+            #    continue
+            
+            #Identify Bin using Bracket
+            if blockstratservice >= max((i-(bracketwidth/2)),0) and blockstratservice <= min((i+(bracketwidth/2)),1):
                 return i
-#            if i == 0:
-#                if blockstratservice < i:
-#                    return i
-#                else:
-#                    continue
-#            if servicelevel > (i-(bracketwidth/2)) and servicelevel < (i+(bracketwidth/2)):
-#                return i
-#            if i == 1:
-#                if servicelevel > (i-(bracketwidth/2)) and servicelevel < i:
-#                    return i
-#                else:
-#                    continue
+            else:
+                continue
         return max(self.subbas_incr)
         
     def getBasinBlockIDs(self, currentBasinID, numblocks, city):
@@ -2734,185 +2774,261 @@ class Techplacement(Module):
         """Samples by random a number of sub-basin scale technologies and in-block locations
         for the model to place technologies in, returns two arrays: one of the chosen
         sub-basin IDs and one of the chosen in-block locations"""
-        techs_subbas = random.randint(0,len(partakeIDs))
+        partakeIDsTEMP = []     #Make copies of the arrays to prevent reference-modification
+        for i in partakeIDs:
+            partakeIDsTEMP.append(i)
+        basinblockIDsTEMP = []
+        for i in basinblockIDs:
+            basinblockIDsTEMP.append(i)
+            
+        techs_subbas = random.randint(0,len(partakeIDsTEMP))
         subbas_chosenIDs = []
         for j in range(techs_subbas):
-            sample_index = random.randint(0,len(partakeIDs)-1)
-            subbas_chosenIDs.append(partakeIDs[sample_index])
-            basinblockIDs.remove(partakeIDs[sample_index]) #remove from blocks posisbilities
-            partakeIDs.pop(sample_index) #pop the value from the partake list
+            sample_index = random.randint(0,len(partakeIDsTEMP)-1)
+            subbas_chosenIDs.append(partakeIDsTEMP[sample_index])
+            basinblockIDsTEMP.remove(partakeIDsTEMP[sample_index]) #remove from blocks posisbilities
+            partakeIDsTEMP.pop(sample_index)    #pop the value from the partake list
         
-        techs_blocks = random.randint(0, len(basinblockIDs))
+        techs_blocks = random.randint(0, len(basinblockIDsTEMP))
         inblocks_chosenIDs = []
         for j in range(techs_blocks):
-            sample_index = random.randint(0,len(basinblockIDs)-1)       #If sampling an index, must subtract 1 from len()
-            inblocks_chosenIDs.append(basinblockIDs[sample_index])
-            basinblockIDs.pop(sample_index)
+            sample_index = random.randint(0,len(basinblockIDsTEMP)-1)       #If sampling an index, must subtract 1 from len()
+            inblocks_chosenIDs.append(basinblockIDsTEMP[sample_index])
+            basinblockIDsTEMP.pop(sample_index)
         
         #Reset arrays
-        basinblockIDs = []
-        partakeIDs = []
-    
+        basinblockIDsTEMP = []
+        partakeIDsTEMP = []
         return subbas_chosenIDs, inblocks_chosenIDs
     
+    def calculateRemainingService(self, type, basinBlockIDs, city):
+        """Assesses the alread treated area/demand for the current basin and returns
+        the remaining area/demand to be treated with a strategy.
+            - Type: refers to the type of objective "QTY" = quantity, WQ = quality, 
+                    REC = recycling
+            - basinBlockIDs: array containing all IDs within the current basin
+            - city: city datastream variable
+        """
+        if type in ["WQ", "QTY"]:
+            total = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Blk_EIA", "sum")
+        elif type in ["REC"]:
+            total = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Blk_WD", "sum") - \
+                    self.retrieveAttributeFromIDs(city, basinBlockIDs, "wd_Nres_IN", "sum")
+        #print "Total Imp Area: ", total
+        basinTreated = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Serv"+str(type), "sum")
+        basinTreated += self.retrieveAttributeFromIDs(city, basinBlockIDs, "ServUp"+str(type), "sum")
+        if int(basinTreated) == 0:
+            basinTreated = 0
+        #print "Treated ImpArea: ", basinTreated
+        rationales = {"QTY": bool(int(self.ration_runoff)), "WQ": bool(int(self.ration_pollute)),
+                      "REC": bool(int(self.ration_harvest)) }
+        services = {"QTY": self.servicevector[0], "WQ": self.servicevector[1], "REC": self.servicevector[2]}
+        
+        if rationales[type]:
+            basinRemain = max(total - basinTreated, 0)
+        else:
+            basinRemain = 0
+        
+        prevService = basinTreated/total
+        #print "Prev Service"
+        if max(1- prevService, 0) == 0:
+            delta_percent = 0
+        else:
+            delta_percent = max(services[type]/100*rationales[type] - prevService,0) / (1 - prevService)
+        return delta_percent, basinRemain, basinTreated, total
+    
     def populateBasinWithTech(self, current_bstrategy, subbas_chosenIDs, inblocks_chosenIDs, 
-                              partakeIDstracker, inblock_options, subbas_options, basinBlockIDs, city):
+                              inblock_options, subbas_options, basinBlockIDs, city):
         """Scans through all blocks within a basin from upstream to downstream end and populates the
         various areas selected in chosenIDs arrays with possible technologies available from the 
         options arrays. Returns an updated current_bstrategy object completed with all details.
         """
         partakeIDs = current_bstrategy.getSubbasPartakeIDs()    #returned in order upstream-->downstream
         
-        #Initialize treated Tracking Variable
-        subbasID_treatedAimpQty = {}
-        subbasID_treatedAimpWQ = {}
-        subbasID_treatedDem = {}        #Depending on the recycling scheme will relate to each block
+        #Make a copy of partakeIDs to track blocks
+        partakeIDsTracker = []
+        for id in partakeIDs:
+            partakeIDsTracker.append(id)
         
+        #Initialize variables to track objective fulfillment
+        subbasID_treatedQTY = {}
+        subbasID_treatedWQ = {}
+        subbasID_treatedREC = {}
         for i in range(len(partakeIDs)):
-            subbasID_treatedAimpQty[partakeIDs[i]] = 0
-            subbasID_treatedAimpWQ[partakeIDs[i]] = 0
-            subbasID_treatedDem[partakeIDs[i]] = 0
+            subbasID_treatedQTY[partakeIDs[i]] = 0
+            subbasID_treatedWQ[partakeIDs[i]] = 0
+            subbasID_treatedREC[partakeIDs[i]] = 0
         
-        #Loop across all precinct blocks partaking in possible sub-basin technologies:
-        #       1.) Check for upstream subbasins to create an array of blocks unique to
-        #               that sub-basin
-        #       2.) Pick a precinct technology if the ID is among the chosen ones
-        #       3.) Fill out the in-block strategies if the block IDs within the precinct
-        #               have been chosen.
-        #       4.) Tally up the final service level
-        
+        #Loop across partakeID blocks
         for i in range(len(partakeIDs)):
             currentBlockID = partakeIDs[i]
             currentAttList = self.getBlockUUID(currentBlockID, city)
-            print "ID: ", currentBlockID
+            #print "Currently on BlockID: ", currentBlockID
+            
             upstreamIDs = self.retrieveStreamBlockIDs(currentAttList, "upstream")
-            downsrtreamIDs = self.retrieveStreamBlockIDs(currentAttList, "downstream")
-            basinblockIDs = []
-            print "Upstream: ", upstreamIDs
-            remain_upIDs = []   #Make a copy of upstreamIDs to track Blocks
-            for j in upstreamIDs:
-                remain_upIDs.append(j)
+            downstreamIDs = self.retrieveStreamBlockIDs(currentAttList, "downstream")
+            #print "Upstream Blocks: ", upstreamIDs, " downstream Blocks: ", downstreamIDs
+            
+            remainIDs = []
+            for id in upstreamIDs:
+                remainIDs.append(id)
                 
-            #Check for subbasins in the block
+            #(1) See if there are existing sub-basins inside the current sub-basin
             subbasinIDs = []
-            for sbID in partakeIDstracker:      #Loop across the possible sub-basin locations
-                if sbID in upstreamIDs:         #If a location is upstream of the current block
-                    subbasinIDs.append(sbID)    #add it.
-            if len(subbasinIDs) > 0:   #are there upstream sub-basins?
-                for sbID in subbasinIDs:                #then loop over the locations found and
-                    partakeIDstracker.remove(sbID)      #remove these from the tracker list so
-                                                        #that they are not doubled up
-            print "SubbasinIDs: ", subbasinIDs
-            #Refine the remainIDs list (only the blocks unique to that particular point in basin)
-            for sbID in subbasinIDs:            #now loop across the found sub-basin locations
-                remain_upIDs.remove(sbID)       #remove these from the remaining IDs
-                upstrIDs = self.retrieveStreamBlockIDs(self.getBlockUUID(sbID, city), "upstream") 
-                for uID in upstrIDs:
-                    remain_upIDs.remove(uID)    #also remove each of their upstream blocks from the list
+            for id in partakeIDsTracker:
+                if id in upstreamIDs:
+                    subbasinIDs.append(id)
+            #print "Subbasins upstream of current location ", subbasinIDs
+            for sbID in subbasinIDs:                #then loop over the locations found and
+                partakeIDsTracker.remove(sbID)      #remove these from the tracker list so
+                                                    #that they are not doubled up
+            for id in subbasinIDs:
+                remainIDs.remove(id)            #remove the sub-basin ID's ID from remainIDs
+                upstrIDs = self.retrieveStreamBlockIDs(self.getBlockUUID(id, city), "upstream")
+                for upID in upstrIDs:   #Also remove all sub-basinID's upstream block IDs from
+                    remainIDs.remove(upID)   #remain IDs, leaving ONLY Blocks local to currentBlockID
+            #print "Blocks local to current location: ", remainIDs
             
-            #Calculate total impervious area of the sub-basin = currentID's Imp + all upstream Imp for Qty
+            #(2) Obtain highest allowable degree of treatment (Max_Degree)
+            #------- 2.1 Get Total Imp/Dem needing to be treated at the current position
+            upstreamIDs.append(currentBlockID)
+            downstreamIDs.append(currentBlockID)        #Add currentBlockID to the array
             
-            #Calculate total impervious area of the sub-basin = currentID's Imp + all upstream Imp for WQ
-            completeAimp = currentAttList.getAttribute("Blk_EIA").getDouble() + self.retrieveAttributeFromIDs(city, upstreamIDs, "Blk_EIA", "sum")
-            servicedAimpBlock = currentAttList.getAttribute("ServedIA").getDouble() + self.retrieveAttributeFromIDs(city, upstreamIDs, "ServedIA", "sum")
-            servicedAimpSubbas = currentAttList.getAttribute("UpstrImpTreat").getDouble() + self.retrieveAttributeFromIDs(city, upstreamIDs, "UpstrImpTreat", "sum")
-            totalAimp_subbasin = max(completeAimp - servicedAimpBlock - servicedAimpSubbas, 0)
-            #TotalAimp_Subbasin refers to the impervious area that needs to be managed RIGHT NOW! (so retrofit stuff alread in place and ignored)
-            print "Complete Aimp: ", completeAimp
-            print "TotalAimp_subbasin: ", totalAimp_subbasin
+            dp, totalAimpQTY, sv, cp = self.calculateRemainingService("QTY", upstreamIDs, city)
             
-            #Calculate the total water demand based on the recycling scheme depending on recycling scenario
+            dp, totalAimpWQ, sv, cp = self.calculateRemainingService("WQ", upstreamIDs, city)
             
-            if self.hs_strategy == 'ud':
-                completeDemand = currentAttList.getAttribute("Blk_WD").getDouble() + self.retrieveAttributeFromIDs(city, downstreamIDs, "Blk_WD", "sum")
-                nonresDemand = currentAttList.getAttribue("wd_Nres_IN").getDouble() + self.retrieveAttributeFromIDs(city, downstreamIDs, "wd_Nres_IN", "sum")
-                completePlanDem = completeDemand - nonresDemand #Total demand from block and downstream that is being managed under recycling scheme
-            elif self.hs_strategy == 'uu':
-                completeDemand = currentAttList.getAttribute("Blk_WD").getDouble() + self.retrieveAttributeFromIDs(city, upstreamIDs, "Blk_WD", "sum")
-                nonresDemand = currentAttList.getAttribue("wd_Nres_IN").getDouble() + self.retrieveAttributeFromIDs(city, upstreamIDs, "wd_Nres_IN", "sum")
-                completePlanDem = completeDemand - nonresDemand #Total demand from block and downstream that is being managed under recycling scheme
-            elif self.hs_strategy == 'ua':
-                completeDemand = self.retrieveAttributeFromIDs(city, basinBlockIDs, "Blk_WD", "sum")
-                nonresDemand = self.retrieveAttributeFromIDs(city, basinBlockIDs, "wd_Nres_IN", "sum")
-                completePlanDem = completeDemand - nonresDemand #Total demand from block and downstream that is being managed under recycling scheme
+            #print "Total Quantity Aimp: ", totalAimpQTY
+            #print "Total Water Quality Aimp: ", totalAimpWQ
+
+            if self.hs_strategy == "ud":
+                dP, totalDemREC, sv,cp = self.calculateRemainingService("REC", downstreamIDs, city)
+            elif self.hs_strategy == "uu":
+                dP, totalDemREC, sv, cp = self.calculateRemainingService("REC", upstreamIDs, city)
+            elif self.hs_strategy == "ua":
+                dP, totalDemREC, sv, cp = self.calculateRemainingService("REC", basinBlockIDs, city)
             
-            subbas_treatedAimpQty = 0  #Sum of already treated imp area in upstream sub-basins and the now planned treatment
+            #------- 2.2 Subtract the already serviced parts from upstream sub-basin blocks
+            max_deg_matrix = []
+            subbas_treatedAimpQTY = 0  #Sum of already treated imp area in upstream sub-basins and the now planned treatment
             subbas_treatedAimpWQ = 0
-            subbas_treatedDem = 0
+            subbas_treatedDemREC = 0
             
             for sbID in subbasinIDs:
-                subbas_treatedAimpQty += subbasID_treatedAimpQty[sbID]    #Check all upstream sub-basins for their treated Aimp            
-                subbas_treatedAimpWQ += subbasID_treatedAimpWQ[sbID]    #Check all upstream sub-basins for their treated Aimp            
+                subbas_treatedAimpQTY += subbasID_treatedQTY[sbID]  #Check all upstream sub-basins for their treated Aimp            
+                subbas_treatedAimpWQ += subbasID_treatedWQ[sbID]    #Check all upstream sub-basins for their treated Aimp            
+            
+            #print subbas_treatedAimpQTY
+            #print subbas_treatedAimpWQ
 
-            remainAimp_subbasinQty = max(totalAimp_subbasin - subbas_treatedAimpQty, 0)
-            remainAimp_subbasinWQ = max(totalAimp_subbasin - subbas_treatedAimpWQ, 0)
-
+            remainAimp_subbasinQTY = max(totalAimpQTY - subbas_treatedAimpQTY, 0)
+            if bool(int(self.ration_runoff)) and totalAimpQTY != 0:
+                max_deg_matrix.append(remainAimp_subbasinQTY / totalAimpQTY)
+            
+            remainAimp_subbasinWQ = max(totalAimpWQ - subbas_treatedAimpWQ, 0)
+            if bool(int(self.ration_pollute)) and totalAimpWQ != 0:
+                max_deg_matrix.append(remainAimp_subbasinWQ / totalAimpWQ)
+            
             if self.hs_strategy == 'ud':
-                pass
-                    
-                
+                totSupply = 0
+                downstreamIDs = []      #the complete matrix of all downstream IDs from all upstream sbIDs
+                for sbID in subbasinIDs:
+                    totSupply += subbasID_treatedREC[sbID]      #Get total supply of all combined upstream systems
+                    downIDs = self.retrieveStreamBlockIDs(self.getBlockUUID(sbID, city), "downstream")
+                    downIDs.append(sbID)
+                    for dID in downIDs:
+                        if dID not in downstreamIDs: downstreamIDs.append(dID)
+                #Get all blocks between currentID's upstream and sbIDs downstream blocks
+                shareIDs = []
+                for dID in downstreamIDs:
+                    if dID in upstreamIDs and dID not in shareIDs:
+                        shareIDs.append(dID)
+                #Calculate Total Water Demand of Blocks in between the current point and highest upstream point
+                totBetweenDem = self.retrieveAttributeFromIDs(city, shareIDs, "Blk_WD", "sum") - \
+                    self.retrieveAttributeFromIDs(city, shareIDs, "wd_Nres_IN", "sum")
+                #Remaining demand is total downstream demand minus the higher of (total upstream supply excess and zero)
+                remainDem_subbasinRec = totalDemREC - max(totSupply - totBetweenDem, 0)
             elif self.hs_strategy in ['uu', 'ua']:
                 for sbID in subbasinIDs:
-                    subbas_treatedDem += subbasID_treatedDem[sbID]
-                remainDem_subbasinRec = max(completePlanDem - subbas_treatedDem, 0)
+                    subbas_treatedDemREC += subbasID_treatedREC[sbID]
+                remainDem_subbasinRec = max(totalDemREC - subbas_treatedDemREC, 0)
             
-            if totalAimp_subbasin == 0:
-                max_degreeQty = 0
-                max_degreeWQ = 0
-                max_degreeREC = 0
-            else:
-                max_degreeQty = remainAimp_subbasinQty/totalAimp_subbasin
-                max_degreeWQ = remainAimp_subbasinWQ/totalAimp_subbasin
+            if bool(int(self.ration_harvest)) and totalDemREC != 0:
+                max_deg_matrix.append(remainDem_subbasinRec / totalDemREC)
                 
-            if completePlanDem == 0:
-                max_degreeDem = 0
-            else:
-                max_degreeDem = remainDem_subbasinRec/completePlanDem
+            #print "Max Degre matrix: ", max_deg_matrix
+
+            max_degree = min(max_deg_matrix)+float(self.service_redundancy/100.0)  #choose the minimum, bring in allowance using redundancy parameter
             
-            max_degree = min(max_degreeQty, max_degreeWQ, max_degreeDem)+float(self.service_redundancy/100.0)  
-            #choose the minimum, bring in allowance using redundancy parameter
+            current_bstrategy.addSubBasinInfo(currentBlockID, upstreamIDs, subbasinIDs, [totalAimpQTY,totalAimpWQ,totalDemREC])
+            #print [totalAimpQTY,totalAimpWQ,totalDemREC]
+            #print "Current State of Treatment: ", [subbas_treatedAimpQTY, subbas_treatedAimpWQ, subbas_treatedDemREC]
             
-            current_bstrategy.addSubBasinInfo(currentBlockID, upstreamIDs, subbasinIDs, [totalAimp_subbasin,0,0])       #>>>Add on population and public area in future
-            
-            #PICK A SUB-BASIN TECHNOLOGY
-            if currentBlockID in subbas_chosenIDs:              #PART A - first the degree
-                deg, obj, treatedAimp, treatedDem = self.pickOption(currentBlockID, max_degree, subbas_options, totalAimp_subbasin) 
-                subbas_treatedAimpQty += treatedAimp
-                subbas_treatedAimpWQ += treatedAimp
-                subbas_treatedDem += treatedDem
-                remainAimp_subbasinQty = max(remainAimp_subbasinQty - treatedAimp, 0)
-                remainAimp_subbasinWQ = max(remainAimp_subbasinWQ - treatedAimp, 0)
-                remainDem_subbasinRec = max(remainDem_subbasinRec - treatedDem, 0)
+            #(3) PICK A SUB-BASIN TECHNOLOGY
+            if currentBlockID in subbas_chosenIDs:
+                deg, obj, treatedQTY, treatedWQ, treatedREC = self.pickOption(currentBlockID, max_degree, subbas_options, [totalAimpQTY, totalAimpWQ, totalDemREC], "SB") 
+                #print "Option Treats: ", [treatedQTY, treatedWQ, treatedREC]
+                #print obj
+
+                subbas_treatedAimpQTY += treatedQTY
+                subbas_treatedAimpWQ += treatedWQ
+                subbas_treatedDemREC += treatedREC
+                remainAimp_subbasinQTY = max(remainAimp_subbasinQTY - treatedQTY, 0)
+                remainAimp_subbasinWQ = max(remainAimp_subbasinWQ - treatedWQ, 0)
+                remainDem_subbasinRec = max(remainDem_subbasinRec - treatedREC, 0)
+                #print "Remaining: ", [remainAimp_subbasinQTY, remainAimp_subbasinWQ, remainDem_subbasinRec]
                 if deg != 0 and obj != 0:
                     current_bstrategy.appendTechnology(currentBlockID, deg, obj, "s")
-            
-            #PICK AN IN-BLOCK STRATEGY IF IT IS HAS BEEN CHOSEN
-            for rbID in remain_upIDs:
+
+            #(4) PICK AN IN-BLOCK STRATEGY IF IT IS HAS BEEN CHOSEN
+            for rbID in remainIDs:
                 if rbID not in inblocks_chosenIDs:        #If the Block ID hasn't been chosen,
+                    #print "rbID not in inblocks_chosenIDs"
                     continue                            #then skip to next one, no point otherwise
+                
+                max_deg_matrix = [1]
                 
                 block_Aimp = self.getBlockUUID(rbID, city).getAttribute("Blk_EIA").getDouble()
                 block_Dem = self.getBlockUUID(rbID, city).getAttribute("Blk_WD").getDouble() - self.getBlockUUID(rbID, city).getAttribute("wd_Nres_IN").getDouble()
-                if block_Aimp == 0 or block_Dem == 0:
+                #print "Block details: ", block_Aimp, block_Dem
+                if block_Aimp == 0:     #Impervious governs pretty much everything, if it is zero, don't even bother
                     continue
+                if block_Dem == 0 and bool(int(self.ration_harvest)):   #If demand is zero and we are planning for recycling, skip
+                    continue
+                #print "Can select a block option for current Block"
                 
-                max_degree = min(remainAimp_subbasinQty/block_Aimp, 
-                                 remainAimp_subbasinWQ/block_Aimp, remainDem_subbasinRec/block_Dem, 1.0)+float(self.service_redundancy/100.0)  #PART A - first the degree
+                if bool(int(self.ration_runoff)):
+                    max_deg_matrix.append(remainAimp_subbasinQTY/block_Aimp)
+                if bool(int(self.ration_pollute)):
+                    max_deg_matrix.append(remainAimp_subbasinWQ/block_Aimp)
+                if bool(int(self.ration_harvest)):
+                    max_deg_matrix.append(remainDem_subbasinRec/block_Dem)
+                #print "Block Degrees: ", max_deg_matrix
+                max_degree = min(max_deg_matrix) + float(self.service_redundancy/100)
+                #print [block_Aimp*int(self.ration_runoff), block_Aimp*int(self.ration_pollute), block_Dem*int(self.ration_harvest)]
                 
-                deg, obj, treatedAimp, treatedDem = self.pickOption(rbID,max_degree,inblock_options, block_Aimp) 
-                subbas_treatedAimpQty += treatedAimp
-                subbas_treatedAimpWQ += treatedAimp
-                subbas_treatedDem += treatedDem
-                remainAimp_subbasinQty = max(remainAimp_subbasinQty - treatedAimp, 0)
-                remainAimp_subbasinWQ = max(remainAimp_subbasinWQ - treatedAimp, 0)
-                remainDem_subbasinRec = max(remainDem_subbasinRec - treatedDem, 0)
+                #print "In Block Maximum Degree: ", max_degree
+                deg, obj, treatedQTY, treatedWQ, treatedREC = self.pickOption(rbID,max_degree,inblock_options, [block_Aimp*bool(int(self.ration_runoff)), block_Aimp*bool(int(self.ration_pollute)), block_Dem*bool(int(self.ration_harvest))], "BS") 
+                #print "Option Treats: ", [treatedQTY, treatedWQ, treatedREC]
+                #print obj
+
+                subbas_treatedAimpQTY += treatedQTY
+                subbas_treatedAimpWQ += treatedWQ
+                subbas_treatedDemREC += treatedREC
+                remainAimp_subbasinQTY = max(remainAimp_subbasinQTY - treatedQTY, 0)
+                remainAimp_subbasinWQ = max(remainAimp_subbasinWQ - treatedWQ, 0)
+                remainDem_subbasinRec = max(remainDem_subbasinRec - treatedREC, 0)
+                #print "Remaining: ", [remainAimp_subbasinQTY, remainAimp_subbasinWQ, remainDem_subbasinRec]
                 if deg != 0 and obj != 0:
                     current_bstrategy.appendTechnology(rbID, deg, obj, "b")
             
-            #Finalize the treated impervious area value before looping again
-            subbasID_treatedAimpQty[i] = subbas_treatedAimpQty
-            subbasID_treatedAimpWQ[i] = subbas_treatedAimpWQ
-            subbasID_treatedDem[i] = subbas_treatedDem
+            #(5) FINALIZE THE SERVICE VALUES FOR QTY, WQ, REC BEFORE NEXT LOOP
+            #   Avoid overtreatment by saying either total area is treated or if treated area is smaller then using that
+            subbasID_treatedQTY[currentBlockID] = min(subbas_treatedAimpQTY, totalAimpQTY)
+            subbasID_treatedWQ[currentBlockID] = min(subbas_treatedAimpWQ, totalAimpWQ)
+            subbasID_treatedREC[currentBlockID] = min(subbas_treatedDemREC, totalDemREC)
+            #print subbasID_treatedQTY
+            #print subbasID_treatedWQ
         return True
     
     def evaluateServiceObjectiveFunction(self, basinstrategy, updatedservice):
@@ -2934,7 +3050,8 @@ class Techplacement(Module):
         serviceProvided = basinstrategy.getServicePvalues() #[0,0,0] P values for service
         for i in range(len(serviceProvided)):
             serviceProvided[i] *= float(serviceBooleans[i])     #Rescale to ensure no service items are zero
-            
+        #print "Service Req", serviceProvided
+        #print "Service Provided", serviceRequired    
         #Objective Criterion: A strategy is most suitable to the user's input
         #requirements if the sum(service-provided - service-required) is a minimum
         #and >0
@@ -2948,30 +3065,67 @@ class Techplacement(Module):
             performance = -1       #One objective at least, not fulfilled
         return performance
     
-    def pickOption(self, blockID, max_degree, options_collection, Aimp):
+    def pickOption(self, blockID, max_degree, options_collection, totals, strattype):
         """Picks and returns a random option based on the input impervious area and maximum
         treatment degree. Can be used on either the in-block strategies or larger precinct 
         strategies. If it cannot pick anything, it will return zeros all around.
         """
-        treatedDem = 0
-        indices = []
-        for deg in self.subbas_incr:
-            if deg <= max_degree:
-                indices.append(deg)
-        if len(indices) != 0:
-            choice = random.randint(0, len(indices)-1)
-            chosen_deg = self.subbas_incr[choice]
-        else:
-            return 0,0,0
-        
-        Nopt = len(options_collection["BlockID"+str(blockID)][chosen_deg])
-        if chosen_deg != 0 and Nopt != 0:
-            treatedAimp = chosen_deg * Aimp
-            choice = random.randint(0, Nopt-1)
-            chosen_obj = options_collection["BlockID"+str(blockID)][chosen_deg][choice]
-            return chosen_deg, chosen_obj, treatedAimp, treatedDem
-        else:
-            return 0, 0, 0, 0
+        bracketwidth = 1.0/float(self.subbas_rigour)    #Use bracket to determine optimum bin
+        #Continuous-based picking
+        #print options_collection["BlockID"+str(blockID)]
+        if strattype == "BS":   #in-block strategy
+            options = []
+            for i in options_collection["BlockID"+str(blockID)].keys():
+                for j in options_collection["BlockID"+str(blockID)][i]:
+                    if (i-bracketwidth/2) < max_degree:
+                        options.append(j)
+            #print options
+            if len(options) == 0:
+                return 0, 0, 0, 0, 0
+            scores = []
+            for i in options:
+                scores.append(i.getTotalMCAscore())
+            #print "Scores: ", scores
+            #Pick Option
+            scores = self.createCDF(scores)
+            #print "Scores CDF: ", scores
+            choice = self.samplefromCDF(scores)
+            #print choice
+            chosen_obj = options[choice]
+            treatedAimpQTY = chosen_obj.getService("Qty")
+            treatedAimpWQ = chosen_obj.getService("WQ")
+            treatedDemREC = chosen_obj.getService("Rec")
+            return chosen_obj.getBlockBin(), chosen_obj, treatedAimpQTY, treatedAimpWQ, treatedDemREC
+        elif strattype == "SB":  #sub-basin strategy
+            #Bin-based picking
+            AimpQTY = totals[0]
+            AimpWQ = totals[1]
+            DemREC = totals[2]
+            indices = []
+            for deg in self.subbas_incr:
+                if (deg-bracketwidth/2) <= max_degree:
+                    indices.append(deg)
+            if len(indices) != 0:
+                choice = random.randint(0, len(indices)-1)
+                chosen_deg = self.subbas_incr[choice]
+            else:
+                return 0, 0, 0, 0, 0
+            
+            Nopt = len(options_collection["BlockID"+str(blockID)][chosen_deg])
+            if Nopt != 0:
+            #if chosen_deg != 0 and Nopt != 0:
+                #treatedAimpQTY = chosen_deg * AimpQTY
+                #treatedAimpWQ = chosen_deg * AimpWQ
+                #treatedDemREC = chosen_deg * DemREC
+                choice = random.randint(0, Nopt-1)
+                chosen_obj = options_collection["BlockID"+str(blockID)][chosen_deg][choice]
+                treatedAimpQTY = chosen_obj.getService("Qty")
+                treatedAimpWQ = chosen_obj.getService("WQ")
+                treatedDemREC = chosen_obj.getService("Rec")
+
+                return chosen_deg, chosen_obj, treatedAimpQTY, treatedAimpWQ, treatedDemREC
+            else:
+                return 0, 0, 0, 0, 0
     
     def createCDF(self, score_matrix):
         """Creates a cumulative distribution for an input list of values by normalizing
@@ -3068,7 +3222,11 @@ class Techplacement(Module):
                     loc.addAttribute("WDepth", float(eval("self."+str(current_wsud.getType())+"spec_MD")))
                 if current_wsud.getType() in ["BF", "IS"]:
                     loc.addAttribute("FDepth", eval("self."+str(current_wsud.getType())+"spec_FD"))
-                
+                if current_wsud.getType() in ["BF", "SW", "IS", "WSUR", "PB"]:
+                    loc.addAttribute("Exfil", eval("self."+str(current_wsud.getType())+"exfil"))
+                else:
+                    loc.addAttribute("Exfil", 0)
+                    
             outblock_strat = strategyobject.getIndividualTechStrat(currentID, "s")
             if outblock_strat != None:
                 scale = "B"
@@ -3101,6 +3259,10 @@ class Techplacement(Module):
                     loc.addAttribute("WDepth", float(eval("self."+str(outblock_strat.getType())+"spec_MD")))
                 if outblock_strat.getType() in ["BF", "IS"]:
                     loc.addAttribute("FDepth", eval("self."+str(outblock_strat.getType())+"spec_FD"))
+                if outblock_strat.getType() in ["BF", "SW", "IS", "WSUR", "PB"]:
+                    loc.addAttribute("Exfil", eval("self."+str(outblock_strat.getType())+"exfil"))
+                else:
+                    loc.addAttribute("Exfil", 0)
         return True
     
     def transferExistingSystemsToOutput(self, city, stratID):
@@ -3130,6 +3292,7 @@ class Techplacement(Module):
             loc.addAttribute("Upgrades", int(curSys.getAttribute("Upgrades").getDouble()))
             loc.addAttribute("WDepth", curSys.getAttribute("WDepth").getDouble())
             loc.addAttribute("FDepth", curSys.getAttribute("FDepth").getDouble())
+            loc.addAttribute("Exfil", curSys.getAttribute("Exfil").getDouble())
             city.addComponent(loc, self.wsudAttr)
         return True
     
