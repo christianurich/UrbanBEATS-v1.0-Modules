@@ -66,9 +66,9 @@ class GetPreviousBlocks(Module):
         self.createParameter("ongoing_sim", BOOL,"")
         self.createParameter("implementationcycle", BOOL, "")
         self.createParameter("patchesavailable", BOOL, "")
-        self.createParameter("path_name", STRING,"")
-        self.createParameter("block_path_name",STRING,"")
-        self.createParameter("patch_path_name",STRING,"")
+        self.createParameter("path_name", STRING ,"")
+        self.createParameter("block_path_name",FILENAME,"")
+        self.createParameter("patch_path_name",FILENAME,"")
         self.ongoing_sim = 0            #Is this module part of an ongoing simulation?
         self.implementationcycle = 0    #Is this module in the implementation cycle? If yes, urbplanbb will not check
         self.patchesavailable = 0
