@@ -102,7 +102,7 @@ class Delinblocks(Module):      #DYNAMIND
     
     def __init__(self):            #DYNAMIND
         Module.__init__(self)       #DYNAMIND
-        self.DynaMind_Core_Version = 0.2
+        self.DynaMind_Core_Version = 0.4
 
 #    def __init__(self, activesim, curstate, tabindex):      #UBCORE
 #        self.cycletype = curstate       #UBCORE: contains either planning or implementation (so it knows what to do and whether to skip)
@@ -1188,13 +1188,13 @@ class Delinblocks(Module):      #DYNAMIND
                     
                     if self.soildatatype == "C":
                         if datasources[3].getCell(x_start+i, y_start+j) != -9999:
-                            soildatamatrix[i].append(self.soildictionary[int(datasources[3].getValue(x_start+i, y_start+j))-1])        #look up mm/hr value
+                            soildatamatrix[i].append(self.soildictionary[int(datasources[3].getCell(x_start+i, y_start+j))-1])        #look up mm/hr value
                         else:
                             soildatamatrix[i].append(-9999)
                     elif self.soildataunits == "hrs":
-                        soildatamatrix[i].append(datasources[3].getValue(x_start+i, y_start+j))     #keep as mm/hr
+                        soildatamatrix[i].append(datasources[3].getCell(x_start+i, y_start+j))     #keep as mm/hr
                     elif self.soildataunits == "sec":
-                        soildatamatrix[i].append((datasources[3].getValue(x_start+i, y_start+j))*1000*60*60)        #convert to mm/hr
+                        soildatamatrix[i].append((datasources[3].getCell(x_start+i, y_start+j))*1000*60*60)        #convert to mm/hr
                     
                     if datasources[4] != 0: planmapmatrix[i].append(datasources[4].getCell(x_start+i, y_start+j))
                     if datasources[5] != 0: employmentmatrix[i].append(datasources[5].getCell(x_start+i, y_start+j))
