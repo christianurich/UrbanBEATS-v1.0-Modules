@@ -132,11 +132,7 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.ui.strategy_subbas_rigour_box.setText(self.module.getParameterAsString("subbas_rigour"))
         QtCore.QObject.connect(self.ui.strategy_subbas_rigour, QtCore.SIGNAL("valueChanged(int)"), self.adjustRigourSubbas)
         
-        self.ui.strategy_specific1_check.setChecked(bool(int(self.module.getParameterAsString("strategy_specific1"))))
-        self.ui.strategy_specific2_check.setChecked(bool(int(self.module.getParameterAsString("strategy_specific2"))))
-        self.ui.strategy_specific3_check.setChecked(bool(int(self.module.getParameterAsString("strategy_specific3"))))
-        self.ui.strategy_specific4_check.setChecked(bool(int(self.module.getParameterAsString("strategy_specific4"))))
-        self.ui.strategy_specific5_check.setChecked(bool(int(self.module.getParameterAsString("strategy_specific5"))))
+        self.ui.strategy_scalepref_slider.setValue(int(self.module.getParameterAsString("scalepref")))
         
         #######################################
         #Retrofit Tab
@@ -934,6 +930,11 @@ class activatetechplacementGUI(QtGui.QDialog):
             self.ui.SWstreet_check.setChecked(1)
         else:
             self.ui.SWstreet_check.setChecked(0)
+            
+        if self.module.getParameterAsString("SWneigh") == "1":
+            self.ui.SWneigh_check.setChecked(1)
+        else:
+            self.ui.SWneigh_check.setChecked(0)
         
         #Available Applications
         if self.module.getParameterAsString("SWflow") == "1":
@@ -1385,11 +1386,7 @@ class activatetechplacementGUI(QtGui.QDialog):
         self.module.setParameterValue("neigh_rigour", str(self.ui.strategy_neigh_rigour.value()))
         self.module.setParameterValue("subbas_rigour", str(self.ui.strategy_subbas_rigour.value()))
         
-        self.module.setParameterValue("strategy_specific1", str(int(self.ui.strategy_specific1_check.isChecked())))
-        self.module.setParameterValue("strategy_specific2", str(int(self.ui.strategy_specific2_check.isChecked())))
-        self.module.setParameterValue("strategy_specific3", str(int(self.ui.strategy_specific3_check.isChecked())))
-        self.module.setParameterValue("strategy_specific4", str(int(self.ui.strategy_specific4_check.isChecked())))
-        self.module.setParameterValue("strategy_specific5", str(int(self.ui.strategy_specific5_check.isChecked())))
+        self.module.setParameterValue("scalepref", str(int(self.ui.strategy_scalepref_slider.value())))
         
         #######################################
         #Retrofit Tab
@@ -2007,6 +2004,12 @@ class activatetechplacementGUI(QtGui.QDialog):
         else:
             SWstreet = 0
         self.module.setParameterValue("SWstreet", str(SWstreet))
+
+        if self.ui.SWneigh_check.isChecked() == 1:
+            SWneigh = 1
+        else:
+            SWneigh = 0
+        self.module.setParameterValue("SWneigh", str(SWneigh))        
         
         #Available Applications
         if self.ui.SWflow_check.isChecked() == 1:

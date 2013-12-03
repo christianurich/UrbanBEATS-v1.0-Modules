@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'techplacementgui.ui'
 #
-# Created: Mon Jul 22 11:35:01 2013
+# Created: Wed Oct 02 10:42:14 2013
 #      by: PyQt4 UI code generator 4.8.6
 #
 # WARNING! All changes made in this file will be lost!
@@ -65,7 +65,7 @@ class Ui_TechPlace_Dialog(object):
         self.design_crit_inputs.setWidgetResizable(True)
         self.design_crit_inputs.setObjectName(_fromUtf8("design_crit_inputs"))
         self.design_crit_inputs_widget = QtGui.QWidget()
-        self.design_crit_inputs_widget.setGeometry(QtCore.QRect(0, 0, 465, 1101))
+        self.design_crit_inputs_widget.setGeometry(QtCore.QRect(0, 0, 465, 1071))
         self.design_crit_inputs_widget.setObjectName(_fromUtf8("design_crit_inputs_widget"))
         self.verticalLayout_5 = QtGui.QVBoxLayout(self.design_crit_inputs_widget)
         self.verticalLayout_5.setObjectName(_fromUtf8("verticalLayout_5"))
@@ -323,18 +323,8 @@ class Ui_TechPlace_Dialog(object):
         self.strategy_lbl.setObjectName(_fromUtf8("strategy_lbl"))
         self.verticalLayout_5.addWidget(self.strategy_lbl)
         self.strategy_box = QtGui.QWidget(self.design_crit_inputs_widget)
-        self.strategy_box.setMinimumSize(QtCore.QSize(0, 410))
+        self.strategy_box.setMinimumSize(QtCore.QSize(0, 380))
         self.strategy_box.setObjectName(_fromUtf8("strategy_box"))
-        self.strategy_specific2_check = QtGui.QCheckBox(self.strategy_box)
-        self.strategy_specific2_check.setGeometry(QtCore.QRect(20, 320, 421, 17))
-        self.strategy_specific2_check.setToolTip(QtGui.QApplication.translate("TechPlace_Dialog", "emphasises attractiveness of retention systems", None, QtGui.QApplication.UnicodeUTF8))
-        self.strategy_specific2_check.setText(QtGui.QApplication.translate("TechPlace_Dialog", "Favour retention over infiltration", None, QtGui.QApplication.UnicodeUTF8))
-        self.strategy_specific2_check.setObjectName(_fromUtf8("strategy_specific2_check"))
-        self.strategy_specific1_check = QtGui.QCheckBox(self.strategy_box)
-        self.strategy_specific1_check.setGeometry(QtCore.QRect(20, 300, 411, 17))
-        self.strategy_specific1_check.setToolTip(QtGui.QApplication.translate("TechPlace_Dialog", "works with small scale systems in upstream areas", None, QtGui.QApplication.UnicodeUTF8))
-        self.strategy_specific1_check.setText(QtGui.QApplication.translate("TechPlace_Dialog", "Favour At-Source Strategies", None, QtGui.QApplication.UnicodeUTF8))
-        self.strategy_specific1_check.setObjectName(_fromUtf8("strategy_specific1_check"))
         self.strategy_lot_check = QtGui.QCheckBox(self.strategy_box)
         self.strategy_lot_check.setGeometry(QtCore.QRect(20, 40, 121, 17))
         self.strategy_lot_check.setText(QtGui.QApplication.translate("TechPlace_Dialog", "Lot Systems", None, QtGui.QApplication.UnicodeUTF8))
@@ -355,24 +345,10 @@ class Ui_TechPlace_Dialog(object):
         self.strategy_explain.setGeometry(QtCore.QRect(10, 10, 431, 16))
         self.strategy_explain.setText(QtGui.QApplication.translate("TechPlace_Dialog", "Select which scales the model should plan strategies at and the rigour it should adopt...", None, QtGui.QApplication.UnicodeUTF8))
         self.strategy_explain.setObjectName(_fromUtf8("strategy_explain"))
-        self.strategy_specific_lbl = QtGui.QLabel(self.strategy_box)
-        self.strategy_specific_lbl.setGeometry(QtCore.QRect(10, 280, 401, 16))
-        self.strategy_specific_lbl.setText(QtGui.QApplication.translate("TechPlace_Dialog", "Specific requirements for strategies (will influence evaluation process)...", None, QtGui.QApplication.UnicodeUTF8))
-        self.strategy_specific_lbl.setObjectName(_fromUtf8("strategy_specific_lbl"))
         self.strategy_lot_lbl = QtGui.QLabel(self.strategy_box)
         self.strategy_lot_lbl.setGeometry(QtCore.QRect(60, 70, 81, 16))
         self.strategy_lot_lbl.setText(QtGui.QApplication.translate("TechPlace_Dialog", "Level of Rigour:", None, QtGui.QApplication.UnicodeUTF8))
         self.strategy_lot_lbl.setObjectName(_fromUtf8("strategy_lot_lbl"))
-        self.strategy_specific3_check = QtGui.QCheckBox(self.strategy_box)
-        self.strategy_specific3_check.setGeometry(QtCore.QRect(20, 340, 411, 17))
-        self.strategy_specific3_check.setToolTip(QtGui.QApplication.translate("TechPlace_Dialog", "minimises number of systems to meet strategy", None, QtGui.QApplication.UnicodeUTF8))
-        self.strategy_specific3_check.setText(QtGui.QApplication.translate("TechPlace_Dialog", "Use minimal number of systems", None, QtGui.QApplication.UnicodeUTF8))
-        self.strategy_specific3_check.setObjectName(_fromUtf8("strategy_specific3_check"))
-        self.strategy_specific4_check = QtGui.QCheckBox(self.strategy_box)
-        self.strategy_specific4_check.setGeometry(QtCore.QRect(20, 360, 421, 17))
-        self.strategy_specific4_check.setToolTip(QtGui.QApplication.translate("TechPlace_Dialog", "avoids same technology at different scales in area", None, QtGui.QApplication.UnicodeUTF8))
-        self.strategy_specific4_check.setText(QtGui.QApplication.translate("TechPlace_Dialog", "Avoid Double-Up across scales", None, QtGui.QApplication.UnicodeUTF8))
-        self.strategy_specific4_check.setObjectName(_fromUtf8("strategy_specific4_check"))
         self.strategy_lot_rigour = QtGui.QSlider(self.strategy_box)
         self.strategy_lot_rigour.setGeometry(QtCore.QRect(170, 45, 181, 31))
         self.strategy_lot_rigour.setMinimum(1)
@@ -529,10 +505,47 @@ class Ui_TechPlace_Dialog(object):
 "</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
 "<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt; font-style:italic;\">(1 to 10)</span></p></body></html>", None, QtGui.QApplication.UnicodeUTF8))
         self.strategy_subbas_lbl5.setObjectName(_fromUtf8("strategy_subbas_lbl5"))
-        self.strategy_specific5_check = QtGui.QCheckBox(self.strategy_box)
-        self.strategy_specific5_check.setGeometry(QtCore.QRect(20, 380, 341, 17))
-        self.strategy_specific5_check.setText(QtGui.QApplication.translate("TechPlace_Dialog", "Do not reject design if one or more targets remain unfulfilled", None, QtGui.QApplication.UnicodeUTF8))
-        self.strategy_specific5_check.setObjectName(_fromUtf8("strategy_specific5_check"))
+        self.strategy_scalepref_title = QtGui.QLabel(self.strategy_box)
+        self.strategy_scalepref_title.setGeometry(QtCore.QRect(10, 290, 181, 16))
+        self.strategy_scalepref_title.setText(QtGui.QApplication.translate("TechPlace_Dialog", "Scale Preference for Planning: ", None, QtGui.QApplication.UnicodeUTF8))
+        self.strategy_scalepref_title.setObjectName(_fromUtf8("strategy_scalepref_title"))
+        self.strategy_scalepref_slider = QtGui.QSlider(self.strategy_box)
+        self.strategy_scalepref_slider.setGeometry(QtCore.QRect(90, 320, 271, 31))
+        self.strategy_scalepref_slider.setMinimum(1)
+        self.strategy_scalepref_slider.setMaximum(5)
+        self.strategy_scalepref_slider.setSingleStep(1)
+        self.strategy_scalepref_slider.setPageStep(2)
+        self.strategy_scalepref_slider.setProperty("value", 3)
+        self.strategy_scalepref_slider.setOrientation(QtCore.Qt.Horizontal)
+        self.strategy_scalepref_slider.setTickPosition(QtGui.QSlider.TicksBelow)
+        self.strategy_scalepref_slider.setTickInterval(5)
+        self.strategy_scalepref_slider.setObjectName(_fromUtf8("strategy_scalepref_slider"))
+        self.strategy_scalepref_lbl1 = QtGui.QLabel(self.strategy_box)
+        self.strategy_scalepref_lbl1.setGeometry(QtCore.QRect(20, 320, 61, 31))
+        self.strategy_scalepref_lbl1.setText(QtGui.QApplication.translate("TechPlace_Dialog", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+"<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
+"p, li { white-space: pre-wrap; }\n"
+"</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
+"<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">At-source</span></p>\n"
+"<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">(Small-scale)</span></p></body></html>", None, QtGui.QApplication.UnicodeUTF8))
+        self.strategy_scalepref_lbl1.setObjectName(_fromUtf8("strategy_scalepref_lbl1"))
+        self.strategy_scalepref_lbl3 = QtGui.QLabel(self.strategy_box)
+        self.strategy_scalepref_lbl3.setGeometry(QtCore.QRect(370, 320, 71, 31))
+        self.strategy_scalepref_lbl3.setText(QtGui.QApplication.translate("TechPlace_Dialog", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+"<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
+"p, li { white-space: pre-wrap; }\n"
+"</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
+"<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">End-of-Pipe</span></p>\n"
+"<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">(Large-scale)</span></p></body></html>", None, QtGui.QApplication.UnicodeUTF8))
+        self.strategy_scalepref_lbl3.setObjectName(_fromUtf8("strategy_scalepref_lbl3"))
+        self.strategy_scalepref_lbl2 = QtGui.QLabel(self.strategy_box)
+        self.strategy_scalepref_lbl2.setGeometry(QtCore.QRect(185, 340, 81, 31))
+        self.strategy_scalepref_lbl2.setText(QtGui.QApplication.translate("TechPlace_Dialog", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+"<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
+"p, li { white-space: pre-wrap; }\n"
+"</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
+"<p align=\"center\" style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\">Mix of Systems</span></p></body></html>", None, QtGui.QApplication.UnicodeUTF8))
+        self.strategy_scalepref_lbl2.setObjectName(_fromUtf8("strategy_scalepref_lbl2"))
         self.verticalLayout_5.addWidget(self.strategy_box)
         self.design_crit_inputs.setWidget(self.design_crit_inputs_widget)
         self.gridLayout_22.addWidget(self.design_crit_inputs, 0, 0, 2, 2)
@@ -2999,7 +3012,7 @@ class Ui_TechPlace_Dialog(object):
         self.SWscales_lbl.setText(QtGui.QApplication.translate("TechPlace_Dialog", "Available Scales", None, QtGui.QApplication.UnicodeUTF8))
         self.SWscales_lbl.setObjectName(_fromUtf8("SWscales_lbl"))
         self.SWneigh_check = QtGui.QCheckBox(self.SW_inputgroup)
-        self.SWneigh_check.setEnabled(False)
+        self.SWneigh_check.setEnabled(True)
         self.SWneigh_check.setGeometry(QtCore.QRect(40, 80, 101, 17))
         self.SWneigh_check.setText(QtGui.QApplication.translate("TechPlace_Dialog", "Neighbourhood", None, QtGui.QApplication.UnicodeUTF8))
         self.SWneigh_check.setObjectName(_fromUtf8("SWneigh_check"))

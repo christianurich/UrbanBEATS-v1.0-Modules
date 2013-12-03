@@ -48,7 +48,7 @@ def design_BF(Aimp, dcv, targets, tech_apps, soilK, systemK, minsize, maxsize):
     tarTN *= tech_apps[1]
     
     exfil = min(soilK, systemK)
-    
+    #print Aimp, tarTSS, tarTP, tarTN, exfil
     if Aimp == 0:   #if there is no impervious area to design for, why bother?
         return [None, 1]
     #size the system for runoff reduction and pollution reduction independently
@@ -79,7 +79,7 @@ def design_BF(Aimp, dcv, targets, tech_apps, soilK, systemK, minsize, maxsize):
         setback = 5.0   #metres
     
     Areq = m.pow((m.sqrt(system_area)+2*setback),2)
-#    print "Arequired", Areq
+    #print "Arequired", Areq
     diff = Areq/system_area
     #final check, if the system has exceeded maximum size, return 'impossible' = inf
     return [Areq, diff]

@@ -28,7 +28,7 @@ import numpy as np
 def retrieveDesign(pathname, systemtype, ksat, targets):
     #Step 1: Read DCV file
     dcv = readDCVFile(pathname, systemtype)
-    #print "Designing for : ", ksat
+#    print "Designing for : ", ksat
     #Step 2: Get Brackets
     k0, k1, lowbrack, upbrack = bracketDCVFile(dcv, ksat)
     
@@ -74,7 +74,7 @@ def bracketDCVFile(array, ksat):
     
     #Step 2a: check if ksat falls within the k-values of the dcv, if not, only work with one bracket
     kmin = min(array[1])
-    #print "Kmin ", kmin
+#    print "Kmin ", kmin
     kmax = max(array[1])
     if ksat <= kmin or ksat >= kmax:
         #print "Warning, ksat is not within bounds of dcv file, using single value"
@@ -168,7 +168,7 @@ def findTargetSize(bracket, targetvalues):
 def getFinalSizeRequirement(klow, kup, minsizes, maxsizes, ksat):        
     #retrieves the final system size required based on two sets of sizes for the lower and upper kbracket
     if klow == kup:       #if there was only one bracket, no interpolation needed
-        #print max(minsizes) #min and max sizes are identical        
+#        print max(minsizes) #min and max sizes are identical        
         return max(minsizes)    #the maximum size among the brackets
         
     Apercent = []   #initialize possible areas
@@ -177,9 +177,9 @@ def getFinalSizeRequirement(klow, kup, minsizes, maxsizes, ksat):
             Apercent.append(np.inf)
         else:
             Apercent.append(linearInterpolate(klow, kup, minsizes[i], maxsizes[i], ksat))
-    #print Apercent
+#    print Apercent
     Afinal = max(Apercent)
-    #print "Final Ap: "+str(Afinal)
+#    print "Final Ap: "+str(Afinal)
     return float(Afinal)/100
 
 def linearInterpolate(x0, x1, y0, y1, x):

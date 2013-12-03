@@ -350,18 +350,20 @@ class WriteResults2MUSIC(Module):
     def prepareParametersBF(self, curSys, current_soilK):
         """Function to setup the parameter list vector for biofilters """
         #parameter_list = [EDD, surface area, filter area, unlined perimeter, satk, filterdepth, exfiltration]
+        sysqty = self.getSystemQuantity(curSys)        
         sysedd = curSys.getAttribute("WDepth").getDouble()
-        sysarea = self.getEffectiveSystemArea(curSys)
+        sysarea = self.getEffectiveSystemArea(curSys)*sysqty
         sysfd = curSys.getAttribute("FDepth").getDouble()
         sysKexfil = curSys.getAttribute("Exfil").getDouble()
         parameter_list = [sysedd,sysarea,sysarea, (2*numpy.sqrt(sysarea/0.4)+2*sysarea/(numpy.sqrt(sysarea/0.4))), 180, sysfd, current_soilK]
         return parameter_list
-    
+
     def prepareParametersIS(self, curSys, current_soilK):
         """Function to setup the parameter list vector for infiltration systems"""
         #parameter_list = [surface area, EDD, filter area, unlined perimeter, filterdepth, exfiltration]
+        sysqty = self.getSystemQuantity(curSys)        
         sysedd = curSys.getAttribute("WDepth").getDouble()
-        sysarea = self.getEffectiveSystemArea(curSys)
+        sysarea = self.getEffectiveSystemArea(curSys)*sysqty
         sysfd = curSys.getAttribute("FDepth").getDouble()
         parameter_list = [sysarea,sysedd,sysarea, (2*numpy.sqrt(sysarea/0.4)+2*sysarea/(numpy.sqrt(sysarea/0.4))), sysfd, current_soilK]
         return parameter_list
@@ -369,7 +371,8 @@ class WriteResults2MUSIC(Module):
     def prepareParametersWSUR(self, curSys, current_soilK):
         """Function to setup the parameter list vector for Surface Wetlands """
         #parameter_list = [surface area, EDD, permanent pool, exfil, eq pipe diam, det time]
-        sysarea = self.getEffectiveSystemArea(curSys)
+        sysqty = self.getSystemQuantity(curSys)        
+        sysarea = self.getEffectiveSystemArea(curSys)*sysqty
         sysedd = curSys.getAttribute("WDepth").getDouble()
         parameter_list = [sysarea, sysedd, sysarea*0.2, current_soilK, 1000*numpy.sqrt(((0.895*sysarea*sysedd)/(72*3600*0.6*0.25*numpy.pi*numpy.sqrt(2*9.81*sysedd)))), 72.0]
         return parameter_list
@@ -377,7 +380,8 @@ class WriteResults2MUSIC(Module):
     def prepareParametersPB(self, curSys, current_soilK):
         """Function to setup the parameter list vector for Ponds & Basins"""
         #parameter_list = [surface area, mean depth, permanent pool, exfil, eq pipe diam, det time]
-        sysarea = self.getEffectiveSystemArea(curSys)
+        sysqty = self.getSystemQuantity(curSys)        
+        sysarea = self.getEffectiveSystemArea(curSys)*sysqty
         sysedd = curSys.getAttribute("WDepth").getDouble()      #The mean depth
         parameter_list = [sysarea, sysedd, sysarea*0.2, current_soilK, 1000*numpy.sqrt(((0.895*sysarea*sysedd)/(72*3600*0.6*0.25*numpy.pi*numpy.sqrt(2*9.81*sysedd)))), 72.0]
         return parameter_list
@@ -385,7 +389,8 @@ class WriteResults2MUSIC(Module):
     def prepareParametersSW(self, curSys, current_soilK):
         """Function to setup the parameter list vector for swales"""
         #parameter_list = [length, bedslope, Wbase, Wtop, depth, veg.height, exfilrate]
-        sysarea = self.getEffectiveSystemArea(curSys)
+        sysqty = self.getSystemQuantity(curSys)        
+        sysarea = self.getEffectiveSystemArea(curSys)*sysqty
         parameter_list = [sysarea/4, 5, 2, 6, float(1.0/3.0),0.05, current_soilK]   
         return parameter_list
         
@@ -401,7 +406,16 @@ class WriteResults2MUSIC(Module):
         in the Attribue Object"""
         sysarea = curSys.getAttribute("SysArea").getDouble()/curSys.getAttribute("EAFact").getDouble()
         return sysarea
-        
+    
+    def getSystemQuantity(self, curSys):
+        """Gets the number of systems present in the plan. This is most relevant for lot-scale
+        systems as these occur in multiple quantities. Systems are summed up in the MUSIC file
+        as a single equivalent node for that scale."""
+        if self.masterplanmodel:
+            return curSys.getAttribute("GoalQty").getDouble()
+        else:
+            return curSys.getAttribute("Qty").getDouble()
+    
 
     ########################################################
     #DYNAMIND FUNCTIONS                                    #

@@ -44,6 +44,8 @@ def CalculateMCATechScores(strategyobject, totalvalues, priorities, techarray, t
     
     service_abbr = ["Qty", "WQ", "Rec"]       #these are the four main services for the objectives
     for j in range(len(totalvalues)):
+        if totalvalues[j] == 0:
+            continue    #Skip or else there will be a zero division, it doesn't add to the score anyway
         abbr = service_abbr[j]  #current service abbr to find value from object
         mca_techsub, mca_envsub, mca_ecnsub, mca_socsub = 0,0,0,0       #Initialize sub-trackers
         for i in techs: #loop across techs
@@ -97,7 +99,7 @@ def rescaleList(list, method):
             list[i] = list[i]/j
     return list
 
-def createDataBaseString(blockstrategy):
+def createDataBaseString(blockstrategy, Aimp):
     """Prepare's the blockstrategy object's properties into a string that can be inserted
     into the database table corresponding to top-inblock strategies
     """
@@ -112,7 +114,8 @@ def createDataBaseString(blockstrategy):
             dbstring += "'"+str(i.getType())+"',"+str(blockstrategy.getQuantity(i.getLandUse()))+",'"+str(convertArrayToDBString(i.getService("all")))+"',"
           
     dbstring += "'"+str(convertArrayToDBString(blockstrategy.getService("all")))+"',"+str(blockstrategy.getMCAscore("tec"))+","+str(blockstrategy.getMCAscore("env"))+","
-    dbstring += str(blockstrategy.getMCAscore("ecn"))+","+str(blockstrategy.getMCAscore("soc"))+","+str(blockstrategy.getTotalMCAscore())
+    dbstring += str(blockstrategy.getMCAscore("ecn"))+","+str(blockstrategy.getMCAscore("soc"))+","+str(blockstrategy.getTotalMCAscore())+","
+    dbstring += str(Aimp)
     return dbstring
 
 def convertArrayToDBString(arrayinput):

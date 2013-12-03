@@ -455,7 +455,7 @@ class Urbplanbb(Module):
         self.blocks.addAttribute("ASquare")
         self.blocks.addAttribute("PG_av")
         self.blocks.addAttribute("REF_av")
-        self.blocks.addAttribute("ANonW_Utils")
+        self.blocks.addAttribute("ANonW_Util")
         self.blocks.addAttribute("SVU_avWS")
         self.blocks.addAttribute("SVU_avWW")
         self.blocks.addAttribute("SVU_avSW")
@@ -659,7 +659,7 @@ class Urbplanbb(Module):
             Asvu_SW = float(Asvu_water*self.svu4storm*svu_props[2])
             Asvu_OTH = Asvu_water - Asvu_WS - Asvu_WW - Asvu_SW         #non-accounted for water area, use for anything
             
-            currentAttList.addAttribute("ANonW_Utils", Asvu_others)
+            currentAttList.addAttribute("ANonW_Util", Asvu_others)
             currentAttList.addAttribute("SVU_avWS", Asvu_WS)
             currentAttList.addAttribute("SVU_avWW", Asvu_WW)
             currentAttList.addAttribute("SVU_avSW", Asvu_SW)
@@ -732,7 +732,10 @@ class Urbplanbb(Module):
                     currentAttList.addAttribute("ResGarden", resdict["ResGarden"])
                     currentAttList.addAttribute("ResRoofCon", resdict["ResRoofCon"])
                     
-                    frontageTIF = 1 - (resdict["avSt_RES"] / resdict["TotalFrontage"])
+                    if resdict["TotalFrontage"] == 0:
+                        frontageTIF = 0
+                    else:
+                        frontageTIF = 1 - (resdict["avSt_RES"] / resdict["TotalFrontage"])
                     
                     #Add to cumulative area variables
                     blk_tia += (resdict["ResLotTIA"] * resdict["ResAllots"]) + frontageTIF * resdict["TotalFrontage"]
@@ -1083,7 +1086,7 @@ class Urbplanbb(Module):
         popBlock = currentAttList.getAttribute("Pop").getDouble()
         Afloor = self.person_space * popBlock
         farblock = Afloor / A_res   #Calculate FAR
-        #print "FARBlock", farblock
+        print "FARBlock", farblock
         
         blockratios = self.retrieveRatios(farblock)
         restype = self.retrieveResType(blockratios[0])
@@ -1114,7 +1117,7 @@ class Urbplanbb(Module):
         occup = 0       #initialize to enter the loop
         while occup < occupmin or occup > occupmax or occup == 0:
             occup = random.normalvariate(self.occup_avg, self.occup_avg/10)
-        #print "Block occupancy: ", occup
+        print "Block occupancy: ", occup
         
         resdict["HouseOccup"] = occup
         
@@ -1136,19 +1139,26 @@ class Urbplanbb(Module):
         Dlot = (100 - 2*Wfrontage)/2                        #Depth of one allotment
         Aca = A_res - Afrontage
         
-        #print "Ndwunits", Ndwunits
-        #print "district_L", district_L
-        #print "parcels", parcels
+        if Aca < 0:
+            print "Too much area taken up for frontage, removing frontage to clear up construction area!"
+            Aca = A_res
+            Afrontage = 0       #Set the frontage equal to zero for this block, this will occur because areas are too small
+            Dlot = 40   #Constrain to 40m deep
+            
+        print "Ndwunits", Ndwunits
+        print "district_L", district_L
+        print "parcels", parcels
         
-        #print "Dlot", Dlot
-        #print "Aca", Aca
+        print "Dlot", Dlot
+        print "Aca", Aca
         
-        AfrontagePerv = float(Afrontage * (Wns / Wfrontage))
+        AfrontagePerv = Afrontage * (float(Wns) / float(Wfrontage))
         
         resdict["ResParcels"] = parcels
         resdict["TotalFrontage"] = Afrontage
         resdict["avSt_RES"] = AfrontagePerv
         resdict["WResNstrip"] = Wns
+        
         
         #Step 2b: Determine how many houses on one allotment based on advanced parameter "min Allotment Width"
         Wlot = 0
@@ -1160,7 +1170,7 @@ class Urbplanbb(Module):
             Wlot = Alot / Dlot
             #print DWperLot, Nallotments, Alot, Wlot
         
-        #print "For this block, we need ", DWperLot, " dwellings on each allotment"
+        print "For this block, we need ", DWperLot, " dwellings on each allotment"
         
         resdict["ResAllots"] = Nallotments
         resdict["ResDWpLot"] = DWperLot
@@ -1213,7 +1223,7 @@ class Urbplanbb(Module):
             floors = 1
             Aba = Alotfloor
             while (Aba + Apave + Als) > Alot:
-                #print "Even with less garden, need more than ", floors, "floor(s)!"
+                print "Even with less garden, need more than ", floors, "floor(s)!"
                 floors += 1
                 Aba = Alotfloor/floors
         #Retry #2 - Remove Carpark Paving
@@ -1225,7 +1235,7 @@ class Urbplanbb(Module):
             floors = 1
             Aba = Alotfloor
             while(Aba + Apave + Als) > Alot:
-                #print "Even with less garden and less carpark paving, need more than ", floors, "floor(s)!"
+                print "Even with less garden and less carpark paving, need more than ", floors, "floor(s)!"
                 floors += 1
                 Aba = Alotfloor/floors
         
@@ -1235,14 +1245,14 @@ class Urbplanbb(Module):
             floors = 1
             Aba = Alotfloor
             while(Aba + Apave + Als) > Alot:
-                #print "Even with less garden, carpark paving and driveway, need more than ", floors, "floor(s)!"
+                print "Even with less garden, carpark paving and driveway, need more than ", floors, "floor(s)!"
                 floors += 1
                 Aba = Alotfloor/floors
         
         #Last Resort - exceed floor limit
         if floors > self.floor_num_max:
             pass
-            #print "Floor Limit Exceeded! Cannot plan within bounds, continuing!"
+            print "Floor Limit Exceeded! Cannot plan within bounds, continuing!"
         
         Aba = Alotfloor/floors
         Dbuilding = Aba / (Wlot - 2*ssetback)
@@ -1773,7 +1783,7 @@ class Urbplanbb(Module):
         currentAttList.addAttribute("ASquare", prevAttList.getAttribute("ASquare").getDouble())
         currentAttList.addAttribute("PG_av", prevAttList.getAttribute("PG_av").getDouble())
         currentAttList.addAttribute("REF_av", prevAttList.getAttribute("REF_av").getDouble())
-        currentAttList.addAttribute("ANonW_Utils", prevAttList.getAttribute("ANonW_Utils").getDouble())
+        currentAttList.addAttribute("ANonW_Util", prevAttList.getAttribute("ANonW_Util").getDouble())
         currentAttList.addAttribute("SVU_avWS", prevAttList.getAttribute("SVU_avWS").getDouble())
         currentAttList.addAttribute("SVU_avWW", prevAttList.getAttribute("SVU_avWW").getDouble())
         currentAttList.addAttribute("SVU_avSW", prevAttList.getAttribute("SVU_avSW").getDouble())
